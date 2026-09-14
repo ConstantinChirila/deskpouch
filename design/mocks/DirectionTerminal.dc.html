@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; font-family: "IBM Plex Sans", -apple-system, "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #a3e635; } a:hover { color: #a3e635; opacity: 0.8; }
+    svg { display: block; }
+    @keyframes dp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  </style>
+</helmet>
+<div style="width: 800px; height: 760px; background: #0a0d0b; box-sizing: border-box; padding: 40px; display: flex; flex-direction: column; align-items: center; gap: 28px; font-size: 13px; color: #e6f0e8;">
+
+  <div style="width: 720px; height: 600px; box-sizing: border-box; background: #0f1411; border-radius: 6px; border: 1px solid rgba(163,230,53,0.25); box-shadow: 0 0 0 1px rgba(163,230,53,0.08), 0 30px 60px rgba(0,0,0,0.7); overflow: hidden; display: flex; ">
+
+    <div style="width: 190px; background: #0b0f0d; border-right: 1px solid rgba(163,230,53,0.18); display: flex; flex-direction: column;">
+      <div style="height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 16px;">
+        <span style="width: 12px; height: 12px; border-radius: 6px; background: #ff5f57;"></span>
+        <span style="width: 12px; height: 12px; border-radius: 6px; background: #febc2e;"></span>
+        <span style="width: 12px; height: 12px; border-radius: 6px; background: #28c840;"></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px;">
+        <div style="height: 30px; display: flex; align-items: center; gap: 9px; padding: 0 9px; border-radius: 3px; color: rgba(230,240,232,0.55);"><span style="width: 20px; height: 20px; border-radius: 6px; background: #4b5563; display: flex; align-items: center; justify-content: center; color: #0f1411;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg></span><span>General</span></div>
+        <div style="height: 30px; display: flex; align-items: center; gap: 9px; padding: 0 9px; border-radius: 3px; background: rgba(163,230,53,0.12); color: #a3e635;"><span style="width: 20px; height: 20px; border-radius: 6px; background: #a3e635; display: flex; align-items: center; justify-content: center; color: #0f1411;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5a5 5 0 0 0 10 0"></path><path d="M8 12.5v2"></path></svg></span><span>Voice</span></div>
+        <div style="height: 30px; display: flex; align-items: center; gap: 9px; padding: 0 9px; border-radius: 3px; color: rgba(230,240,232,0.55);"><span style="width: 20px; height: 20px; border-radius: 6px; background: #f43f5e; display: flex; align-items: center; justify-content: center; color: #0f1411;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="13" height="9" rx="1.5"></rect><circle cx="8" cy="7.5" r="2" fill="currentColor" stroke="none"></circle></svg></span><span>Screen Recorder</span></div>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+      <div style="height: 60px; display: flex; align-items: center; padding: 0 24px; font-family: "IBM Plex Mono", Menlo, monospace; font-size: 16px; font-weight: 600; color: #e6f0e8;">Voice</div>
+      <div style="flex-grow: 1; overflow: auto; padding: 4px 24px 24px; display: flex; flex-direction: column; gap: 18px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+  <div style="font-size: 11px; font-weight: 500; color: rgba(163,230,53,0.7); text-transform: uppercase; padding-left: 2px; font-family: 'IBM Plex Mono', Menlo, monospace; letter-spacing: 0.06em;">Shortcut</div>
+  <div style="border-radius: 4px; background: rgba(163,230,53,0.03); border: 1px solid rgba(163,230,53,0.18); display: flex; flex-direction: column;"><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Hold to talk</span><span style="height: 26px; min-width: 100px; padding: 0 10px; border-radius: 3px; background: rgba(163,230,53,0.06); border: 1px solid rgba(163,230,53,0.3); display: flex; align-items: center; justify-content: center; font-size: 12px; color: #e6f0e8;">Right ⌥</span></div><div style="height: 1px; background: rgba(163,230,53,0.12); margin-left: 12px;"></div><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Release</span><span style="font-size: 12px; color: rgba(230,240,232,0.55);">Transcribe and paste</span></div></div>
+</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+  <div style="font-size: 11px; font-weight: 500; color: rgba(163,230,53,0.7); text-transform: uppercase; padding-left: 2px; font-family: 'IBM Plex Mono', Menlo, monospace; letter-spacing: 0.06em;">Transcription</div>
+  <div style="border-radius: 4px; background: rgba(163,230,53,0.03); border: 1px solid rgba(163,230,53,0.18); display: flex; flex-direction: column;"><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Model</span><span style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 12px; color: rgba(230,240,232,0.55);">Downloaded · 600 MB</span><span style="height: 26px; padding: 0 8px 0 10px; border-radius: 3px; background: rgba(163,230,53,0.06); border: 1px solid rgba(163,230,53,0.3); display: flex; align-items: center; gap: 6px; font-size: 12px; color: #e6f0e8;">Parakeet TDT v3<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4l2.5 2.5L7.5 4"></path></svg></span></span></div><div style="height: 1px; background: rgba(163,230,53,0.12); margin-left: 12px;"></div><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Language</span><span style="height: 26px; padding: 0 8px 0 10px; border-radius: 3px; background: rgba(163,230,53,0.06); border: 1px solid rgba(163,230,53,0.3); display: flex; align-items: center; gap: 6px; font-size: 12px; color: #e6f0e8;">Auto detect<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4l2.5 2.5L7.5 4"></path></svg></span></div><div style="height: 1px; background: rgba(163,230,53,0.12); margin-left: 12px;"></div><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Microphone</span><span style="height: 26px; padding: 0 8px 0 10px; border-radius: 3px; background: rgba(163,230,53,0.06); border: 1px solid rgba(163,230,53,0.3); display: flex; align-items: center; gap: 6px; font-size: 12px; color: #e6f0e8;">MacBook Pro Microphone<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4l2.5 2.5L7.5 4"></path></svg></span></div></div>
+</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+  <div style="font-size: 11px; font-weight: 500; color: rgba(163,230,53,0.7); text-transform: uppercase; padding-left: 2px; font-family: 'IBM Plex Mono', Menlo, monospace; letter-spacing: 0.06em;">After capture</div>
+  <div style="border-radius: 4px; background: rgba(163,230,53,0.03); border: 1px solid rgba(163,230,53,0.18); display: flex; flex-direction: column;"><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Paste into active app</span><span style="width: 28px; height: 17px; border-radius: 9px; background: #a3e635; position: relative;"><span style="position: absolute; top: 2px; left: 13px; width: 13px; height: 13px; border-radius: 7px; background: #0f1411;"></span></span></div><div style="height: 1px; background: rgba(163,230,53,0.12); margin-left: 12px;"></div><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Copy to clipboard</span><span style="width: 28px; height: 17px; border-radius: 9px; background: #a3e635; position: relative;"><span style="position: absolute; top: 2px; left: 13px; width: 13px; height: 13px; border-radius: 7px; background: #0f1411;"></span></span></div><div style="height: 1px; background: rgba(163,230,53,0.12); margin-left: 12px;"></div><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Keep in history</span><span style="width: 28px; height: 17px; border-radius: 9px; background: #a3e635; position: relative;"><span style="position: absolute; top: 2px; left: 13px; width: 13px; height: 13px; border-radius: 7px; background: #0f1411;"></span></span></div><div style="height: 1px; background: rgba(163,230,53,0.12); margin-left: 12px;"></div><div style="height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;"><span style="color: #e6f0e8;">Show notification</span><span style="width: 28px; height: 17px; border-radius: 9px; background: rgba(230,240,232,0.14); position: relative;"><span style="position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 7px; background: #e6f0e8;"></span></span></div></div>
+</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height: 44px; border-radius: 6px; background: #0f1411; border: 1px solid rgba(163,230,53,0.4); box-shadow: 0 10px 30px rgba(0,0,0,0.45); display: flex; align-items: center; gap: 12px; padding: 0 18px 0 16px; color: #e6f0e8; ">
+    <span style="width: 10px; height: 10px; border-radius: 5px; background: #f43f5e; animation: dp-pulse 1.2s ease-in-out infinite;"></span>
+    <div style="display: flex; align-items: center; gap: 3px; height: 20px;"><span style="width: 3px; height: 6px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 12px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 18px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 10px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 16px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 8px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 14px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 20px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 9px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 13px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 5px; border-radius: 2px; background: #a3e635;"></span><span style="width: 3px; height: 11px; border-radius: 2px; background: #a3e635;"></span></div>
+    <span style="font-size: 12px; opacity: 0.6; font-variant-numeric: tabular-nums;">0:04</span>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

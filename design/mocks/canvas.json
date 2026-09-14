@@ -1,0 +1,330 @@
+{
+  "pages": [
+    {
+      "id": "final",
+      "name": "Final: Mint ground, amber accent"
+    },
+    {
+      "id": "v2",
+      "name": "Concept v2, colour schemes"
+    },
+    {
+      "id": "concept",
+      "name": "Panel concept"
+    },
+    {
+      "id": "directions",
+      "name": "Style directions"
+    },
+    {
+      "id": "v1",
+      "name": "v1 surfaces"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "FinalPanel.dc.html",
+      "title": "Panel",
+      "page": "final",
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "FinalPanelVoice.dc.html",
+      "title": "Panel \u00b7 Voice options open",
+      "page": "final",
+      "x": 580,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "FinalPanelScreen.dc.html",
+      "title": "Panel \u00b7 Screen options open",
+      "page": "final",
+      "x": 1160,
+      "y": 0,
+      "w": 480,
+      "h": 780
+    },
+    {
+      "file": "FinalPanelGeneral.dc.html",
+      "title": "Panel \u00b7 General",
+      "page": "final",
+      "x": 1740,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "FinalPills.dc.html",
+      "title": "Pill states",
+      "page": "final",
+      "x": 0,
+      "y": 1040,
+      "w": 900,
+      "h": 520
+    },
+    {
+      "file": "FinalMenubar.dc.html",
+      "title": "Menubar icon states",
+      "page": "final",
+      "x": 1000,
+      "y": 1040,
+      "w": 520,
+      "h": 220
+    },
+    {
+      "file": "FinalRegionPicker.dc.html",
+      "title": "Region picker",
+      "page": "final",
+      "x": 0,
+      "y": 1700,
+      "w": 960,
+      "h": 600
+    },
+    {
+      "file": "SchemeAmber.dc.html",
+      "title": "Amber",
+      "page": "v2",
+      "x": 0,
+      "y": 0,
+      "w": 1180,
+      "h": 700
+    },
+    {
+      "file": "SchemeCoralAmber.dc.html",
+      "title": "Coral ground, amber accent",
+      "page": "v2",
+      "x": 0,
+      "y": 840,
+      "w": 1180,
+      "h": 700
+    },
+    {
+      "file": "SchemeMintAmber.dc.html",
+      "title": "Mint ground, amber accent",
+      "page": "v2",
+      "x": 0,
+      "y": 1680,
+      "w": 1180,
+      "h": 700
+    },
+    {
+      "file": "SchemeIrisAmber.dc.html",
+      "title": "Iris ground, amber accent",
+      "page": "v2",
+      "x": 0,
+      "y": 2520,
+      "w": 1180,
+      "h": 700
+    },
+    {
+      "file": "SchemeIceAmber.dc.html",
+      "title": "Ice ground, amber accent",
+      "page": "v2",
+      "x": 0,
+      "y": 3360,
+      "w": 1180,
+      "h": 700
+    },
+    {
+      "file": "Panel.dc.html",
+      "title": "Floating panel (replaces dropdown + settings)",
+      "page": "concept",
+      "x": 0,
+      "y": 0,
+      "w": 520,
+      "h": 660
+    },
+    {
+      "file": "HeroPill.dc.html",
+      "title": "Pill states",
+      "page": "concept",
+      "x": 620,
+      "y": 0,
+      "w": 900,
+      "h": 520
+    },
+    {
+      "file": "MenubarV2.dc.html",
+      "title": "Menubar icon",
+      "page": "concept",
+      "x": 620,
+      "y": 660,
+      "w": 520,
+      "h": 150
+    },
+    {
+      "file": "RegionPickerV2.dc.html",
+      "title": "Region picker",
+      "page": "concept",
+      "x": 0,
+      "y": 960,
+      "w": 960,
+      "h": 600
+    },
+    {
+      "file": "DirectionInkAmber.dc.html",
+      "title": "A \u00b7 Ink and amber",
+      "page": "directions",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 760
+    },
+    {
+      "file": "DirectionGlass.dc.html",
+      "title": "B \u00b7 Glass",
+      "page": "directions",
+      "x": 900,
+      "y": 0,
+      "w": 800,
+      "h": 760
+    },
+    {
+      "file": "DirectionPaper.dc.html",
+      "title": "C \u00b7 Paper",
+      "page": "directions",
+      "x": 0,
+      "y": 900,
+      "w": 800,
+      "h": 760
+    },
+    {
+      "file": "DirectionTerminal.dc.html",
+      "title": "D \u00b7 Terminal",
+      "page": "directions",
+      "x": 900,
+      "y": 900,
+      "w": 800,
+      "h": 760
+    },
+    {
+      "file": "Main.dc.html",
+      "title": "Menubar dropdown",
+      "page": "v1",
+      "x": 0,
+      "y": 0,
+      "w": 380,
+      "h": 560
+    },
+    {
+      "file": "MenubarRecording.dc.html",
+      "title": "Menubar while recording",
+      "page": "v1",
+      "x": 460,
+      "y": 0,
+      "w": 380,
+      "h": 64
+    },
+    {
+      "file": "OverlayPill.dc.html",
+      "title": "Overlay pill states",
+      "page": "v1",
+      "x": 460,
+      "y": 190,
+      "w": 560,
+      "h": 400
+    },
+    {
+      "file": "RegionPicker.dc.html",
+      "title": "Region picker",
+      "page": "v1",
+      "x": 0,
+      "y": 720,
+      "w": 960,
+      "h": 600
+    },
+    {
+      "file": "SettingsVoice.dc.html",
+      "title": "Settings, Voice",
+      "page": "v1",
+      "x": 0,
+      "y": 1460,
+      "w": 720,
+      "h": 600
+    },
+    {
+      "file": "SettingsScreen.dc.html",
+      "title": "Settings, Screen Recorder",
+      "page": "v1",
+      "x": 820,
+      "y": 1460,
+      "w": 720,
+      "h": 600
+    }
+  ],
+  "annotations": [
+    {
+      "id": "final-note",
+      "page": "final",
+      "x": 1000,
+      "y": 1400,
+      "w": 520,
+      "text": "Final direction. Tool cards expand in place for options, General is a second view inside the same panel with a back chevron. Menubar icon has three states: idle, listening (tiny meter), recording (red timer). Tokens are in design/DESIGN.md."
+    },
+    {
+      "id": "v2-note",
+      "page": "v2",
+      "x": 1280,
+      "y": 0,
+      "w": 300,
+      "text": "Round 2. Geist only, no serif. Bar meters instead of curves. Recent rows use a tile per item: mic tile for a transcript, thumbnail for a recording. Amber accent throughout; only the ground (background, panel, card, text tint) changes between artboards."
+    },
+    {
+      "id": "concept-note",
+      "page": "concept",
+      "x": 1240,
+      "y": 660,
+      "w": 280,
+      "text": "Ink and amber, custom chrome. The panel is the whole app: tool cards expand in place for options, so there is no Settings window. Keycaps show the shortcut. The pill grows into a card while transcribing so you see words land before the paste."
+    },
+    {
+      "id": "note-a",
+      "page": "directions",
+      "x": 0,
+      "y": -150,
+      "w": 800,
+      "text": "A \u00b7 Ink and amber. Warm near-black, one amber accent, serif for titles only. Feels like a crafted tool, ages well. Tradeoff: amber on dark is low-contrast for small secondary text, and the serif can read as precious if overused."
+    },
+    {
+      "id": "note-b",
+      "page": "directions",
+      "x": 900,
+      "y": -150,
+      "w": 800,
+      "text": "B \u00b7 Glass. Deep indigo ground, frosted layers, periwinkle accent, large radii. Most 'modern' and most in step with current macOS. Tradeoff: blur and translucency are expensive to get right in AppKit, and it dates fastest."
+    },
+    {
+      "id": "note-c",
+      "page": "directions",
+      "x": 0,
+      "y": 1780,
+      "w": 800,
+      "text": "C \u00b7 Paper. Light, warm off-white, one coral accent, dark pill for contrast. Friendliest and most sellable to non-developers. Tradeoff: light-first means you design dark mode second, and it is the least 'yours' at a glance."
+    },
+    {
+      "id": "note-d",
+      "page": "directions",
+      "x": 900,
+      "y": 1780,
+      "w": 800,
+      "text": "D \u00b7 Terminal. Green-black, lime accent, mono for labels, tight radii. Unmistakably a developer tool, dense and fast. Tradeoff: narrowest audience, and lime as the only accent leaves no room for status colours."
+    },
+    {
+      "id": "scope-note",
+      "page": "v1",
+      "x": 1120,
+      "y": 190,
+      "w": 260,
+      "text": "v1 surfaces only. Dark appearance drawn; light follows system automatically in the real app. No onboarding, no library window, no General pane yet."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "final"
+  }
+}

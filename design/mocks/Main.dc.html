@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #0a84ff; } a:hover { color: #409cff; }
+    svg { display: block; }
+  </style>
+</helmet>
+<div style="width: 380px; height: 560px; background: #26262a; position: relative; overflow: hidden; font-size: 13px; color: #f2f2f2;">
+  <div style="height: 24px; background: rgba(20,20,22,0.92); border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 12px; font-size: 12px; color: rgba(255,255,255,0.85);">
+    <div style="width: 22px; height: 18px; border-radius: 4px; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5h9l1 7.5h-11z"></path><path d="M5.5 6.5V5a2.5 2.5 0 0 1 5 0v1.5"></path></svg>
+    </div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 6.5a9 9 0 0 1 12 0"></path><path d="M4.5 9a5.5 5.5 0 0 1 7 0"></path><circle cx="8" cy="11.5" r="1" fill="currentColor"></circle></svg>
+    <svg width="22" height="16" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.5" y="3.5" width="16" height="9" rx="2"></rect><rect x="3" y="5" width="10" height="6" rx="1" fill="currentColor" stroke="none"></rect><path d="M19 6.5v3"></path></svg>
+    <span>Mon 14 Sep  10:41</span>
+  </div>
+
+  <div style="position: absolute; top: 30px; right: 74px; width: 292px; background: rgba(44,44,48,0.96); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(0,0,0,0.6); padding: 6px; display: flex; flex-direction: column; gap: 1px;">
+
+    <div style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 5px;">
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.85);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5a5 5 0 0 0 10 0"></path><path d="M8 12.5v2"></path></svg></span>
+      <span style="flex-grow: 1;">Voice</span>
+      <span style="font-size: 12px; color: rgba(255,255,255,0.45);">hold ⌥</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 5px; background: #0a84ff; color: #ffffff;">
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="13" height="9" rx="1.5"></rect><circle cx="8" cy="7.5" r="2" fill="currentColor" stroke="none"></circle></svg></span>
+      <span style="flex-grow: 1;">Record Screen</span>
+      <span style="font-size: 12px; color: rgba(255,255,255,0.75);">⌘⇧6</span>
+    </div>
+
+    <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 5px 8px;"></div>
+
+    <div style="height: 20px; padding: 0 8px; display: flex; align-items: center; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 0.02em;">Recent</div>
+
+    <div style="display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 8px; border-radius: 5px;">
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5a5 5 0 0 0 10 0"></path><path d="M8 12.5v2"></path></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Can we move standup to 10 so the Berlin folks can join</span>
+        <span style="font-size: 11px; color: rgba(255,255,255,0.45);">2 min ago · pasted into Slack</span>
+      </span>
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 8px; border-radius: 5px;">
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="13" height="9" rx="1.5"></rect><circle cx="8" cy="7.5" r="2" fill="currentColor" stroke="none"></circle></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Recording 2026-09-14 10.32.mp4</span>
+        <span style="font-size: 11px; color: rgba(255,255,255,0.45);">9 min ago · 0:42 · 18 MB</span>
+      </span>
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 4.5a1 1 0 0 1 1-1h3l1.5 1.5h6.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"></path></svg></span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 8px; border-radius: 5px;">
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5a5 5 0 0 0 10 0"></path><path d="M8 12.5v2"></path></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Ship the plan first, then the mocks, then we talk about</span>
+        <span style="font-size: 11px; color: rgba(255,255,255,0.45);">1 hr ago · pasted into Claude</span>
+      </span>
+      <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></span>
+    </div>
+
+    <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 5px 8px;"></div>
+
+    <div style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 5px;">
+      <span style="flex-grow: 1;">Settings…</span>
+      <span style="font-size: 12px; color: rgba(255,255,255,0.45);">⌘,</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border-radius: 5px;">
+      <span style="flex-grow: 1;">Quit Deskpouch</span>
+      <span style="font-size: 12px; color: rgba(255,255,255,0.45);">⌘Q</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

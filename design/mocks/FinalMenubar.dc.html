@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; font-family: "Geist", -apple-system, "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #f59e0b; } a:hover { color: #fbbf24; }
+    svg { display: block; }
+    @keyframes dp-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+    @keyframes dp-caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+  </style>
+</helmet>
+<div style="width: 520px; height: 220px; background: #0d1211; display: flex; flex-direction: column; gap: 14px; padding: 14px 0; box-sizing: border-box; font-size: 12px; color: rgba(232,245,239,0.75);">
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <span style="padding: 0 16px; font-size: 11px; color: rgba(232,245,239,0.55);">Idle</span>
+    <div style="height: 26px; background: rgba(5,8,7,0.95); border-top: 1px solid rgba(180,255,220,0.06); border-bottom: 1px solid rgba(180,255,220,0.06); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 16px;"><div style="width: 24px; height: 20px; display: flex; align-items: center; justify-content: center; color: rgba(232,245,239,0.85);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5h9l1 7.5h-11z"></path><path d="M5.5 6.5V5a2.5 2.5 0 0 1 5 0v1.5"></path></svg></div><span>Mon 14 Sep  10:41</span></div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <span style="padding: 0 16px; font-size: 11px; color: rgba(232,245,239,0.55);">Listening</span>
+    <div style="height: 26px; background: rgba(5,8,7,0.95); border-top: 1px solid rgba(180,255,220,0.06); border-bottom: 1px solid rgba(180,255,220,0.06); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 16px;"><div style="height: 20px; border-radius: 999px; background: rgba(245,158,11,0.18); color: #fbbf24; display: flex; align-items: center; gap: 5px; padding: 0 8px 0 6px;"><div style="display: flex; align-items: center; gap: 2px;"><span style="width: 2px; height: 4px; border-radius: 2px; background: #fbbf24;"></span><span style="width: 2px; height: 9px; border-radius: 2px; background: #fbbf24;"></span><span style="width: 2px; height: 13px; border-radius: 2px; background: #fbbf24;"></span><span style="width: 2px; height: 7px; border-radius: 2px; background: #fbbf24;"></span><span style="width: 2px; height: 11px; border-radius: 2px; background: #fbbf24;"></span><span style="width: 2px; height: 5px; border-radius: 2px; background: #fbbf24;"></span><span style="width: 2px; height: 8px; border-radius: 2px; background: #fbbf24;"></span></div></div><span>Mon 14 Sep  10:41</span></div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <span style="padding: 0 16px; font-size: 11px; color: rgba(232,245,239,0.55);">Recording</span>
+    <div style="height: 26px; background: rgba(5,8,7,0.95); border-top: 1px solid rgba(180,255,220,0.06); border-bottom: 1px solid rgba(180,255,220,0.06); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 16px;"><div style="height: 20px; border-radius: 999px; background: #fb7185; color: #0d1211; display: flex; align-items: center; gap: 6px; padding: 0 9px 0 7px; font-weight: 600; font-variant-numeric: tabular-nums; box-shadow: 0 0 12px rgba(251,113,133,0.6);"><span style="width: 7px; height: 7px; border-radius: 4px; background: #0d1211;"></span><span>0:42</span></div><span>Mon 14 Sep  10:41</span></div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

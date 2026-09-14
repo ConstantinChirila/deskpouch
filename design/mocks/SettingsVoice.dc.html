@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #0a84ff; } a:hover { color: #409cff; }
+    svg { display: block; }
+  </style>
+</helmet>
+<div style="width: 720px; height: 600px; box-sizing: border-box; background: #2a2a2c; border-radius: 11px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 50px rgba(0,0,0,0.5); overflow: hidden; display: flex; font-size: 13px; color: #f2f2f2;">
+
+  <div style="width: 190px; background: #232325; border-right: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column;">
+    <div style="height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 16px;">
+      <span style="width: 12px; height: 12px; border-radius: 6px; background: #ff5f57;"></span>
+      <span style="width: 12px; height: 12px; border-radius: 6px; background: #febc2e;"></span>
+      <span style="width: 12px; height: 12px; border-radius: 6px; background: #28c840;"></span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px;">
+      <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 6px; color: rgba(255,255,255,0.85);">
+        <span style="width: 20px; height: 20px; border-radius: 5px; background: #8e8e93; display: flex; align-items: center; justify-content: center; color: #ffffff;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg></span>
+        <span>General</span>
+      </div>
+      <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 6px; background: rgba(255,255,255,0.12); color: #ffffff;">
+        <span style="width: 20px; height: 20px; border-radius: 5px; background: #ff9f0a; display: flex; align-items: center; justify-content: center; color: #ffffff;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5a5 5 0 0 0 10 0"></path><path d="M8 12.5v2"></path></svg></span>
+        <span>Voice</span>
+      </div>
+      <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 6px; color: rgba(255,255,255,0.85);">
+        <span style="width: 20px; height: 20px; border-radius: 5px; background: #ff453a; display: flex; align-items: center; justify-content: center; color: #ffffff;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="13" height="9" rx="1.5"></rect><circle cx="8" cy="7.5" r="2" fill="currentColor" stroke="none"></circle></svg></span>
+        <span>Screen Recorder</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+    <div style="height: 52px; display: flex; align-items: center; padding: 0 24px; font-size: 15px; font-weight: 600;">Voice</div>
+    <div style="flex-grow: 1; overflow: auto; padding: 4px 24px 24px; display: flex; flex-direction: column; gap: 18px;">
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.45); padding-left: 2px;">SHORTCUT</div>
+        <div style="border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column;">
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Hold to talk</span>
+            <span style="height: 24px; min-width: 100px; padding: 0 10px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgba(255,255,255,0.9);">Right ⌥</span>
+          </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.08); margin-left: 12px;"></div>
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Release</span>
+            <span style="font-size: 12px; color: rgba(255,255,255,0.5);">Transcribe and paste</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.45); padding-left: 2px;">TRANSCRIPTION</div>
+        <div style="border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column;">
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Model</span>
+            <span style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; color: rgba(255,255,255,0.5);">Downloaded · 600 MB</span>
+              <span style="height: 24px; padding: 0 8px 0 10px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; gap: 6px; font-size: 12px;">Parakeet TDT v3<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4l2.5 2.5L7.5 4"></path></svg></span>
+            </span>
+          </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.08); margin-left: 12px;"></div>
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Language</span>
+            <span style="height: 24px; padding: 0 8px 0 10px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; gap: 6px; font-size: 12px;">Auto detect<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4l2.5 2.5L7.5 4"></path></svg></span>
+          </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.08); margin-left: 12px;"></div>
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Microphone</span>
+            <span style="height: 24px; padding: 0 8px 0 10px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; gap: 6px; font-size: 12px;">MacBook Pro Microphone<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4l2.5 2.5L7.5 4"></path></svg></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.45); padding-left: 2px;">AFTER CAPTURE</div>
+        <div style="border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column;">
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Paste into active app</span>
+            <span style="width: 26px; height: 16px; border-radius: 8px; background: #30d158; position: relative;"><span style="position: absolute; top: 2px; left: 12px; width: 12px; height: 12px; border-radius: 6px; background: #ffffff;"></span></span>
+          </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.08); margin-left: 12px;"></div>
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Copy to clipboard</span>
+            <span style="width: 26px; height: 16px; border-radius: 8px; background: #30d158; position: relative;"><span style="position: absolute; top: 2px; left: 12px; width: 12px; height: 12px; border-radius: 6px; background: #ffffff;"></span></span>
+          </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.08); margin-left: 12px;"></div>
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Keep in history</span>
+            <span style="width: 26px; height: 16px; border-radius: 8px; background: #30d158; position: relative;"><span style="position: absolute; top: 2px; left: 12px; width: 12px; height: 12px; border-radius: 6px; background: #ffffff;"></span></span>
+          </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.08); margin-left: 12px;"></div>
+          <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+            <span>Show notification</span>
+            <span style="width: 26px; height: 16px; border-radius: 8px; background: rgba(255,255,255,0.2); position: relative;"><span style="position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 6px; background: #ffffff;"></span></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

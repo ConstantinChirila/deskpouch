@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #0a84ff; } a:hover { color: #409cff; }
+    svg { display: block; }
+    @keyframes dp-spin { to { transform: rotate(360deg); } }
+    @keyframes dp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  </style>
+</helmet>
+<div style="width: 560px; height: 400px; background: #1c1c1e; display: flex; flex-direction: column; gap: 0; font-size: 13px; color: #f2f2f2; padding: 20px 24px; box-sizing: border-box;">
+
+  <div style="display: flex; align-items: center; gap: 20px; height: 90px;">
+    <div style="width: 120px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 0.02em;">LISTENING</div>
+    <div style="flex-grow: 1; display: flex; justify-content: center;">
+      <div style="height: 40px; border-radius: 20px; background: rgba(36,36,40,0.94); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; padding: 0 16px 0 14px;">
+        <span style="width: 10px; height: 10px; border-radius: 5px; background: #ff453a; animation: dp-pulse 1.2s ease-in-out infinite;"></span>
+        <div style="display: flex; align-items: center; gap: 3px; height: 20px;">
+          <span style="width: 3px; height: 6px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 12px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 18px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 10px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 16px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 14px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 20px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 9px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 13px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 5px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+          <span style="width: 3px; height: 11px; border-radius: 2px; background: rgba(255,255,255,0.85);"></span>
+        </div>
+        <span style="font-size: 12px; color: rgba(255,255,255,0.55); font-variant-numeric: tabular-nums;">0:04</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 20px; height: 90px;">
+    <div style="width: 120px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 0.02em;">TRANSCRIBING</div>
+    <div style="flex-grow: 1; display: flex; justify-content: center;">
+      <div style="height: 40px; border-radius: 20px; background: rgba(36,36,40,0.94); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 10px; padding: 0 16px 0 14px;">
+        <span style="width: 14px; height: 14px; border-radius: 7px; border: 2px solid rgba(255,255,255,0.2); border-top-color: rgba(255,255,255,0.9); animation: dp-spin 0.8s linear infinite;"></span>
+        <span style="color: rgba(255,255,255,0.85);">Transcribing…</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 20px; height: 90px;">
+    <div style="width: 120px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 0.02em;">PASTED</div>
+    <div style="flex-grow: 1; display: flex; justify-content: center;">
+      <div style="height: 40px; border-radius: 20px; background: rgba(36,36,40,0.94); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 10px; padding: 0 16px 0 14px; max-width: 360px;">
+        <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: #30d158;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"></path></svg></span>
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,0.85);">Can we move standup to 10 so the Berlin folks can join</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 20px; height: 90px;">
+    <div style="width: 120px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: 0.02em;">RECORDING SAVED</div>
+    <div style="flex-grow: 1; display: flex; justify-content: center;">
+      <div style="height: 40px; border-radius: 20px; background: rgba(36,36,40,0.94); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 10px; padding: 0 16px 0 14px;">
+        <span style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: #30d158;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"></path></svg></span>
+        <span style="color: rgba(255,255,255,0.85);">Saved 0:42</span>
+        <span style="width: 1px; height: 16px; background: rgba(255,255,255,0.15);"></span>
+        <span style="font-size: 12px; color: rgba(255,255,255,0.55);">Copied to clipboard</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
