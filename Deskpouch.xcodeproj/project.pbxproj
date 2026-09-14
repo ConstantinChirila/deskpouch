@@ -1,0 +1,380 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C02628E7259874D7FD35B64 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE7D868125BD06D6B6DD988 /* Shell.swift */; };
+		2454C12D082F109DF2A6FCB3 /* SimulatedLevelSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */; };
+		55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808C40D7AD0482A78A66418A /* MenuPanelView.swift */; };
+		70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */; };
+		756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3031371CC2D3391D04FE0A /* StatusItemController.swift */; };
+		8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C492790EFEA746C0DA06CA /* MenuPanelController.swift */; };
+		BC438519774B40BE0317DA8D /* DeskpouchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5C940766A0F276D2FACFCF8B /* DeskpouchCore */; };
+		E8553035E576409669FDD8C9 /* ShellState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 117EB870727BF3B8BEC6B23D /* ShellState.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		117EB870727BF3B8BEC6B23D /* ShellState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellState.swift; sourceTree = "<group>"; };
+		19DE6D2757F545337C4910C3 /* Deskpouch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deskpouch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3CE7D868125BD06D6B6DD988 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
+		60C492790EFEA746C0DA06CA /* MenuPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelController.swift; sourceTree = "<group>"; };
+		6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedLevelSource.swift; sourceTree = "<group>"; };
+		6D3031371CC2D3391D04FE0A /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		808C40D7AD0482A78A66418A /* MenuPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelView.swift; sourceTree = "<group>"; };
+		9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCore; path = Packages/DeskpouchCore; sourceTree = SOURCE_ROOT; };
+		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		06D73F9BDDF7087C95F11265 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BC438519774B40BE0317DA8D /* DeskpouchCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0A753F793FA5FA656DD39D48 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */,
+				3CE7D868125BD06D6B6DD988 /* Shell.swift */,
+				117EB870727BF3B8BEC6B23D /* ShellState.swift */,
+				6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */,
+				6D3031371CC2D3391D04FE0A /* StatusItemController.swift */,
+				2E898B456655F7D72E47469A /* MenuPanel */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		229E38A5B546E2C06CA0783E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				19DE6D2757F545337C4910C3 /* Deskpouch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2E898B456655F7D72E47469A /* MenuPanel */ = {
+			isa = PBXGroup;
+			children = (
+				60C492790EFEA746C0DA06CA /* MenuPanelController.swift */,
+				808C40D7AD0482A78A66418A /* MenuPanelView.swift */,
+			);
+			path = MenuPanel;
+			sourceTree = "<group>";
+		};
+		BF665C1CACCF6C4BBAEDE834 = {
+			isa = PBXGroup;
+			children = (
+				0A753F793FA5FA656DD39D48 /* App */,
+				D9D6D45861DD987322E962A6 /* Packages */,
+				229E38A5B546E2C06CA0783E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D9D6D45861DD987322E962A6 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0362B589637AE331EE4156B7 /* Deskpouch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C914E7BB93E47BCE2767903D /* Build configuration list for PBXNativeTarget "Deskpouch" */;
+			buildPhases = (
+				2D9B6E8EBB18B8041AF89EB0 /* Sources */,
+				06D73F9BDDF7087C95F11265 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Deskpouch;
+			packageProductDependencies = (
+				5C940766A0F276D2FACFCF8B /* DeskpouchCore */,
+			);
+			productName = Deskpouch;
+			productReference = 19DE6D2757F545337C4910C3 /* Deskpouch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		010724E263038FB03836C721 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					0362B589637AE331EE4156B7 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 85D941E9957D752C134003B3 /* Build configuration list for PBXProject "Deskpouch" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = BF665C1CACCF6C4BBAEDE834;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0360330C54A5569B7F57133A /* XCLocalSwiftPackageReference "Packages/DeskpouchCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 229E38A5B546E2C06CA0783E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0362B589637AE331EE4156B7 /* Deskpouch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2D9B6E8EBB18B8041AF89EB0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */,
+				8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */,
+				55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */,
+				0C02628E7259874D7FD35B64 /* Shell.swift in Sources */,
+				E8553035E576409669FDD8C9 /* ShellState.swift in Sources */,
+				2454C12D082F109DF2A6FCB3 /* SimulatedLevelSource.swift in Sources */,
+				756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2751C4BF2F10F1E64EC817CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Deskpouch.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.constantinchirila.deskpouch;
+				PRODUCT_NAME = Deskpouch;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Debug;
+		};
+		623ED5A96C359A787A04594D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F39DA5B44831ED5B6EA44B48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Deskpouch.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.constantinchirila.deskpouch;
+				PRODUCT_NAME = Deskpouch;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		85D941E9957D752C134003B3 /* Build configuration list for PBXProject "Deskpouch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA1CDCBBE69DD2D2FB890F5C /* Debug */,
+				623ED5A96C359A787A04594D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C914E7BB93E47BCE2767903D /* Build configuration list for PBXNativeTarget "Deskpouch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2751C4BF2F10F1E64EC817CD /* Debug */,
+				F39DA5B44831ED5B6EA44B48 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		0360330C54A5569B7F57133A /* XCLocalSwiftPackageReference "Packages/DeskpouchCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/DeskpouchCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5C940766A0F276D2FACFCF8B /* DeskpouchCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeskpouchCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 010724E263038FB03836C721 /* Project object */;
+}
