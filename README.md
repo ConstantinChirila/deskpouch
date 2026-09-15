@@ -34,7 +34,7 @@ It writes the identity into `Signing.xcconfig`. Keep that change local.
 
 ## Voice language
 
-Parakeet v3 is multilingual and can drift scripts on unknown names. The voice tool passes a language hint that keeps the decoder on one script. It defaults to the system language when supported, otherwise English. Change it under the Voice card's Options (with the microphone and the hold key), or with:
+Parakeet v3 is multilingual and can drift scripts on unknown names. The voice tool passes a language hint that keeps the decoder on one script. It defaults to the system language when supported, otherwise English. Change it in the Voice view (click the Voice row in the panel; the microphone and the hold key are there too), or with:
 
 ```sh
 defaults write com.constantinchirila.deskpouch voice.language de   # any ISO 639-1 code Parakeet v3 supports
@@ -44,9 +44,9 @@ The panel's engine line shows the active code, e.g. "Parakeet v3 · EN". Takes e
 
 ## History and after-capture actions
 
-Every capture that has the History chip on is logged to `~/Library/Application Support/Deskpouch/history.sqlite` (plain SQLite, table `results`). The panel shows the last 5 under Recent with a total count; the copy button puts the transcript back on the clipboard, double-click reveals a recording in Finder. General (footer of the panel) has the global "Keep history" switch, the count and size, and "Clear…".
+Every capture that has the History chip on is logged to `~/Library/Application Support/Deskpouch/history.sqlite` (plain SQLite, table `results`). The panel shows the last 5 under Recent with a total count; the copy button puts the transcript back on the clipboard, double-click reveals a recording in Finder. The "All N ›" link in the Recent header opens History: search, an All / Voice / Recordings filter, rows grouped by day, "Show older" for the next page, and a delete button on hover that removes the row and keeps the file. General (footer of the panel) has the global "Keep history" switch, the count and size, and "Clear…".
 
-The chips on the Voice card (Paste, Copy, History) are the after-capture actions for that tool, stored as JSON in `defaults` under `output.voice`. Paste with Copy off still uses the pasteboard for ⌘V, then restores what was there. Save to folder, reveal and shell command exist in the pipeline but have no UI yet.
+The chips in the Voice view (Paste, Copy, History) are the after-capture actions for that tool, stored as JSON in `defaults` under `output.voice`. Paste with Copy off still uses the pasteboard for ⌘V, then restores what was there. Save to folder, reveal and shell command exist in the pipeline but have no UI yet.
 
 ```sh
 sqlite3 ~/Library/Application\ Support/Deskpouch/history.sqlite 'select datetime(created_at,"unixepoch"), pasted_into, text from results order by created_at desc limit 5'
@@ -57,7 +57,7 @@ defaults delete com.constantinchirila.deskpouch output.voice   # back to the too
 
 ⌘⇧6 opens the picker: drag a region (⇧ snaps to 16:9, drag inside the selection to move it), or switch to Window or Screen and click the target. Return or the Record button starts; Escape cancels. While recording the menubar shows a pink timer and the pill shows the timer with a Stop button. ⌘⇧6, the menubar icon or Stop ends it; the file is saved to `~/Movies/Deskpouch`, copied to the pasteboard, announced, and logged under Recent (chips on the card change that). Deskpouch's own windows are left out of the recording.
 
-Options live under the card's "Options" disclosure (folder, quality, frame rate, system audio, microphone, shortcut). The same values are in `defaults` for scripting:
+Options live in the tool's view (click its row in the panel): folder, quality, frame rate, system audio, microphone, shortcut. The same values are in `defaults` for scripting:
 
 ```sh
 defaults write com.constantinchirila.deskpouch screen.quality full      # high (fits 1080p, default) or full (native pixels)
@@ -89,7 +89,7 @@ DESKPOUCH_DEMO=pill DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Pr
 # Every pill state, one PNG each. The recording state also logs a hit test: the pill must take clicks, clear pixels must not.
 DESKPOUCH_DEMO=states DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
-# Voice options expanded, screen options with the quality dropdown open, and the General view, one PNG each
+# The main list, the Voice view, the Record view with the quality dropdown open, General, and History, one PNG each
 DESKPOUCH_DEMO=options DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
 # The region picker with a region drawn (needs Screen Recording access), dumped after 2 s and cancelled
@@ -123,5 +123,5 @@ design/                   spec and mocks
 - Milestone 2 done: hold to record the mic, Parakeet v3 transcribes locally (model ~600 MB, downloaded to `~/Library/Application Support/FluidAudio` on first launch), transcript is copied and pasted into the frontmost app. Pill shows listening, transcribing, pasted and failure states.
 - Milestone 3 done: SQLite history, per-tool after-capture actions (chips on the Voice card), Recent list with re-copy.
 - Milestone 4 done: ⌘⇧6 picker (region, window, screen), ScreenCaptureKit recording to mp4 with system audio and optional mic, recording pill and menubar timer, screen card with its chips.
-- Milestone 5 done: Options rows on both cards (model, language, microphone, folder, quality, frame rate, audio, shortcuts), General view (launch at login, sounds, menubar timer, history switches and clear, permissions, version).
+- Milestone 5 done: per-tool views with options (model, language, microphone, folder, quality, frame rate, audio, shortcuts), General view (launch at login, sounds, menubar timer, history switches and clear, permissions, version). Panel layout v2: a list of tools that opens into each tool's view.
 - Next: signing, Sparkle, and whatever v1 use turns up.

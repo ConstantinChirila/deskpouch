@@ -24,6 +24,13 @@ public final class VoiceTool: Tool {
     static let languageDefaultsKey = "voice.language"
     static let holdKeyDefaultsKey = "voice.holdKey"
     static let microphoneDefaultsKey = "voice.microphone"
+    static let skipFillersDefaultsKey = "voice.skipFillers"
+
+    /// Drop "um", "uh", "hmm" from transcripts. Persisted, on by default. Parakeet has no knob for this,
+    /// so `FillerFilter` cleans the text after decode.
+    public var skipFillers: Bool {
+        didSet { UserDefaults.standard.set(skipFillers, forKey: Self.skipFillersDefaultsKey) }
+    }
 
     /// Core Audio UID of the microphone, nil for the system default. Persisted.
     public var microphoneUID: String? {
@@ -93,6 +100,8 @@ public final class VoiceTool: Tool {
             holdKey = .rightOption
         }
         recorder.deviceUID = defaults.string(forKey: Self.microphoneDefaultsKey)
+        skipFillers = defaults.object(forKey: Self.skipFillersDefaultsKey) == nil
+            || defaults.bool(forKey: Self.skipFillersDefaultsKey)
     }
 
     public func attach(_ context: ToolContext) {
@@ -184,14 +193,18 @@ public final class VoiceTool: Tool {
             }
             let transcript = try await transcriber.transcribe(samples: samples, language: language)
             if Task.isCancelled { return nil }
-            guard !transcript.text.isEmpty else {
+            let text = skipFillers ? FillerFilter.default.clean(transcript.text) : transcript.text
+            if text != transcript.text {
+                log.info("fillers stripped: \(transcript.text.count) -> \(text.count) chars")
+            }
+            guard !text.isEmpty else {
                 context.overlay.flash(.failed("Nothing heard"))
                 return nil
             }
             if emit {
-                context.emit(ToolResult(toolID: id, text: transcript.text, duration: duration))
+                context.emit(ToolResult(toolID: id, text: text, duration: duration))
             }
-            return transcript.text
+            return text
         } catch {
             log.error("transcription failed: \(String(describing: error), privacy: .public)")
             context.overlay.flash(.failed("Transcription failed"), for: .seconds(2))

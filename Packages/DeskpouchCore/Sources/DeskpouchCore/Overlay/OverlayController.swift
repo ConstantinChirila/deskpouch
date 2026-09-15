@@ -29,9 +29,11 @@ public final class OverlayController {
     @ObservationIgnored private var autoHide: Task<Void, Never>?
     @ObservationIgnored private var stopHandler: (@MainActor () -> Void)?
 
-    /// Canvas around the pill so shadows and the transcribing card have room.
-    static let defaultCanvasSize = CGSize(width: 560, height: 200)
-    static let bottomInset: CGFloat = 48
+    /// Canvas around the pill so shadows have room. The pill sits at the top of the canvas; the shadow falls below it.
+    static let defaultCanvasSize = CGSize(width: 560, height: 140)
+    static let topInset: CGFloat = 12
+    /// Gap between the menubar and the pill.
+    static let menubarGap: CGFloat = 10
     /// Room either side of the recording pill for its ring and glow.
     static let recordingMargin: CGFloat = 24
     static let tickInterval: TimeInterval = 1 / 30
@@ -163,22 +165,23 @@ public final class OverlayController {
         guard case .recording(let detail) = state else { return defaultCanvasSize }
         let probe = NSHostingView(rootView: RecordingPill(elapsed: 5999, detail: detail, stop: {}))
         let width = probe.fittingSize.width + 2 * recordingMargin
-        return CGSize(width: max(width, 200), height: 52 + bottomInset + 12)
+        return CGSize(width: max(width, 200), height: topInset + 52 + 56)
     }
 
     /// Screen point of the pill's centre, for hit-test checks in demos.
     public var debugPillCenter: CGPoint {
-        CGPoint(x: panel.frame.midX, y: panel.frame.minY + Self.bottomInset + 26)
+        CGPoint(x: panel.frame.midX, y: panel.frame.maxY - Self.topInset - 26)
     }
 
-    /// Bottom-centre of the screen under the mouse, canvas bottom above the dock.
+    /// Top-centre of the screen under the mouse, just under the menubar: away from chat inputs and terminals,
+    /// which live at the bottom of most windows.
     private func place() {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main ?? NSScreen.screens[0]
         let visible = screen.visibleFrame
         let origin = CGPoint(
             x: visible.midX - canvasSize.width / 2,
-            y: visible.minY + 8
+            y: visible.maxY - Self.menubarGap + Self.topInset - canvasSize.height
         )
         panel.setFrameOrigin(origin)
     }

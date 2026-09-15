@@ -51,7 +51,8 @@ Shadows: panel `0 30px 70px rgba(0,0,0,0.65), 0 8px 20px rgba(0,0,0,0.4)` plus `
 
 ## Components
 
-- **Panel**: 400 wide, 18 padding, 16 gap. Drops from the menubar icon. Sections: header, active tool card, other tool cards, Recent, footer.
+- **Panel**: 400 wide, 18 padding, 16 gap. Drops from the menubar icon. Sections: header, Tools list (one row per tool), Recent, footer. A tool row opens the tool's view (back chevron, card, options); General is the same kind of pushed view.
+- **Tool row**: 52 tall, radius 12, tint fill 0.03, border 0.07; tile 36, name 13/500, status 11 tertiary, shortcut keycaps 28, chevron. Listening: amber border 0.30 plus wash; recording: the same in record colour.
 - **Header**: wordmark 15/600 left, status dot (ok, 6px, glow) plus "Ready" right. General view swaps the wordmark for a back chevron plus "General".
 - **Tool card**: icon tile 36, name 15/600, one-line description 12 secondary, shortcut as keycaps on the right. Active card gets amber border at 0.30, amber wash gradient, 4px outer ring at 0.06. Voice card also has the 44px meter well.
 - **Keycap**: 28 or 34 tall, tint gradient, tint border 0.18, `0 3px 0 bg` bottom shadow plus 1px inner highlight.
@@ -59,8 +60,9 @@ Shadows: panel `0 30px 70px rgba(0,0,0,0.65), 0 8px 20px rgba(0,0,0,0.4)` plus `
 - **Options disclosure**: "Options" plus chevron on the chip row. Expanded: hairline, then 40px rows label left, control right. Chevron rotates 180.
 - **Row controls**: popup (26 tall, tint fill 0.06, border 0.14, chevron), toggle (28x17, amber when on, knob accent ink), button (same as popup, no chevron).
 - **Recent row**: 44x30 tile left (mic tile: amber 0.14 fill, 0.25 border, amber-high icon; recording: thumbnail with duration badge), title 13/500 truncated, meta 11 faint, 28px action button right.
+- **History view**: pushed view; header with back tile, "History", count and size right. Full-width search well (32 tall, magnifier, plain field), then a segmented All / Voice / Recordings on its own line, left-aligned (32 well, 24 pills, selected pill in the chip's amber). Day sections labelled like section headers (Today, Yesterday, "Tue 8 Sep"); rows as Recent rows with clock times; hover lifts the row (tint 0.06 / border 0.12) and shows a record-coloured trash action. "Show older · N more" centred, 12 secondary.
 - **Meter**: vertical bars 3 wide, 3 or 4 gap, fully rounded, amber. Panel 20 bars, pill 25 bars, menubar 7 bars at 2 wide.
-- **Pill**: 52 tall, bottom-center, non-activating. States: listening (amber ring, pulsing dot, meter, timer), transcribing (amber ring, sweeping hairline, "Transcribing", engine name; stays a pill, no transcript preview: decided 2026-09-15), pasted (mint ring, mint check disc, "Pasted into X", undo hint), recording (record ring, pulsing dot, timer, dims, Stop button in text colour with bg ink).
+- **Pill**: 52 tall, top-center just under the menubar (moved from bottom-center on 2026-09-15: chat inputs and terminals live at the bottom), non-activating. States: listening (amber ring, pulsing dot, meter, timer), transcribing (amber ring, sweeping hairline, "Transcribing", engine name; stays a pill, no transcript preview: decided 2026-09-15), pasted (mint ring, mint check disc, "Pasted into X", undo hint), recording (record ring, pulsing dot, timer, dims, Stop button in text colour with bg ink).
 - **Menubar icon**: idle pouch glyph; listening amber pill with a 7-bar meter; recording pink pill with bg-ink dot and timer (ink, not white, for contrast).
 - **Region picker**: dim `rgba(4,8,6,0.62)`, selection amber 2px border with 4px ring and glow, cream corner brackets, amber dimension chip, bottom pill toolbar with segmented Region/Window/Screen, round audio toggles, cream Record button with return hint.
 

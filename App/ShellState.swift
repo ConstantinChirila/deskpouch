@@ -8,7 +8,34 @@ import ToolScreenRecorder
 @MainActor
 @Observable
 final class ShellState {
-    enum PanelView { case main, general }
+    enum PanelView: Equatable {
+        case main
+        case general
+        /// One tool's own view: its card, chips and options.
+        case tool(String)
+        /// Everything logged, with search, filter and paging.
+        case history
+    }
+
+    enum HistoryFilter: String, CaseIterable {
+        case all, voice, recordings
+
+        var label: String {
+            switch self {
+            case .all: "All"
+            case .voice: "Voice"
+            case .recordings: "Recordings"
+            }
+        }
+
+        var toolID: String? {
+            switch self {
+            case .all: nil
+            case .voice: "voice"
+            case .recordings: "screen"
+            }
+        }
+    }
 
     var isListening = false
     /// The hold key monitors are live.
@@ -37,10 +64,18 @@ final class ShellState {
     var panelPresented = false
     var version = "0.1.0"
 
-    // Navigation and disclosure, written by the views.
+    // Navigation, written by the views.
     var panelView: PanelView = .main
-    var expandedTool: String?
     let popups = PopupController()
+    /// Height the panel content may use before the History list has to scroll.
+    var panelMaxHeight: CGFloat = 800
+
+    // History view.
+    var historyQuery = ""
+    var historyFilter: HistoryFilter = .all
+    /// Rows loaded so far for the current query and filter, newest first, and how many match in total.
+    var historyItems: [HistoryItem] = []
+    var historyMatches = 0
     /// "Clear…" was clicked; the row shows the confirmation.
     var confirmingClear = false
 
@@ -50,6 +85,7 @@ final class ShellState {
     var voiceLanguage = "en"
     var voiceLanguages: [String] = []
     var voiceMicrophoneUID: String?
+    var voiceSkipFillers = true
     var microphones: [AudioInputDevice] = []
 
     // Screen options.

@@ -12,10 +12,14 @@ struct MenuPanelActions {
     var setPressKey: @MainActor (KeyCombo) -> Void
     var setVoiceLanguage: @MainActor (String) -> Void
     var setVoiceMicrophone: @MainActor (String?) -> Void
+    var setVoiceSkipFillers: @MainActor (Bool) -> Void
     var updateRecorder: @MainActor ((inout RecorderSettings) -> Void) -> Void
     var chooseFolder: @MainActor () -> Void
     var setLaunchAtLogin: @MainActor (Bool) -> Void
     var clearHistory: @MainActor () -> Void
+    /// Reloads the History rows for the current query and filter (`more` appends the next page).
+    var loadHistory: @MainActor (_ more: Bool) -> Void
+    var deleteHistory: @MainActor (HistoryItem) -> Void
     var openPermissionSettings: @MainActor () -> Void
     var closePanel: @MainActor () -> Void
     var quit: @MainActor () -> Void
@@ -89,6 +93,7 @@ final class MenuPanelController {
         let content = CGSize(width: Self.width + inset.left + inset.right, height: max(200, top - visible.minY - 8))
         panel.setContentSize(content)
         hosting.frame = CGRect(origin: .zero, size: content)
+        state.panelMaxHeight = content.height - inset.top - inset.bottom
         var origin = CGPoint(x: anchor.midX - content.width / 2, y: top - content.height)
         let maxX = visible.maxX - content.width + inset.right - 8
         let minX = visible.minX - inset.left + 8
@@ -130,7 +135,7 @@ final class MenuPanelController {
                 state.popups.close()
             } else if state.confirmingClear {
                 state.confirmingClear = false
-            } else if state.panelView == .general {
+            } else if state.panelView != .main {
                 state.panelView = .main
             } else {
                 close()

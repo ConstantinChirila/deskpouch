@@ -67,6 +67,7 @@ final class Shell {
         state.voiceLanguage = voice.language
         state.voiceLanguages = voice.supportedLanguages
         state.voiceMicrophoneUID = voice.microphoneUID
+        state.voiceSkipFillers = voice.skipFillers
         screen.onStatus = { [weak self] text in
             guard let self else { return }
             state.screenStatus = text
@@ -207,6 +208,34 @@ final class Shell {
         }
     }
 
+    /// Loads the first page for the current query and filter, or appends the next one.
+    private func loadHistory(more: Bool) {
+        guard let history else { return }
+        let query = state.historyQuery.trimmingCharacters(in: .whitespaces)
+        let toolID = state.historyFilter.toolID
+        do {
+            let offset = more ? state.historyItems.count : 0
+            let page = try history.items(matching: query, toolID: toolID, limit: HistoryView.pageSize, offset: offset)
+            state.historyItems = more ? state.historyItems + page : page
+            state.historyMatches = try history.count(matching: query, toolID: toolID)
+        } catch {
+            log.error("history query failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func deleteHistory(_ item: HistoryItem) {
+        guard let history else { return }
+        do {
+            try history.delete(id: item.id)
+        } catch {
+            log.error("history delete failed: \(String(describing: error), privacy: .public)")
+            return
+        }
+        state.historyItems.removeAll { $0.id == item.id }
+        state.historyMatches = max(0, state.historyMatches - 1)
+        refreshRecent()
+    }
+
     private func clearHistory() {
         guard let history else { return }
         do {
@@ -327,6 +356,11 @@ final class Shell {
                 voice.microphoneUID = uid
                 state.voiceMicrophoneUID = uid
             },
+            setVoiceSkipFillers: { [weak self] on in
+                guard let self else { return }
+                voice.skipFillers = on
+                state.voiceSkipFillers = on
+            },
             updateRecorder: { [weak self] change in
                 guard let self else { return }
                 var settings = screen.settings
@@ -337,6 +371,8 @@ final class Shell {
             chooseFolder: { [weak self] in self?.chooseFolder() },
             setLaunchAtLogin: { [weak self] on in self?.state.general.setLaunchAtLogin(on) },
             clearHistory: { [weak self] in self?.clearHistory() },
+            loadHistory: { [weak self] more in self?.loadHistory(more: more) },
+            deleteHistory: { [weak self] item in self?.deleteHistory(item) },
             openPermissionSettings: { [weak self] in self?.openPermissionSettings() },
             closePanel: { [weak self] in self?.panel.close() },
             quit: { NSApp.terminate(nil) }
@@ -445,7 +481,7 @@ final class Shell {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                         guard let self else { return }
                         let centre = overlay.debugPillCenter
-                        let aside = CGPoint(x: centre.x - 300, y: centre.y + 40)
+                        let aside = CGPoint(x: centre.x - 300, y: centre.y - 40)
                         let atPill = NSWindow.windowNumber(at: centre, belowWindowWithWindowNumber: 0)
                         let atClear = NSWindow.windowNumber(at: aside, belowWindowWithWindowNumber: 0)
                         log.info("demo: hit test pill=\(atPill) clear=\(atClear) (clear must differ from pill)")
@@ -464,13 +500,13 @@ final class Shell {
         }
     }
 
-    /// `DESKPOUCH_DEMO=options` walks the panel: voice options, screen options with a dropdown open, General.
+    /// `DESKPOUCH_DEMO=options` walks the panel: main list, Voice view, Screen view with a dropdown open, General.
     private func runOptionsDemo(out: URL?) {
         if state.recent.isEmpty { seedDemoRecent() }
         func snap(_ name: String, at seconds: Double) {
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
                 guard let self, let out else { return }
-                log.info("demo: snapshot \(name, privacy: .public) visible=\(self.panel.isVisible) presented=\(self.state.panelPresented) view=\(String(describing: self.state.panelView), privacy: .public) expanded=\(self.state.expandedTool ?? "nil", privacy: .public) popup=\(self.state.popups.isOpen)")
+                log.info("demo: snapshot \(name, privacy: .public) visible=\(self.panel.isVisible) presented=\(self.state.panelPresented) view=\(String(describing: self.state.panelView), privacy: .public) popup=\(self.state.popups.isOpen)")
                 Task { [weak self] in
                     guard let self else { return }
                     Self.writePNG(await panel.debugSnapshot(), to: out.appending(path: "\(name).png"))
@@ -483,12 +519,14 @@ final class Shell {
             // The screenshots can raise the system's screen capture alert, which would take key status and close the panel.
             panel.holdsOpen = true
             if let button = statusItem.button { panel.open(relativeTo: button) }
-            state.expandedTool = "voice"
         }
-        snap("app-voice-options", at: 2.5)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            guard let self else { return }
-            state.expandedTool = "screen"
+        snap("app-main", at: 2.0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { [weak self] in
+            self?.state.panelView = .tool(VoiceToolView.toolID)
+        }
+        snap("app-voice-options", at: 3.0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) { [weak self] in
+            self?.state.panelView = .tool(ScreenToolView.toolID)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) { [weak self] in
             guard let self else { return }
@@ -504,7 +542,15 @@ final class Shell {
             state.panelView = .general
         }
         snap("app-general", at: 6.4)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self] in
+            guard let self else { return }
+            state.historyQuery = ""
+            state.historyFilter = .all
+            loadHistory(more: false)
+            state.panelView = .history
+        }
+        snap("app-history", at: 8.2)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 9.5) { [weak self] in
             self?.panel.holdsOpen = false
             self?.panel.close()
         }

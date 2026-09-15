@@ -5,38 +5,38 @@ struct PillRoot: View {
     let controller: OverlayController
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .top) {
             Color.clear
             switch controller.state {
             case .hidden:
                 EmptyView()
             case .listening:
                 ListeningPill(meter: controller.meter, elapsed: controller.elapsed)
-                    .transition(.opacity.combined(with: .offset(y: 8)))
+                    .transition(.opacity.combined(with: .offset(y: -8)))
             case .preparing(let message):
                 PreparingPill(message: message)
-                    .transition(.opacity.combined(with: .offset(y: 8)))
+                    .transition(.opacity.combined(with: .offset(y: -8)))
             case .transcribing(let detail):
                 TranscribingPill(detail: detail)
-                    .transition(.opacity.combined(with: .offset(y: 8)))
+                    .transition(.opacity.combined(with: .offset(y: -8)))
             case .pasted(let target):
                 PastedPill(title: "Pasted into \(target)", hint: "⌘Z to undo")
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             case .copied:
                 PastedPill(title: "Copied", hint: "⌘V to paste")
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             case .saved(let name, let copied):
                 PastedPill(title: copied ? "Saved and copied" : "Saved", hint: name)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             case .recording(let detail):
                 RecordingPill(elapsed: controller.elapsed, detail: detail, stop: { controller.stopRequested() })
-                    .transition(.opacity.combined(with: .offset(y: 8)))
+                    .transition(.opacity.combined(with: .offset(y: -8)))
             case .failed(let message):
                 FailedPill(message: message)
-                    .transition(.opacity.combined(with: .offset(y: 8)))
+                    .transition(.opacity.combined(with: .offset(y: -8)))
             }
         }
-        .padding(.bottom, OverlayController.bottomInset)
+        .padding(.top, OverlayController.topInset)
         .frame(width: controller.canvasSize.width, height: controller.canvasSize.height)
         .animation(.easeOut(duration: 0.2), value: controller.state)
     }

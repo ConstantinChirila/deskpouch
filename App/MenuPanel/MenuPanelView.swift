@@ -29,6 +29,12 @@ struct MenuPanelView: View {
             case .general:
                 GeneralView(state: state, actions: actions)
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
+            case .tool(let id):
+                ToolView(toolID: id, state: state, actions: actions)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
+            case .history:
+                HistoryView(state: state, actions: actions)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
             }
         }
         .padding(18)
@@ -53,7 +59,6 @@ struct MenuPanelView: View {
         .shadow(color: .black.opacity(0.4), radius: 10, y: 8)
         .popupHost(state.popups)
         .animation(.easeOut(duration: 0.2), value: state.panelView)
-        .animation(.easeOut(duration: 0.18), value: state.expandedTool)
         .animation(.easeOut(duration: 0.15), value: state.confirmingClear)
         // Spring in from the menubar icon: slight scale from the top edge plus a fade.
         .scaleEffect(state.panelPresented ? 1 : 0.96, anchor: .top)
@@ -65,7 +70,7 @@ struct MenuPanelView: View {
     }
 }
 
-/// Header, tool cards, Recent, footer.
+/// Header, one row per tool, Recent, footer. A row opens the tool's own view.
 struct MainPanelView: View {
     let state: ShellState
     let actions: MenuPanelActions
@@ -76,11 +81,16 @@ struct MainPanelView: View {
             if !state.hotkeyReady {
                 PermissionCard(action: actions.requestPermission)
             }
-            VoiceCard(state: state, actions: actions)
-            ScreenCard(state: state, actions: actions)
+            ToolsSection(state: state)
             if !state.recent.isEmpty {
                 RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
-                              copy: actions.copyRecent, reveal: actions.revealRecent)
+                              copy: actions.copyRecent, reveal: actions.revealRecent) {
+                    state.popups.close()
+                    state.historyQuery = ""
+                    state.historyFilter = .all
+                    actions.loadHistory(false)
+                    state.panelView = .history
+                }
             }
             footer
         }
@@ -155,34 +165,275 @@ struct StatusDot: View {
     }
 }
 
-/// "Options" plus chevron at the end of a chip row. Chevron turns over when the card is expanded.
-struct OptionsDisclosure: View {
-    let expanded: Bool
-    let toggle: @MainActor () -> Void
+/// "Tools" label, count, then one row per tool.
+struct ToolsSection: View {
+    let state: ShellState
 
     var body: some View {
-        Button(action: toggle) {
-            HStack(spacing: 4) {
-                Text("Options")
-                ChevronIcon()
-                    .stroke(style: .icon(1.4))
-                    .frame(width: 10, height: 10)
-                    .rotationEffect(.degrees(expanded ? 180 : 0))
+        VStack(spacing: 6) {
+            HStack {
+                Text("Tools")
+                    .font(.dp(11, .semibold))
+                    .tracking(0.66)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                Spacer()
+                Text("2")
+                    .font(.dp(11))
+                    .foregroundStyle(Theme.Colors.textFaint)
             }
-            .font(.dp(12))
-            .foregroundStyle(Theme.Colors.textSecondary)
-            .fixedSize()
-            .padding(.horizontal, 6)
-            .frame(height: 26)
-            .contentShape(Rectangle())
+            .padding(.horizontal, 4)
+            VoiceRow(state: state)
+            ScreenRow(state: state)
         }
-        .buttonStyle(.plain)
     }
 }
 
-/// Voice tool card. Active (amber) while listening. Meter well shows the live meter; chips pick after-capture
-/// actions; Options expands into model, language, microphone and shortcut rows.
-struct VoiceCard: View {
+/// A tool's row on the main view: tile, name, one-line status, shortcut keycaps, chevron. Amber while listening,
+/// pink while recording.
+struct ToolRow<Tile: View, Status: View, Keys: View>: View {
+    enum Live { case none, listening, recording }
+
+    let name: String
+    let live: Live
+    let open: @MainActor () -> Void
+    @ViewBuilder let tile: () -> Tile
+    @ViewBuilder let status: () -> Status
+    @ViewBuilder let keys: () -> Keys
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+        Button(action: open) {
+            HStack(spacing: 12) {
+                tile()
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name).font(.dp(13, .medium)).foregroundStyle(Theme.Colors.text)
+                    status()
+                        .font(.dp(11))
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 4) { keys() }
+                ChevronIcon()
+                    .stroke(style: .icon(1.4))
+                    .rotationEffect(.degrees(-90))
+                    .foregroundStyle(Theme.Colors.text.opacity(0.45))
+                    .frame(width: 10, height: 10)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(shape.fill(Theme.Colors.tint(0.03)))
+            .background(shape.stroke(liveColor.opacity(0.06), lineWidth: 4).padding(-2).opacity(live == .none ? 0 : 1))
+            .overlay(
+                shape.fill(LinearGradient(
+                    stops: [
+                        .init(color: liveColor.opacity(0.10), location: 0),
+                        .init(color: liveColor.opacity(0.03), location: 0.6),
+                        .init(color: .clear, location: 1),
+                    ],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                .allowsHitTesting(false)
+                .opacity(live == .none ? 0 : 1)
+            )
+            .overlay(shape.strokeBorder(live == .none ? Theme.Colors.tint(0.07) : liveColor.opacity(0.30), lineWidth: 1))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.18), value: live)
+    }
+
+    private var liveColor: Color {
+        live == .recording ? Theme.Colors.record : Theme.Colors.accent
+    }
+}
+
+struct VoiceRow: View {
+    let state: ShellState
+
+    var body: some View {
+        ToolRow(name: "Voice", live: state.isListening ? .listening : .none, open: { state.panelView = .tool(VoiceToolView.toolID) }) {
+            VoiceTile()
+        } status: {
+            if state.isListening {
+                HStack(spacing: 6) {
+                    MeterView(levels: Array(state.panelMeter.bars.suffix(7)), barWidth: 2, gap: 2, minHeight: 4, maxHeight: 13, color: Theme.Colors.accentHigh)
+                    Text("Listening")
+                }
+                .foregroundStyle(Theme.Colors.accentHigh)
+            } else {
+                Text("Ready · hold to talk").foregroundStyle(Theme.Colors.textTertiary)
+            }
+        } keys: {
+            Keycap(state.holdKey.symbol, width: 42)
+        }
+    }
+}
+
+struct ScreenRow: View {
+    let state: ShellState
+
+    var body: some View {
+        let recording: Date? = { if case .recording(let since) = state.activity { return since } else { return nil } }()
+        ToolRow(name: "Record screen", live: recording == nil ? .none : .recording, open: { state.panelView = .tool(ScreenToolView.toolID) }) {
+            ScreenTile()
+        } status: {
+            if let since = recording {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    HStack(spacing: 6) {
+                        Circle().fill(Theme.Colors.record).frame(width: 6, height: 6)
+                            .shadow(color: Theme.Colors.record(0.8), radius: 4)
+                        Text("Recording · \(TimeFormat.minutesSeconds(context.date.timeIntervalSince(since)))")
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(Theme.Colors.record)
+                }
+            } else {
+                Text("Ready · \(state.recorderSettings.quality == .high ? "1080p" : "Native") · \(state.recorderSettings.frameRate) fps")
+                    .foregroundStyle(Theme.Colors.textTertiary)
+            }
+        } keys: {
+            ForEach(Array(state.screenKey.symbols.enumerated()), id: \.offset) { _, symbol in
+                Keycap(symbol)
+            }
+        }
+        .opacity(state.screenKeyTaken ? 0.7 : 1)
+    }
+}
+
+/// Amber gradient tile with the mic.
+struct VoiceTile: View {
+    var body: some View {
+        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+        MicIcon()
+            .stroke(style: .icon(1.7))
+            .foregroundStyle(Theme.Colors.accentInk)
+            .frame(width: 18, height: 18)
+            .frame(width: 36, height: 36)
+            .background(
+                tile.fill(LinearGradient(
+                    colors: [Theme.Colors.accentHigh, Theme.Colors.accentLow],
+                    startPoint: .top, endPoint: .bottom
+                ))
+            )
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.white.opacity(0.35)).frame(height: 1)
+                    .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
+            }
+            .shadow(color: Theme.Colors.accent(0.35), radius: 8, y: 6)
+    }
+}
+
+/// Tint tile with the display glyph.
+struct ScreenTile: View {
+    var body: some View {
+        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+        ScreenIcon()
+            .stroke(style: .icon(1.6))
+            .foregroundStyle(Theme.Colors.text)
+            .frame(width: 18, height: 18)
+            .frame(width: 36, height: 36)
+            .background(tile.fill(Theme.Colors.tint(0.06)))
+            .overlay(tile.strokeBorder(Theme.Colors.tint(0.14), lineWidth: 1))
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+                    .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
+            }
+    }
+}
+
+/// Header of a pushed view: back tile, title, status dot.
+struct SubviewHeader: View {
+    let title: String
+    let state: ShellState
+    let back: @MainActor () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: back) {
+                HStack(spacing: 8) {
+                    ChevronIcon()
+                        .stroke(style: .icon(1.6))
+                        .rotationEffect(.degrees(90))
+                        .foregroundStyle(Theme.Colors.text.opacity(0.7))
+                        .frame(width: 12, height: 12)
+                        .frame(width: 24, height: 24)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(Theme.Colors.tint(0.06)))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).strokeBorder(Theme.Colors.tint(0.12), lineWidth: 1))
+                    Text(title)
+                        .font(.dp(15, .semibold))
+                        .tracking(-0.15)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Back")
+            Spacer()
+            StatusDot(state: state)
+        }
+    }
+}
+
+/// One tool's view: header, then its card with chips and options always open.
+struct ToolView: View {
+    let toolID: String
+    let state: ShellState
+    let actions: MenuPanelActions
+
+    var body: some View {
+        VStack(spacing: 16) {
+            SubviewHeader(title: title, state: state) {
+                state.popups.close()
+                state.panelView = .main
+            }
+            switch toolID {
+            case VoiceToolView.toolID: VoiceToolView(state: state, actions: actions)
+            case ScreenToolView.toolID: ScreenToolView(state: state, actions: actions)
+            default: EmptyView()
+            }
+        }
+    }
+
+    private var title: String {
+        switch toolID {
+        case VoiceToolView.toolID: "Voice"
+        case ScreenToolView.toolID: "Record screen"
+        default: toolID
+        }
+    }
+}
+
+/// Card chrome shared by the tool views. Amber ring while the tool is live.
+struct ToolCard<Content: View>: View {
+    let live: Bool
+    let liveColor: Color
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+        VStack(spacing: 14, content: content)
+            .padding(16)
+            .background(shape.fill(Theme.Colors.card))
+            .background(shape.stroke(liveColor.opacity(0.06), lineWidth: 4).padding(-2).opacity(live ? 1 : 0))
+            .overlay(
+                shape.fill(LinearGradient(
+                    stops: [
+                        .init(color: liveColor.opacity(0.10), location: 0),
+                        .init(color: liveColor.opacity(0.03), location: 0.6),
+                        .init(color: .clear, location: 1),
+                    ],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                .allowsHitTesting(false)
+                .opacity(live ? 1 : 0)
+            )
+            .overlay(shape.strokeBorder(live ? liveColor.opacity(0.30) : Theme.Colors.tint(0.10), lineWidth: 1))
+            .animation(.easeOut(duration: 0.18), value: live)
+    }
+}
+
+/// Voice: description and hold key, meter well, chips, then model, language, microphone and shortcut rows.
+struct VoiceToolView: View {
     let state: ShellState
     let actions: MenuPanelActions
 
@@ -190,19 +441,13 @@ struct VoiceCard: View {
     /// Notify is left out on purpose: the pill already says what happened. The recorder uses it.
     static let chips: [OutputAction] = [.paste, .copy, .history]
 
-    private var expanded: Bool { state.expandedTool == Self.toolID }
-
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-        VStack(spacing: 14) {
+        ToolCard(live: state.isListening, liveColor: Theme.Colors.accent) {
             HStack(spacing: 12) {
-                iconTile
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Voice").font(.dp(15, .semibold))
-                    Text("Hold to talk, release to paste")
-                        .font(.dp(12))
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                }
+                VoiceTile()
+                Text("Hold to talk, release to paste")
+                    .font(.dp(12))
+                    .foregroundStyle(Theme.Colors.textSecondary)
                 Spacer(minLength: 8)
                 HStack(spacing: 6) {
                     Text("hold")
@@ -232,29 +477,8 @@ struct VoiceCard: View {
                     .strokeBorder(Theme.Colors.tint(0.08), lineWidth: 1)
             )
             chipRow
-            if expanded {
-                options
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            options
         }
-        .padding(16)
-        .background(shape.fill(Theme.Colors.card))
-        .background(shape.stroke(Theme.Colors.accent(0.06), lineWidth: 4).padding(-2).opacity(state.isListening ? 1 : 0))
-        .overlay(
-            shape.fill(LinearGradient(
-                stops: [
-                    .init(color: Theme.Colors.accent(0.10), location: 0),
-                    .init(color: Theme.Colors.accent(0.03), location: 0.6),
-                    .init(color: .clear, location: 1),
-                ],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ))
-            .allowsHitTesting(false)
-            .opacity(state.isListening ? 1 : 0)
-        )
-        .overlay(shape.strokeBorder(state.isListening ? Theme.Colors.accent(0.30) : Theme.Colors.tint(0.10), lineWidth: 1))
-        .clipShape(shape)
-        .animation(.easeOut(duration: 0.18), value: state.isListening)
         .onChange(of: state.isListening) { _, listening in
             if !listening { state.panelMeter.reset() }
         }
@@ -262,15 +486,11 @@ struct VoiceCard: View {
 
     private var chipRow: some View {
         let enabled = state.output.config(for: Self.toolID).actions
-        return FlowLayout(spacing: 6, trailingLast: true) {
+        return FlowLayout(spacing: 6) {
             ForEach(Self.chips, id: \.self) { action in
                 Chip(action.label, isOn: enabled.contains(action)) {
                     actions.toggleOutput(Self.toolID, action)
                 }
-            }
-            OptionsDisclosure(expanded: expanded) {
-                state.popups.close()
-                state.expandedTool = expanded ? nil : Self.toolID
             }
         }
     }
@@ -309,31 +529,10 @@ struct VoiceCard: View {
             .padding(.top, 4)
         }
     }
-
-    private var iconTile: some View {
-        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
-        return MicIcon()
-            .stroke(style: .icon(1.7))
-            .foregroundStyle(Theme.Colors.accentInk)
-            .frame(width: 18, height: 18)
-            .frame(width: 36, height: 36)
-            .background(
-                tile.fill(LinearGradient(
-                    colors: [Theme.Colors.accentHigh, Theme.Colors.accentLow],
-                    startPoint: .top, endPoint: .bottom
-                ))
-            )
-            .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.35)).frame(height: 1)
-                    .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
-            }
-            .shadow(color: Theme.Colors.accent(0.35), radius: 8, y: 6)
-    }
 }
 
-/// Screen recorder card. Record ring while recording. Chips pick after-capture actions; keycaps show the combo;
-/// Options expands into folder, quality, frame rate, audio and shortcut rows.
-struct ScreenCard: View {
+/// Screen: description and combo, chips, then folder, quality, frame rate, audio and shortcut rows.
+struct ScreenToolView: View {
     let state: ShellState
     let actions: MenuPanelActions
 
@@ -350,15 +549,11 @@ struct ScreenCard: View {
         return false
     }
 
-    private var expanded: Bool { state.expandedTool == Self.toolID }
-
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-        VStack(spacing: 14) {
+        ToolCard(live: isRecording, liveColor: Theme.Colors.record) {
             HStack(spacing: 12) {
-                iconTile
+                ScreenTile()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Record screen").font(.dp(15, .semibold))
                     Text(isRecording ? "Recording · \(state.screenKey.display) or the menubar stops" : "Region, window or screen")
                         .font(.dp(12))
                         .foregroundStyle(isRecording ? Theme.Colors.record : Theme.Colors.textSecondary)
@@ -378,30 +573,17 @@ struct ScreenCard: View {
                 .help(state.screenKeyTaken ? "Another app owns this shortcut" : "Opens the picker")
             }
             chipRow
-            if expanded {
-                options
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            options
         }
-        .padding(16)
-        .background(shape.fill(Theme.Colors.card))
-        .background(shape.stroke(Theme.Colors.record(0.06), lineWidth: 4).padding(-2).opacity(isRecording ? 1 : 0))
-        .overlay(shape.strokeBorder(isRecording ? Theme.Colors.record(0.30) : Theme.Colors.tint(0.10), lineWidth: 1))
-        .clipShape(shape)
-        .animation(.easeOut(duration: 0.18), value: isRecording)
     }
 
     private var chipRow: some View {
         let enabled = state.output.config(for: Self.toolID).actions
-        return FlowLayout(spacing: 6, trailingLast: true) {
+        return FlowLayout(spacing: 6) {
             ForEach(Self.chips, id: \.self) { action in
                 Chip(Self.label(action), isOn: enabled.contains(action)) {
                     actions.toggleOutput(Self.toolID, action)
                 }
-            }
-            OptionsDisclosure(expanded: expanded) {
-                state.popups.close()
-                state.expandedTool = expanded ? nil : Self.toolID
             }
         }
     }
@@ -457,21 +639,6 @@ struct ScreenCard: View {
             .padding(.top, 4)
         }
     }
-
-    private var iconTile: some View {
-        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
-        return ScreenIcon()
-            .stroke(style: .icon(1.6))
-            .foregroundStyle(Theme.Colors.text)
-            .frame(width: 18, height: 18)
-            .frame(width: 36, height: 36)
-            .background(tile.fill(Theme.Colors.tint(0.06)))
-            .overlay(tile.strokeBorder(Theme.Colors.tint(0.14), lineWidth: 1))
-            .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
-                    .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
-            }
-    }
 }
 
 /// General view: back chevron, then three groups (app, history, about).
@@ -499,8 +666,8 @@ struct GeneralView: View {
                 }
                 OptionRow("Transcripts in history", detail: "Off keeps only recordings") {
                     ToggleSwitch(isOn: Binding(
-                        get: { state.output.config(for: VoiceCard.toolID).actions.contains(.history) },
-                        set: { _ in actions.toggleOutput(VoiceCard.toolID, .history) }
+                        get: { state.output.config(for: VoiceToolView.toolID).actions.contains(.history) },
+                        set: { _ in actions.toggleOutput(VoiceToolView.toolID, .history) }
                     ))
                 }
                 OptionRow("Clear history", detail: state.confirmingClear ? "Removes the log, keeps the files" : nil) {
@@ -560,31 +727,10 @@ struct GeneralView: View {
     }
 
     private var header: some View {
-        HStack {
-            Button {
-                state.popups.close()
-                state.confirmingClear = false
-                state.panelView = .main
-            } label: {
-                HStack(spacing: 8) {
-                    ChevronIcon()
-                        .stroke(style: .icon(1.6))
-                        .rotationEffect(.degrees(90))
-                        .foregroundStyle(Theme.Colors.text.opacity(0.7))
-                        .frame(width: 12, height: 12)
-                        .frame(width: 24, height: 24)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(Theme.Colors.tint(0.06)))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).strokeBorder(Theme.Colors.tint(0.12), lineWidth: 1))
-                    Text("General")
-                        .font(.dp(15, .semibold))
-                        .tracking(-0.15)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Back")
-            Spacer()
-            StatusDot(state: state)
+        SubviewHeader(title: "General", state: state) {
+            state.popups.close()
+            state.confirmingClear = false
+            state.panelView = .main
         }
     }
 }
@@ -596,6 +742,7 @@ struct RecentSection: View {
     let thumbnails: ThumbnailCache
     let copy: @MainActor (HistoryItem) -> Void
     let reveal: @MainActor (HistoryItem) -> Void
+    let openHistory: @MainActor () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
@@ -606,9 +753,20 @@ struct RecentSection: View {
                     .textCase(.uppercase)
                     .foregroundStyle(Theme.Colors.textTertiary)
                 Spacer()
-                Text(count == 1 ? "1 item" : "\(count) items")
+                Button(action: openHistory) {
+                    HStack(spacing: 4) {
+                        Text("All \(count)")
+                        ChevronIcon()
+                            .stroke(style: .icon(1.4))
+                            .rotationEffect(.degrees(-90))
+                            .frame(width: 10, height: 10)
+                    }
                     .font(.dp(11))
-                    .foregroundStyle(Theme.Colors.textFaint)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Everything logged, with search")
             }
             .padding(.horizontal, 4)
             TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -616,6 +774,234 @@ struct RecentSection: View {
                     RecentRow(item: item, now: context.date, thumbnails: thumbnails, copy: { copy(item) }, reveal: { reveal(item) })
                 }
             }
+        }
+    }
+}
+
+/// Everything logged: search, All / Voice / Recordings, rows grouped by day, "Show older". Scrolls inside the panel.
+struct HistoryView: View {
+    let state: ShellState
+    let actions: MenuPanelActions
+
+    /// Rows per page; `loadHistory(true)` appends another.
+    static let pageSize = 20
+
+    var body: some View {
+        VStack(spacing: 16) {
+            header
+            VStack(spacing: 8) {
+                SearchField(text: Binding(get: { state.historyQuery }, set: { value in
+                    state.historyQuery = value
+                    actions.loadHistory(false)
+                }))
+                HStack {
+                    Segmented(selection: Binding(get: { state.historyFilter }, set: { value in
+                        state.historyFilter = value
+                        actions.loadHistory(false)
+                    }), options: ShellState.HistoryFilter.allCases, title: { $0.label })
+                    Spacer()
+                }
+            }
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 16) {
+                    if state.historyItems.isEmpty {
+                        Text(state.historyQuery.isEmpty ? "Nothing logged yet" : "No matches")
+                            .font(.dp(12))
+                            .foregroundStyle(Theme.Colors.textTertiary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 60)
+                    }
+                    ForEach(DayGroup.sections(state.historyItems, date: \.createdAt)) { section in
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text(section.label)
+                                    .font(.dp(11, .semibold))
+                                    .tracking(0.66)
+                                    .textCase(.uppercase)
+                                    .foregroundStyle(Theme.Colors.textTertiary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 4)
+                            ForEach(section.items) { item in
+                                HistoryRow(item: item, thumbnails: state.thumbnails,
+                                           copy: { actions.copyRecent(item) }, reveal: { actions.revealRecent(item) },
+                                           delete: { actions.deleteHistory(item) })
+                            }
+                        }
+                    }
+                    if state.historyItems.count < state.historyMatches {
+                        Button { actions.loadHistory(true) } label: {
+                            Text("Show older · \(state.historyMatches - state.historyItems.count) more")
+                                .font(.dp(12))
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: max(200, state.panelMaxHeight - 200))
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Button {
+                state.popups.close()
+                state.panelView = .main
+            } label: {
+                HStack(spacing: 8) {
+                    ChevronIcon()
+                        .stroke(style: .icon(1.6))
+                        .rotationEffect(.degrees(90))
+                        .foregroundStyle(Theme.Colors.text.opacity(0.7))
+                        .frame(width: 12, height: 12)
+                        .frame(width: 24, height: 24)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(Theme.Colors.tint(0.06)))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).strokeBorder(Theme.Colors.tint(0.12), lineWidth: 1))
+                    Text("History")
+                        .font(.dp(15, .semibold))
+                        .tracking(-0.15)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Back")
+            Spacer()
+            Text(summary)
+                .font(.dp(11))
+                .foregroundStyle(Theme.Colors.textTertiary)
+        }
+    }
+
+    private var summary: String {
+        let items = state.historyCount == 1 ? "1 item" : "\(state.historyCount) items"
+        guard state.historyBytes > 0 else { return items }
+        return "\(items) · \(ByteCountFormatter.string(fromByteCount: state.historyBytes, countStyle: .file))"
+    }
+}
+
+/// A History row: like a Recent row, with the clock time instead of a relative one and a delete button on hover.
+struct HistoryRow: View {
+    let item: HistoryItem
+    let thumbnails: ThumbnailCache
+    let copy: @MainActor () -> Void
+    let reveal: @MainActor () -> Void
+    let delete: @MainActor () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+        HStack(spacing: hovering ? 8 : 12) {
+            HistoryTile(item: item, thumbnails: thumbnails)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.dp(13, .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(meta)
+                    .font(.dp(11))
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if item.text != nil {
+                RowActionButton(icon: CopyIcon(), action: copy).help("Copy transcript")
+            } else {
+                RowActionButton(icon: FolderIcon(), action: reveal).help("Show in Finder")
+            }
+            if hovering {
+                Button(action: delete) {
+                    TrashIcon()
+                        .stroke(style: .icon(1.5))
+                        .foregroundStyle(Theme.Colors.record.opacity(0.85))
+                        .frame(width: 14, height: 14)
+                        .frame(width: 28, height: 28)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous).fill(Theme.Colors.tint(0.05)))
+                        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .help("Remove from history (keeps the file)")
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+        }
+        .padding(.vertical, 9)
+        .padding(.horizontal, 10)
+        .background(shape.fill(Theme.Colors.tint(hovering ? 0.06 : 0.03)))
+        .overlay(shape.strokeBorder(Theme.Colors.tint(hovering ? 0.12 : 0.07), lineWidth: 1))
+        .contentShape(shape)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .onTapGesture(count: 2) {
+            if item.fileURL != nil { reveal() }
+        }
+    }
+
+    private var title: String {
+        if let text = item.text, !text.isEmpty { return text }
+        return item.fileURL?.lastPathComponent ?? "Capture"
+    }
+
+    private var meta: String {
+        var parts = [DayGroup.clock(item.createdAt)]
+        if let duration = item.duration, item.text == nil {
+            parts.append(TimeFormat.minutesSeconds(duration))
+        }
+        if let target = item.pastedInto {
+            parts.append("pasted into \(target)")
+        } else if item.fileURL != nil {
+            parts.append(FileManager.default.fileExists(atPath: item.fileURL?.path ?? "") ? "saved" : "file missing")
+        } else {
+            parts.append("copied")
+        }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// The 44x30 tile shared by Recent and History rows.
+struct HistoryTile: View {
+    let item: HistoryItem
+    let thumbnails: ThumbnailCache
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+        if item.text != nil {
+            MicIcon()
+                .stroke(style: .icon(1.7))
+                .foregroundStyle(Theme.Colors.accentHigh)
+                .frame(width: 14, height: 14)
+                .frame(width: 44, height: 30)
+                .background(shape.fill(Theme.Colors.accent(0.14)))
+                .overlay(shape.strokeBorder(Theme.Colors.accent(0.25), lineWidth: 1))
+        } else {
+            // File capture: a frame from the file, dark placeholder until it loads or when the file is gone.
+            ZStack(alignment: .bottomTrailing) {
+                shape.fill(LinearGradient(colors: [Color(hex: 0x3B42_52), Color(hex: 0x2226_2F)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                if let file = item.fileURL, let frame = thumbnails.image(for: file) {
+                    Image(decorative: frame, scale: 2)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 44, height: 30)
+                        .clipShape(shape)
+                        .transition(.opacity)
+                }
+                if let duration = item.duration {
+                    Text(TimeFormat.minutesSeconds(duration))
+                        .font(.dp(9))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .frame(height: 12)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(Color.black.opacity(0.6)))
+                        .padding([.trailing, .bottom], 3)
+                }
+            }
+            .frame(width: 44, height: 30)
+            .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+            .animation(.easeOut(duration: 0.2), value: item.fileURL.flatMap { thumbnails.image(for: $0) } != nil)
         }
     }
 }
@@ -671,43 +1057,8 @@ struct RecentRow: View {
         return parts.joined(separator: " · ")
     }
 
-    @ViewBuilder
     private var tile: some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-        if item.text != nil {
-            MicIcon()
-                .stroke(style: .icon(1.7))
-                .foregroundStyle(Theme.Colors.accentHigh)
-                .frame(width: 14, height: 14)
-                .frame(width: 44, height: 30)
-                .background(shape.fill(Theme.Colors.accent(0.14)))
-                .overlay(shape.strokeBorder(Theme.Colors.accent(0.25), lineWidth: 1))
-        } else {
-            // File capture: a frame from the file, dark placeholder until it loads or when the file is gone.
-            ZStack(alignment: .bottomTrailing) {
-                shape.fill(LinearGradient(colors: [Color(hex: 0x3B42_52), Color(hex: 0x2226_2F)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                if let file = item.fileURL, let frame = thumbnails.image(for: file) {
-                    Image(decorative: frame, scale: 2)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 44, height: 30)
-                        .clipShape(shape)
-                        .transition(.opacity)
-                }
-                if let duration = item.duration {
-                    Text(TimeFormat.minutesSeconds(duration))
-                        .font(.dp(9))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .frame(height: 12)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(Color.black.opacity(0.6)))
-                        .padding([.trailing, .bottom], 3)
-                }
-            }
-            .frame(width: 44, height: 30)
-            .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
-            .animation(.easeOut(duration: 0.2), value: item.fileURL.flatMap { thumbnails.image(for: $0) } != nil)
-        }
+        HistoryTile(item: item, thumbnails: thumbnails)
     }
 }
 

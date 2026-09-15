@@ -1,6 +1,18 @@
 {
   "pages": [
     {
+      "id": "list",
+      "name": "Panel v2: list and tool views"
+    },
+    {
+      "id": "history",
+      "name": "History view"
+    },
+    {
+      "id": "tabs",
+      "name": "Panel v2: tabs (dropped)"
+    },
+    {
       "id": "final",
       "name": "Final: Mint ground, amber accent"
     },
@@ -33,7 +45,7 @@
     },
     {
       "file": "FinalPanelVoice.dc.html",
-      "title": "Panel \u00b7 Voice options open",
+      "title": "Panel · Voice options open",
       "page": "final",
       "x": 580,
       "y": 0,
@@ -42,7 +54,7 @@
     },
     {
       "file": "FinalPanelScreen.dc.html",
-      "title": "Panel \u00b7 Screen options open",
+      "title": "Panel · Screen options open",
       "page": "final",
       "x": 1160,
       "y": 0,
@@ -51,7 +63,7 @@
     },
     {
       "file": "FinalPanelGeneral.dc.html",
-      "title": "Panel \u00b7 General",
+      "title": "Panel · General",
       "page": "final",
       "x": 1740,
       "y": 0,
@@ -168,7 +180,7 @@
     },
     {
       "file": "DirectionInkAmber.dc.html",
-      "title": "A \u00b7 Ink and amber",
+      "title": "A · Ink and amber",
       "page": "directions",
       "x": 0,
       "y": 0,
@@ -177,7 +189,7 @@
     },
     {
       "file": "DirectionGlass.dc.html",
-      "title": "B \u00b7 Glass",
+      "title": "B · Glass",
       "page": "directions",
       "x": 900,
       "y": 0,
@@ -186,7 +198,7 @@
     },
     {
       "file": "DirectionPaper.dc.html",
-      "title": "C \u00b7 Paper",
+      "title": "C · Paper",
       "page": "directions",
       "x": 0,
       "y": 900,
@@ -195,7 +207,7 @@
     },
     {
       "file": "DirectionTerminal.dc.html",
-      "title": "D \u00b7 Terminal",
+      "title": "D · Terminal",
       "page": "directions",
       "x": 900,
       "y": 900,
@@ -255,6 +267,96 @@
       "y": 1460,
       "w": 720,
       "h": 600
+    },
+    {
+      "file": "TabsPanel.dc.html",
+      "title": "Tabs · Voice, idle",
+      "page": "tabs",
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "TabsPanelOptions.dc.html",
+      "title": "Tabs · Record, options open",
+      "page": "tabs",
+      "x": 580,
+      "y": 0,
+      "w": 480,
+      "h": 820
+    },
+    {
+      "file": "TabsPanelActivity.dc.html",
+      "title": "Tabs · recording in the other tab",
+      "page": "tabs",
+      "x": 1160,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "TabsSwitcherFive.dc.html",
+      "title": "Switcher with five tools",
+      "page": "tabs",
+      "x": 0,
+      "y": 960,
+      "w": 480,
+      "h": 220
+    },
+    {
+      "file": "ListPanel.dc.html",
+      "title": "List · two tools",
+      "page": "list",
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "ListPanelCapturing.dc.html",
+      "title": "List · recording",
+      "page": "list",
+      "x": 580,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "ListToolVoice.dc.html",
+      "title": "Tool view · Voice",
+      "page": "list",
+      "x": 1160,
+      "y": 0,
+      "w": 480,
+      "h": 640
+    },
+    {
+      "file": "ListPanelEight.dc.html",
+      "title": "List · eight tools",
+      "page": "list",
+      "x": 0,
+      "y": 860,
+      "w": 480,
+      "h": 960
+    },
+    {
+      "file": "HistoryEntry.dc.html",
+      "title": "Main view · Recent header links to History",
+      "page": "history",
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 720
+    },
+    {
+      "file": "HistoryView.dc.html",
+      "title": "History · search, filters, day groups",
+      "page": "history",
+      "x": 580,
+      "y": 0,
+      "w": 480,
+      "h": 1000
     }
   ],
   "annotations": [
@@ -288,7 +390,7 @@
       "x": 0,
       "y": -150,
       "w": 800,
-      "text": "A \u00b7 Ink and amber. Warm near-black, one amber accent, serif for titles only. Feels like a crafted tool, ages well. Tradeoff: amber on dark is low-contrast for small secondary text, and the serif can read as precious if overused."
+      "text": "A · Ink and amber. Warm near-black, one amber accent, serif for titles only. Feels like a crafted tool, ages well. Tradeoff: amber on dark is low-contrast for small secondary text, and the serif can read as precious if overused."
     },
     {
       "id": "note-b",
@@ -296,7 +398,7 @@
       "x": 900,
       "y": -150,
       "w": 800,
-      "text": "B \u00b7 Glass. Deep indigo ground, frosted layers, periwinkle accent, large radii. Most 'modern' and most in step with current macOS. Tradeoff: blur and translucency are expensive to get right in AppKit, and it dates fastest."
+      "text": "B · Glass. Deep indigo ground, frosted layers, periwinkle accent, large radii. Most 'modern' and most in step with current macOS. Tradeoff: blur and translucency are expensive to get right in AppKit, and it dates fastest."
     },
     {
       "id": "note-c",
@@ -304,7 +406,7 @@
       "x": 0,
       "y": 1780,
       "w": 800,
-      "text": "C \u00b7 Paper. Light, warm off-white, one coral accent, dark pill for contrast. Friendliest and most sellable to non-developers. Tradeoff: light-first means you design dark mode second, and it is the least 'yours' at a glance."
+      "text": "C · Paper. Light, warm off-white, one coral accent, dark pill for contrast. Friendliest and most sellable to non-developers. Tradeoff: light-first means you design dark mode second, and it is the least 'yours' at a glance."
     },
     {
       "id": "note-d",
@@ -312,7 +414,7 @@
       "x": 900,
       "y": 1780,
       "w": 800,
-      "text": "D \u00b7 Terminal. Green-black, lime accent, mono for labels, tight radii. Unmistakably a developer tool, dense and fast. Tradeoff: narrowest audience, and lime as the only accent leaves no room for status colours."
+      "text": "D · Terminal. Green-black, lime accent, mono for labels, tight radii. Unmistakably a developer tool, dense and fast. Tradeoff: narrowest audience, and lime as the only accent leaves no room for status colours."
     },
     {
       "id": "scope-note",
@@ -321,10 +423,34 @@
       "y": 190,
       "w": 260,
       "text": "v1 surfaces only. Dark appearance drawn; light follows system automatically in the real app. No onboarding, no library window, no General pane yet."
+    },
+    {
+      "id": "tabs-note",
+      "page": "tabs",
+      "x": 1740,
+      "y": 0,
+      "w": 300,
+      "text": "Tabs direction, 2026-09-15\n\nOne tool visible at a time, so the panel height no longer depends on how many tools exist. The switcher reuses the picker's segment style.\n\nA capturing tool gets a pink dot on its tab and the panel jumps to it when the capture starts.\n\nRecent collapses to one line while a tool's Options are open.\n\nGeneral stays in the footer. Past four tools the switcher goes icon-only; the selected tab keeps its name.\n\nOpen question: drop the title row inside the card, since the tab already names the tool?"
+    },
+    {
+      "id": "list-note",
+      "page": "list",
+      "x": 1740,
+      "y": 0,
+      "w": 300,
+      "text": "List and tool views, 2026-09-15\n\nMain view lists every tool as a 52 pt row: tile, name, one-line status, shortcut, chevron. Eight tools fit with room for Recent; the rows are the glanceable state.\n\nA row opens the tool's view (same navigation as General): back chevron, the card with meter and chips, options always open. No accordion, height bounded by one tool.\n\nA capturing tool's row takes the amber (listening) or pink (recording) treatment; the pill carries the live state.\n\nRecent and the footer stay on the main view."
+    },
+    {
+      "id": "history-note",
+      "page": "history",
+      "x": 1160,
+      "y": 0,
+      "w": 300,
+      "text": "History view, 2026-09-15\n\nThe main view keeps the last 5 under Recent. Its header gains 'All 48 ›', which pushes the History view (same navigation as General and the tool views).\n\nHistory: search over transcripts and file names, All / Voice / Recordings filter, rows grouped by day with clock times instead of relative ones. The list scrolls inside the panel; 'Show older' loads the next batch.\n\nHover on a row reveals delete next to the copy or reveal action. Delete removes the log row, never the file.\n\nStill one panel, no library window."
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "final"
+    "page": "history"
   }
 }

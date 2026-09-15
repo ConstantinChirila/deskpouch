@@ -139,14 +139,29 @@ public final class HistoryStore {
 
     /// Newest first.
     public func recent(limit: Int) throws -> [HistoryItem] {
+        try items(matching: "", toolID: nil, limit: limit, offset: 0)
+    }
+
+    /// Newest first, filtered by a substring of the text or file name and optionally by tool, paged by `offset`.
+    public func items(matching query: String, toolID: String?, limit: Int, offset: Int) throws -> [HistoryItem] {
         let statement = try prepare(
             """
             SELECT id, tool_id, created_at, text, file_path, duration, pasted_into
-            FROM results ORDER BY created_at DESC, rowid DESC LIMIT ?
+            FROM results
+            WHERE (? = '' OR text LIKE ? ESCAPE '\\' OR file_path LIKE ? ESCAPE '\\')
+              AND (? IS NULL OR tool_id = ?)
+            ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?
             """
         )
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_int(statement, 1, Int32(max(0, limit)))
+        let pattern = Self.likePattern(query)
+        bind(statement, 1, query)
+        bind(statement, 2, pattern)
+        bind(statement, 3, pattern)
+        bind(statement, 4, toolID)
+        bind(statement, 5, toolID)
+        sqlite3_bind_int(statement, 6, Int32(max(0, limit)))
+        sqlite3_bind_int(statement, 7, Int32(max(0, offset)))
         var items: [HistoryItem] = []
         while true {
             let rc = sqlite3_step(statement)
@@ -182,10 +197,37 @@ public final class HistoryStore {
     }
 
     public func count() throws -> Int {
-        let statement = try prepare("SELECT COUNT(*) FROM results")
+        try count(matching: "", toolID: nil)
+    }
+
+    /// Rows `items(matching:toolID:limit:offset:)` would page through.
+    public func count(matching query: String, toolID: String?) throws -> Int {
+        let statement = try prepare(
+            """
+            SELECT COUNT(*) FROM results
+            WHERE (? = '' OR text LIKE ? ESCAPE '\\' OR file_path LIKE ? ESCAPE '\\')
+              AND (? IS NULL OR tool_id = ?)
+            """
+        )
         defer { sqlite3_finalize(statement) }
+        let pattern = Self.likePattern(query)
+        bind(statement, 1, query)
+        bind(statement, 2, pattern)
+        bind(statement, 3, pattern)
+        bind(statement, 4, toolID)
+        bind(statement, 5, toolID)
         try step(statement, expecting: SQLITE_ROW)
         return Int(sqlite3_column_int64(statement, 0))
+    }
+
+    /// `%query%` with SQLite's LIKE wildcards escaped, so a literal % or _ in the search matches itself.
+    static func likePattern(_ query: String) -> String {
+        var escaped = ""
+        for character in query {
+            if character == "%" || character == "_" || character == "\\" { escaped.append("\\") }
+            escaped.append(character)
+        }
+        return "%" + escaped + "%"
     }
 
     // MARK: SQLite plumbing

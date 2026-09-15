@@ -39,7 +39,7 @@
 		9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCore; path = Packages/DeskpouchCore; sourceTree = SOURCE_ROOT; };
 		9F01CE04F0A6AABF0BD257A4 /* WindowSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSnapshot.swift; sourceTree = "<group>"; };
 		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_EB36EBD8-E348-49C7-AC94-9AC225C9D818" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,10 +109,10 @@
 			path = Packages;
 			sourceTree = "<group>";
 		};
-		"TEMP_FD15F61C-ED42-4ACD-8ACF-46E91336E1D3" /* deskpouch */ = {
+		"TEMP_8FCB33DB-26A0-4F0B-B939-6E75D192D5CC" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */,
+				"TEMP_EB36EBD8-E348-49C7-AC94-9AC225C9D818" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -223,7 +223,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_EB36EBD8-E348-49C7-AC94-9AC225C9D818" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -288,7 +288,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_EB36EBD8-E348-49C7-AC94-9AC225C9D818" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;

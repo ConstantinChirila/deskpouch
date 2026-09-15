@@ -173,6 +173,58 @@ public struct SpeakerIcon: Shape {
     }
 }
 
+/// Magnifier: circle at (7,7) r4.5, handle to (14,14).
+public struct SearchIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addEllipse(in: CGRect(x: 2.5, y: 2.5, width: 9, height: 9))
+        p.move(to: CGPoint(x: 10.5, y: 10.5))
+        p.addLine(to: CGPoint(x: 14, y: 14))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Bin: lid line, handle, tapered body.
+public struct TrashIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 2.5, y: 4.5)); p.addLine(to: CGPoint(x: 13.5, y: 4.5))
+        p.move(to: CGPoint(x: 6, y: 4.5)); p.addLine(to: CGPoint(x: 6, y: 3))
+        p.addArc(center: CGPoint(x: 7, y: 3), radius: 1, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        p.addLine(to: CGPoint(x: 9, y: 2))
+        p.addArc(center: CGPoint(x: 9, y: 3), radius: 1, startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
+        p.addLine(to: CGPoint(x: 10, y: 4.5))
+        p.move(to: CGPoint(x: 4, y: 4.5)); p.addLine(to: CGPoint(x: 4.7, y: 13))
+        p.addArc(center: CGPoint(x: 5.7, y: 13), radius: 1, startAngle: .degrees(180), endAngle: .degrees(90), clockwise: true)
+        p.addLine(to: CGPoint(x: 10.3, y: 14))
+        p.addArc(center: CGPoint(x: 10.3, y: 13), radius: 1, startAngle: .degrees(90), endAngle: .degrees(0), clockwise: true)
+        p.addLine(to: CGPoint(x: 12, y: 4.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Folder: M1.5 4.5a1 1 0 0 1 1-1h3l1.5 1.5h6.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z
+public struct FolderIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 1.5, y: 4.5))
+        p.addArc(center: CGPoint(x: 2.5, y: 4.5), radius: 1, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        p.addLine(to: CGPoint(x: 5.5, y: 3.5))
+        p.addLine(to: CGPoint(x: 7, y: 5))
+        p.addLine(to: CGPoint(x: 13.5, y: 5))
+        p.addArc(center: CGPoint(x: 13.5, y: 6), radius: 1, startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
+        p.addLine(to: CGPoint(x: 14.5, y: 12))
+        p.addArc(center: CGPoint(x: 13.5, y: 12), radius: 1, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        p.addLine(to: CGPoint(x: 2.5, y: 13))
+        p.addArc(center: CGPoint(x: 2.5, y: 12), radius: 1, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        p.closeSubpath()
+        return p.scaled(toFit: rect)
+    }
+}
+
 extension Path {
     /// Scales a path authored in a 16 unit box into `rect`, preserving aspect.
     fileprivate func scaled(toFit rect: CGRect) -> Path {

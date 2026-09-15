@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;display=swap">
+<style>
+body { margin: 0; font-family: "Geist", -apple-system, "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: #f59e0b; } a:hover { color: #fbbf24; }
+svg { display: block; }
+</style>
+</helmet>
+<div style="width: 480px; height: 220px; background: #0d1211; box-sizing: border-box; padding: 40px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; color: #e8f5ef;">
+<span style="font-size: 11px; color: rgba(232,245,239,0.55);">Five tools: icon-only, the selected tab keeps its name</span>
+<div style="display: flex; align-items: center; gap: 2px; height: 42px; border-radius: 999px; background: #0d1411; border: 1px solid rgba(180,255,220,0.08); padding: 3px; box-sizing: border-box;">
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5a5 5 0 0 0 10 0"></path><path d="M8 12.5v2"></path></svg></div>
+<div style="flex-grow: 1; height: 34px; padding: 0 14px; border-radius: 999px; background: linear-gradient(180deg, #fbbf24, #d97706); color: #0d1211; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 4px 12px rgba(245,158,11,0.35), 0 1px 0 rgba(255,255,255,0.35) inset;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"></rect><path d="M5.5 14h5"></path><path d="M8 11.5V14"></path></svg><span>Record</span></div>
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5h2.5l1.5-2h4l1.5 2H14v8H2z"></path><circle cx="8" cy="9" r="2.5"></circle></svg></div>
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="4.5" r="2"></circle><circle cx="4.5" cy="11.5" r="2"></circle><path d="M6 6l8 6M6 10l8-6"></path></svg></div>
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2" width="11" height="12" rx="1.5"></rect><path d="M5 6h6M5 9h6M5 12h3"></path></svg></div>
+</div>
+<span style="font-size: 11px; color: rgba(232,245,239,0.55);">Recording in a tab that is not selected</span>
+<div style="display: flex; align-items: center; gap: 2px; height: 42px; border-radius: 999px; background: #0d1411; border: 1px solid rgba(180,255,220,0.08); padding: 3px; box-sizing: border-box;">
+<div style="flex-grow: 1; height: 34px; padding: 0 14px; border-radius: 999px; background: linear-gradient(180deg, #fbbf24, #d97706); color: #0d1211; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 4px 12px rgba(245,158,11,0.35), 0 1px 0 rgba(255,255,255,0.35) inset;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5a5 5 0 0 0 10 0"></path><path d="M8 12.5v2"></path></svg><span>Voice</span></div>
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"></rect><path d="M5.5 14h5"></path><path d="M8 11.5V14"></path></svg><span style="width: 6px; height: 6px; border-radius: 3px; background: #fb7185; box-shadow: 0 0 8px rgba(251,113,133,0.8);"></span></div>
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5h2.5l1.5-2h4l1.5 2H14v8H2z"></path><circle cx="8" cy="9" r="2.5"></circle></svg></div>
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="4.5" r="2"></circle><circle cx="4.5" cy="11.5" r="2"></circle><path d="M6 6l8 6M6 10l8-6"></path></svg></div>
+<div style="width: 44px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(232,245,239,0.6);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2" width="11" height="12" rx="1.5"></rect><path d="M5 6h6M5 9h6M5 12h3"></path></svg></div>
+</div>
+</div>
+</x-dc>
+</body>
+</html>

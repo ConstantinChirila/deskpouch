@@ -68,9 +68,9 @@ Rules: tools never import each other. Core never imports a tool. Tests live per 
 Design direction settled 2026-09-14: "Mint ground, amber accent", custom chrome. Full spec with tokens and components in `design/DESIGN.md`. Mocks in `design/mocks/Final*.dc.html`.
 
 - One floating panel drops from the menubar icon and is the whole app. No Settings window, no dashboard, no library.
-- Panel: header, tool cards (active card highlighted, each expands in place for its options), Recent list (last 5, tile per item), footer with General and Quit.
+- Panel (layout v2, 2026-09-15): header, a "Tools" list with one 52 pt row per tool (tile, name, one-line status, shortcut keycaps, chevron; amber while listening, pink while recording), Recent list (last 5, tile per item), footer with General and Quit. A row pushes the tool's own view: back chevron, its card with meter and chips, and its option rows always open. Replaced the v1 accordion of cards, whose height grew with every tool and every expanded card; tabs were mocked and dropped because eight tools become unlabeled icons. Mocks: `design/mocks/List*.dc.html`.
 - General is a second view inside the same panel behind a back chevron: launch at login, sounds, menubar timer, history toggles, clear history, permissions status, version and updates.
-- Pill: bottom-center, non-activating. Listening (bar meter), transcribing (grows into a card, text types in), pasted (undo hint), recording (timer, dims, Stop).
+- Pill: top-center under the menubar (was bottom-center until 2026-09-15; it sat on top of chat inputs and terminals), non-activating. Listening (bar meter), transcribing (grows into a card, text types in), pasted (undo hint), recording (timer, dims, Stop).
 - Menubar icon: idle glyph, listening mini meter, recording red timer.
 - Region picker: dimmed screen, amber selection with corner brackets and dimension chip, bottom pill toolbar.
 - No onboarding beyond permission prompts. Custom controls (keycaps, chips, toggles, popups) are drawn by us, not AppKit defaults.
@@ -135,10 +135,15 @@ Leftovers closed 2026-09-15: thumbnails, panel spring-in and fade-out (card expa
 - Core gained the row controls from DESIGN.md: `OptionRow`, `OptionRows`, `OptionsGroup`, `ToggleSwitch`, `RowButton`, `PopupButton`/`PopupPicker` with one in-panel dropdown (`PopupController`, drawn by the `popupHost` modifier under the button's anchor, scrolls past 8 rows), and `ShortcutRecorder` (records a modifier hold or a key combo through a local monitor, Escape cancels, combos need ⌘, ⌥ or ⌃).
 - Cards expand in place under "Options" (chevron turns). Voice: model (size from the FluidAudio folder), language, microphone (Core Audio device list; `MicRecorder.deviceUID` sets the audio unit's device), shortcut. Screen: save folder (NSOpenPanel, the panel holds itself open meanwhile), quality, frame rate, system audio, microphone, shortcut. Changing a shortcut re-registers the hotkey; hold key is `voice.holdKey`, combo is `screen.hotkey`, mic is `voice.microphone`.
 - General view behind the back chevron (Escape also goes back): launch at login (SMAppService), sounds (Tink/Pop system sounds on start and stop), menubar timer (off leaves just the dot), keep history (off strips the history action before delivery; detail shows count and the size of the files on disk), transcripts in history (the voice History chip), clear history with inline confirm, permissions summary (click opens the first missing one in System Settings), version with a disabled "Check for updates" until Sparkle.
-- The panel window now spans from the status item to the bottom of the screen and the content is top-aligned, so expanding a card or switching views needs no window resize. Clicks on the empty part of the window close the panel.
+- The panel window spans from the status item to the bottom of the screen and the content is top-aligned, so switching views needs no window resize. Clicks on the empty part of the window close the panel.
 - Panel snapshots use a ScreenCaptureKit window screenshot (`WindowSnapshot`); the view cache went blank once the root had scale and opacity effects. The screenshot can raise the system capture alert, so the options demo holds the panel open.
 
+## History view (done 2026-09-15)
+
+"All N ›" in the Recent header pushes the History view (mock: `design/mocks/History*.dc.html`): search over transcripts and file names (SQLite LIKE with escaped wildcards), All / Voice / Recordings filter (by tool id), rows grouped by day (`DayGroup`: Today, Yesterday, "Tue 8 Sep") with clock times, 20 rows per page and "Show older · N more", delete on hover (removes the log row, never the file). The list scrolls inside the panel; the controller tells the view how tall it may be. Core: `HistoryStore.items(matching:toolID:limit:offset:)` and `count(matching:toolID:)`, `Segmented`, `SearchField`, tests for the query and the day labels.
+
 ## Open items
+- Fifteen-plus tools: the list still grows 52 pt per tool; revisit (grouping, or a compact mode) when it happens.
 - Sparkle and signed builds before anything is shared; "Check for updates" is disabled until then.
 - Panel content taller than the screen (many rows expanded on a small display) is clipped; no scrolling yet.
 - Custom vocabulary, toggle mode and LLM cleanup for voice remain out of scope.
