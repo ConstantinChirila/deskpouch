@@ -51,7 +51,9 @@ final class Shell {
             registerHold(tool)
         }
         overlay.onLevel = { [weak self] level, dt in
-            guard let self else { return }
+            // The meter timer can tick once more between the key release and the transcription task stopping it;
+            // that tick must not paint the meter back over the idle icon.
+            guard let self, state.isListening else { return }
             statusItem.push(level: level, dt: dt)
             state.panelMeter.push(level: level, dt: dt)
         }
