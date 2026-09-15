@@ -38,6 +38,18 @@ public struct PouchIcon: Shape {
     }
 }
 
+/// Check mark: M3 8.5 l3 3 7-7.
+public struct CheckIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 3, y: 8.5))
+        p.addLine(to: CGPoint(x: 6, y: 11.5))
+        p.addLine(to: CGPoint(x: 13, y: 4.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
 public struct GearIcon: Shape {
     public init() {}
     public func path(in rect: CGRect) -> Path {

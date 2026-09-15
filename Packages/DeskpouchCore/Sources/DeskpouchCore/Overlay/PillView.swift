@@ -13,11 +13,26 @@ struct PillRoot: View {
             case .listening:
                 ListeningPill(meter: controller.meter, elapsed: controller.elapsed)
                     .transition(.opacity.combined(with: .offset(y: 8)))
+            case .preparing(let message):
+                PreparingPill(message: message)
+                    .transition(.opacity.combined(with: .offset(y: 8)))
+            case .transcribing(let detail):
+                TranscribingPill(detail: detail)
+                    .transition(.opacity.combined(with: .offset(y: 8)))
+            case .pasted(let target):
+                PastedPill(title: "Pasted into \(target)", hint: "⌘Z to undo")
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            case .copied:
+                PastedPill(title: "Copied", hint: "⌘V to paste")
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            case .failed(let message):
+                FailedPill(message: message)
+                    .transition(.opacity.combined(with: .offset(y: 8)))
             }
         }
         .padding(.bottom, OverlayController.bottomInset)
         .frame(width: OverlayController.canvasSize.width, height: OverlayController.canvasSize.height)
-        .animation(.easeOut(duration: 0.16), value: controller.state)
+        .animation(.easeOut(duration: 0.2), value: controller.state)
     }
 }
 
@@ -42,6 +57,97 @@ struct ListeningPill: View {
     }
 }
 
+/// Preparing: amber ring, pulsing dot, message, sweeping hairline.
+struct PreparingPill: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            PulsingDot(color: Theme.Colors.accent)
+            Text(message)
+                .font(.dp(13, .medium))
+                .foregroundStyle(Theme.Colors.text)
+            ProgressHairline(indeterminate: true)
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, 22)
+        .frame(height: 52)
+        .modifier(PillChrome(ring: Theme.Colors.accent))
+    }
+}
+
+/// Transcribing: amber ring, sweeping hairline, "Transcribing", engine name.
+struct TranscribingPill: View {
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ProgressHairline(indeterminate: true)
+            Text("Transcribing")
+                .font(.dp(13, .medium))
+                .foregroundStyle(Theme.Colors.text)
+            Rectangle().fill(Theme.Colors.tint(0.15)).frame(width: 1, height: 18)
+            Text(detail)
+                .font(.dp(12))
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+        .padding(.leading, 20)
+        .padding(.trailing, 22)
+        .frame(height: 52)
+        .modifier(PillChrome(ring: Theme.Colors.accent))
+    }
+}
+
+/// Pasted or copied: mint ring, check disc, title, hint.
+struct PastedPill: View {
+    let title: String
+    let hint: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            CheckIcon()
+                .stroke(style: .icon(2.4))
+                .foregroundStyle(Theme.Colors.bg)
+                .frame(width: 14, height: 14)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(Theme.Colors.ok))
+                .shadow(color: Theme.Colors.ok(0.5), radius: 7)
+            Text(title)
+                .font(.dp(14, .medium))
+                .foregroundStyle(Theme.Colors.text)
+            Rectangle().fill(Theme.Colors.tint(0.15)).frame(width: 1, height: 18)
+            Text(hint)
+                .font(.dp(12))
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 22)
+        .frame(height: 52)
+        .modifier(PillChrome(ring: Theme.Colors.ok))
+    }
+}
+
+/// Failed: record ring, message.
+struct FailedPill: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Circle()
+                .fill(Theme.Colors.record)
+                .frame(width: 12, height: 12)
+                .shadow(color: Theme.Colors.record(0.9), radius: 7)
+            Text(message)
+                .font(.dp(13, .medium))
+                .foregroundStyle(Theme.Colors.text)
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, 22)
+        .frame(height: 52)
+        .modifier(PillChrome(ring: Theme.Colors.record))
+    }
+}
+
 /// Shared pill surface: panel gradient, 1px ring at 0.40, 6px outer ring at 0.07, inner top highlight, drop shadow.
 struct PillChrome: ViewModifier {
     let ring: Color
@@ -59,6 +165,29 @@ struct PillChrome: ViewModifier {
             }
             .background(Capsule().stroke(ring.opacity(0.07), lineWidth: 6).padding(-3))
             .shadow(color: .black.opacity(0.6), radius: 25, y: 20)
+    }
+}
+
+/// 40x3 amber hairline. Full when determinate, a sweeping segment when indeterminate.
+struct ProgressHairline: View {
+    var indeterminate = false
+    @State private var sweep = false
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Capsule().fill(Theme.Colors.accent(0.2))
+            Capsule()
+                .fill(Theme.Colors.accent)
+                .frame(width: indeterminate ? 16 : 40)
+                .offset(x: indeterminate && sweep ? 24 : 0)
+        }
+        .frame(width: 40, height: 3)
+        .clipShape(Capsule())
+        .task(id: indeterminate) {
+            sweep = false
+            guard indeterminate else { return }
+            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { sweep = true }
+        }
     }
 }
 
@@ -86,5 +215,10 @@ public enum TimeFormat {
     public static func minutesSeconds(_ interval: TimeInterval) -> String {
         let total = max(0, Int(interval.rounded(.down)))
         return "\(total / 60):" + String(format: "%02d", total % 60)
+    }
+
+    /// "0.2s", "1.4s".
+    public static func seconds(_ interval: TimeInterval) -> String {
+        String(format: "%.1fs", max(0, interval))
     }
 }

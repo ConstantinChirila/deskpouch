@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import AVFoundation
 import CoreGraphics
 
 /// TCC checks and prompts. Prompted on first use per tool, never at launch.
@@ -31,6 +32,25 @@ public enum Permissions {
     @discardableResult
     public static func requestInputMonitoring() -> Bool {
         CGRequestListenEventAccess()
+    }
+
+    public enum MicrophoneStatus: Sendable { case granted, denied, undetermined }
+
+    public static var microphone: MicrophoneStatus {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized: .granted
+        case .notDetermined: .undetermined
+        default: .denied
+        }
+    }
+
+    /// Shows the system microphone prompt when undetermined. Returns the resulting grant.
+    public static func requestMicrophone() async -> Bool {
+        await AVCaptureDevice.requestAccess(for: .audio)
+    }
+
+    public static func openMicrophoneSettings() {
+        open("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
     }
 
     public static func openAccessibilitySettings() {

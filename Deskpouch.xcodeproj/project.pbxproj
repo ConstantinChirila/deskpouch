@@ -9,10 +9,12 @@
 /* Begin PBXBuildFile section */
 		0C02628E7259874D7FD35B64 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE7D868125BD06D6B6DD988 /* Shell.swift */; };
 		2454C12D082F109DF2A6FCB3 /* SimulatedLevelSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */; };
+		3636D94CB915309CD63CE378 /* ToolVoice in Frameworks */ = {isa = PBXBuildFile; productRef = 08AD5B64931757A74D91D445 /* ToolVoice */; };
 		55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808C40D7AD0482A78A66418A /* MenuPanelView.swift */; };
 		70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */; };
 		756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3031371CC2D3391D04FE0A /* StatusItemController.swift */; };
 		8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C492790EFEA746C0DA06CA /* MenuPanelController.swift */; };
+		A9CD7C25DE2E0849A2526397 /* WavLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D081FAD61856D394B8A0F03 /* WavLoader.swift */; };
 		BC438519774B40BE0317DA8D /* DeskpouchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5C940766A0F276D2FACFCF8B /* DeskpouchCore */; };
 		E8553035E576409669FDD8C9 /* ShellState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 117EB870727BF3B8BEC6B23D /* ShellState.swift */; };
 /* End PBXBuildFile section */
@@ -20,13 +22,16 @@
 /* Begin PBXFileReference section */
 		117EB870727BF3B8BEC6B23D /* ShellState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellState.swift; sourceTree = "<group>"; };
 		19DE6D2757F545337C4910C3 /* Deskpouch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deskpouch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		21C511F9445B0D2F2566D16C /* ToolVoice */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolVoice; path = Packages/ToolVoice; sourceTree = SOURCE_ROOT; };
 		3CE7D868125BD06D6B6DD988 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
 		60C492790EFEA746C0DA06CA /* MenuPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelController.swift; sourceTree = "<group>"; };
 		6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedLevelSource.swift; sourceTree = "<group>"; };
+		6D081FAD61856D394B8A0F03 /* WavLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WavLoader.swift; sourceTree = "<group>"; };
 		6D3031371CC2D3391D04FE0A /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		808C40D7AD0482A78A66418A /* MenuPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelView.swift; sourceTree = "<group>"; };
 		9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCore; path = Packages/DeskpouchCore; sourceTree = SOURCE_ROOT; };
 		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		"TEMP_761E5BB9-F3CC-4FDF-867B-D00BC599B0D1" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -35,6 +40,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BC438519774B40BE0317DA8D /* DeskpouchCore in Frameworks */,
+				3636D94CB915309CD63CE378 /* ToolVoice in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -49,6 +55,7 @@
 				117EB870727BF3B8BEC6B23D /* ShellState.swift */,
 				6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */,
 				6D3031371CC2D3391D04FE0A /* StatusItemController.swift */,
+				6D081FAD61856D394B8A0F03 /* WavLoader.swift */,
 				2E898B456655F7D72E47469A /* MenuPanel */,
 			);
 			path = App;
@@ -84,8 +91,17 @@
 			isa = PBXGroup;
 			children = (
 				9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */,
+				21C511F9445B0D2F2566D16C /* ToolVoice */,
 			);
 			path = Packages;
+			sourceTree = "<group>";
+		};
+		"TEMP_724B388A-3F9E-4195-978D-395932F9E3EF" /* deskpouch */ = {
+			isa = PBXGroup;
+			children = (
+				"TEMP_761E5BB9-F3CC-4FDF-867B-D00BC599B0D1" /* Signing.xcconfig */,
+			);
+			path = deskpouch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -105,6 +121,7 @@
 			name = Deskpouch;
 			packageProductDependencies = (
 				5C940766A0F276D2FACFCF8B /* DeskpouchCore */,
+				08AD5B64931757A74D91D445 /* ToolVoice */,
 			);
 			productName = Deskpouch;
 			productReference = 19DE6D2757F545337C4910C3 /* Deskpouch.app */;
@@ -136,6 +153,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0360330C54A5569B7F57133A /* XCLocalSwiftPackageReference "Packages/DeskpouchCore" */,
+				92BDEAE78AC14603D825DCB4 /* XCLocalSwiftPackageReference "Packages/ToolVoice" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 229E38A5B546E2C06CA0783E /* Products */;
@@ -159,6 +177,7 @@
 				E8553035E576409669FDD8C9 /* ShellState.swift in Sources */,
 				2454C12D082F109DF2A6FCB3 /* SimulatedLevelSource.swift in Sources */,
 				756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */,
+				A9CD7C25DE2E0849A2526397 /* WavLoader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -186,6 +205,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_761E5BB9-F3CC-4FDF-867B-D00BC599B0D1" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -218,7 +238,6 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
@@ -251,6 +270,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_761E5BB9-F3CC-4FDF-867B-D00BC599B0D1" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -283,7 +303,6 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
@@ -367,9 +386,17 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/DeskpouchCore;
 		};
+		92BDEAE78AC14603D825DCB4 /* XCLocalSwiftPackageReference "Packages/ToolVoice" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/ToolVoice;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		08AD5B64931757A74D91D445 /* ToolVoice */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ToolVoice;
+		};
 		5C940766A0F276D2FACFCF8B /* DeskpouchCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DeskpouchCore;

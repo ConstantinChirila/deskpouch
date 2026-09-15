@@ -60,7 +60,7 @@ Shadows: panel `0 30px 70px rgba(0,0,0,0.65), 0 8px 20px rgba(0,0,0,0.4)` plus `
 - **Row controls**: popup (26 tall, tint fill 0.06, border 0.14, chevron), toggle (28x17, amber when on, knob accent ink), button (same as popup, no chevron).
 - **Recent row**: 44x30 tile left (mic tile: amber 0.14 fill, 0.25 border, amber-high icon; recording: thumbnail with duration badge), title 13/500 truncated, meta 11 faint, 28px action button right.
 - **Meter**: vertical bars 3 wide, 3 or 4 gap, fully rounded, amber. Panel 20 bars, pill 25 bars, menubar 7 bars at 2 wide.
-- **Pill**: 52 tall, bottom-center, non-activating. States: listening (amber ring, pulsing dot, meter, timer), transcribing (grows to a 440 card, 15/500 text typing with amber caret, progress hairline), pasted (mint ring, mint check disc, "Pasted into X", undo hint), recording (record ring, pulsing dot, timer, dims, Stop button in text colour with bg ink).
+- **Pill**: 52 tall, bottom-center, non-activating. States: listening (amber ring, pulsing dot, meter, timer), transcribing (amber ring, sweeping hairline, "Transcribing", engine name; stays a pill, no transcript preview: decided 2026-09-15), pasted (mint ring, mint check disc, "Pasted into X", undo hint), recording (record ring, pulsing dot, timer, dims, Stop button in text colour with bg ink).
 - **Menubar icon**: idle pouch glyph; listening amber pill with a 7-bar meter; recording pink pill with bg-ink dot and timer (ink, not white, for contrast).
 - **Region picker**: dim `rgba(4,8,6,0.62)`, selection amber 2px border with 4px ring and glow, cream corner brackets, amber dimension chip, bottom pill toolbar with segmented Region/Window/Screen, round audio toggles, cream Record button with return hint.
 
@@ -68,5 +68,5 @@ Shadows: panel `0 30px 70px rgba(0,0,0,0.65), 0 8px 20px rgba(0,0,0,0.4)` plus `
 
 - Panel: spring in from the menubar icon, 220ms, slight scale from 0.96.
 - Card expand: height animates, chevron rotates, 180ms ease-out.
-- Pill: listening to transcribing morphs radius from 999 to 20 and grows height, 200ms. Transcribing to pasted shrinks back. Pasted auto-dismisses after 1.2s.
+- Pill: states cross-fade in place, 200ms. Pasted auto-dismisses after 1.2s.
 - Meter bars: driven by live audio level, 30fps, with 80ms decay.

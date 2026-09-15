@@ -84,6 +84,26 @@ Design direction settled 2026-09-14: "Mint ground, amber accent", custom chrome.
 
 The `Tool` protocol starts as a stub for voice and gets reshaped by the second tool. Do not design it upfront.
 
+## Status (2026-09-15)
+
+Milestones 1 and 2 are implemented and working on the dev machine. Nothing committed yet: first job of the next session is two commits, one per milestone. `README.md` has build, permissions, and verification instructions.
+
+Decisions made while implementing:
+- Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
+- Builds sign with a local self-signed "Deskpouch Dev" certificate (`scripts/make-dev-cert.sh`, identity in `Signing.xcconfig`) so TCC grants survive rebuilds.
+- Pill after release: "Transcribing" loader, immediate paste, short "Pasted into X". No transcript preview (design/DESIGN.md updated). A "Copied" state covers the no-target case; it never pastes into Deskpouch's own panel.
+- Voice language is a persisted hint (`voice.language`, ISO 639-1, default system language) passed to Parakeet's decoder so names do not drift scripts. UI for it comes in milestone 5.
+- `Tool` protocol v1: id, name, holdKey, `attach(ToolContext)`, `holdBegan`, `holdEnded`. Shell owns copy and paste via `OutputPipeline`.
+- Superwhisper on the same machine also reacts to Right Option; quit it while testing.
+
+## Milestone 3 spec: history and after-capture actions
+
+- SQLite at `~/Library/Application Support/Deskpouch/history.sqlite`, plain SQLite (no ORM, no CoreData). Table `results`: id, tool_id, created_at, text, file_path, duration, pasted_into. Decision pending user confirmation; SwiftData is the alternative.
+- `OutputPipeline` becomes configurable per tool: copy, paste, save to folder, reveal in Finder, run shell command, notify. Voice default: paste + copy. Recorder default: save + copy file + notify.
+- Panel: chips row on the Voice card (Paste, Copy, History, Notify) driving those actions; "Recent" section with the last 3 results as tiles (mic tile + copy action for transcripts) and a total count.
+- "Keep transcripts in history" toggle, default on, honoured before any build is shared.
+- Tests on Core: history store round trip, pipeline action ordering.
+
 ## Open items
 - Default hotkeys for screen recorder.
 - Output folder name and location (likely `~/Movies/Deskpouch` for video, transcripts in history only).

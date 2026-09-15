@@ -90,7 +90,6 @@ struct MenuPanelView: View {
 /// Voice tool card. Active (amber) while listening. Meter well shows the live meter.
 struct VoiceCard: View {
     let state: ShellState
-    @State private var meter = LevelMeterModel(barCount: 20)
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
@@ -114,11 +113,12 @@ struct VoiceCard: View {
                 }
             }
             HStack(spacing: 12) {
-                MeterView(levels: meter.bars, barWidth: 3, gap: 3, minHeight: 4, maxHeight: 24, color: Theme.Colors.accent)
+                MeterView(levels: state.panelMeter.bars, barWidth: 3, gap: 3, minHeight: 4, maxHeight: 24, color: Theme.Colors.accent)
                 Spacer()
-                Text(state.holdKey.displayName)
+                Text(state.voiceStatus)
                     .font(.dp(11))
                     .foregroundStyle(Theme.Colors.textFaint)
+                    .lineLimit(1)
             }
             .padding(.horizontal, 14)
             .frame(height: 44)
@@ -148,17 +148,8 @@ struct VoiceCard: View {
         )
         .overlay(shape.strokeBorder(state.isListening ? Theme.Colors.accent(0.30) : Theme.Colors.tint(0.10), lineWidth: 1))
         .animation(.easeOut(duration: 0.18), value: state.isListening)
-        .task(id: state.isListening) {
-            guard state.isListening else {
-                meter.reset()
-                return
-            }
-            // Panel meter idles on a gentle simulated signal until real audio arrives in milestone 2.
-            var source = SimulatedLevelSource()
-            while !Task.isCancelled {
-                meter.push(level: source.next(), dt: 1 / 30)
-                try? await Task.sleep(for: .milliseconds(33))
-            }
+        .onChange(of: state.isListening) { _, listening in
+            if !listening { state.panelMeter.reset() }
         }
     }
 

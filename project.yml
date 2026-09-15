@@ -14,8 +14,7 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "15.0"
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: YES
-    # Unsigned local builds for now (see PLAN.md, Distribution).
-    CODE_SIGN_IDENTITY: "-"
+    # Unsigned local builds for now (see PLAN.md, Distribution). Identity comes from Signing.xcconfig.
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
     ENABLE_HARDENED_RUNTIME: NO
@@ -25,6 +24,12 @@ settings:
 packages:
   DeskpouchCore:
     path: Packages/DeskpouchCore
+  ToolVoice:
+    path: Packages/ToolVoice
+
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
 
 targets:
   Deskpouch:
@@ -37,6 +42,7 @@ targets:
           - "*.entitlements"
     dependencies:
       - package: DeskpouchCore
+      - package: ToolVoice
     info:
       path: App/Info.plist
       properties:

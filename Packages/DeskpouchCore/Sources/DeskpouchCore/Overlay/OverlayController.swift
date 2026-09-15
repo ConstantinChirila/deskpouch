@@ -9,16 +9,26 @@ private let overlayLog = Logger(subsystem: "com.constantinchirila.deskpouch", ca
 @MainActor
 @Observable
 public final class OverlayController {
+    public typealias LevelProvider = @MainActor () -> Float
+
     public private(set) var state: PillState = .hidden
     public let meter = LevelMeterModel(barCount: 25)
     public private(set) var elapsed: TimeInterval = 0
 
+    /// Called on every meter tick while listening, so other meters (menubar, panel) can follow.
+    @ObservationIgnored public var onLevel: (@MainActor (Float, TimeInterval) -> Void)?
+
     @ObservationIgnored private let panel = OverlayPanel()
     @ObservationIgnored private var startedAt: Date?
+    @ObservationIgnored private var lastTick: Date?
+    @ObservationIgnored private var ticker: Timer?
+    @ObservationIgnored private var levelProvider: LevelProvider?
+    @ObservationIgnored private var autoHide: Task<Void, Never>?
 
     /// Canvas around the pill so shadows and the transcribing card have room.
-    static let canvasSize = CGSize(width: 560, height: 160)
+    static let canvasSize = CGSize(width: 560, height: 200)
     static let bottomInset: CGFloat = 48
+    static let tickInterval: TimeInterval = 1 / 30
 
     public init() {
         let hosting = NSHostingView(rootView: PillRoot(controller: self))
@@ -27,40 +37,60 @@ public final class OverlayController {
         panel.setContentSize(Self.canvasSize)
     }
 
-    public func showListening() {
+    /// Listening state with a 30 fps meter pulled from `levelProvider`.
+    public func showListening(levelProvider: @escaping LevelProvider) {
         meter.reset()
         startedAt = Date()
+        lastTick = startedAt
         elapsed = 0
+        self.levelProvider = levelProvider
+        show(.listening)
+        ticker?.invalidate()
+        let timer = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
+    }
+
+    /// Any state. Cancels a pending auto-hide; stops the meter unless listening.
+    public func show(_ newState: PillState) {
+        autoHide?.cancel()
+        autoHide = nil
+        if !newState.isListening { stopTicker() }
         place()
-        // The window animator does not reliably fade a freshly ordered-in panel; SwiftUI animates the content instead.
         panel.alphaValue = 1
         if !panel.isVisible {
             panel.orderFrontRegardless()
         }
-        withAnimation(.easeOut(duration: 0.16)) {
-            state = .listening
+        withAnimation(.easeOut(duration: 0.2)) {
+            state = newState
         }
-        overlayLog.info("show listening: frame=\(String(describing: self.panel.frame), privacy: .public) visible=\(self.panel.isVisible) alpha=\(self.panel.alphaValue)")
+        overlayLog.info("show \(String(describing: newState), privacy: .public)")
+    }
+
+    /// Shows a state, then hides after `delay`. Used for "pasted" and errors.
+    public func flash(_ newState: PillState, for delay: Duration = .seconds(1.2)) {
+        show(newState)
+        autoHide = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            self?.hide()
+        }
     }
 
     public func hide() {
+        autoHide?.cancel()
+        autoHide = nil
+        stopTicker()
         overlayLog.info("hide")
         withAnimation(.easeOut(duration: 0.16)) {
             state = .hidden
         }
-        startedAt = nil
         // Let the SwiftUI exit transition play, then take the window off screen.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self, self.state == .hidden else { return }
             self.panel.orderOut(nil)
-        }
-    }
-
-    /// Feed a raw level (0...1) after `dt` seconds. Drives the meter and the timer.
-    public func push(level: Float, dt: TimeInterval) {
-        meter.push(level: level, dt: dt)
-        if let startedAt {
-            elapsed = Date().timeIntervalSince(startedAt)
         }
     }
 
@@ -74,7 +104,24 @@ public final class OverlayController {
         return image
     }
 
-    /// Bottom-centre of the screen under the mouse, canvas bottom `bottomInset` above the dock.
+    private func tick() {
+        let now = Date()
+        let dt = lastTick.map { now.timeIntervalSince($0) } ?? Self.tickInterval
+        lastTick = now
+        let level = levelProvider?() ?? 0
+        meter.push(level: level, dt: dt)
+        if let startedAt { elapsed = now.timeIntervalSince(startedAt) }
+        onLevel?(level, dt)
+    }
+
+    private func stopTicker() {
+        ticker?.invalidate()
+        ticker = nil
+        levelProvider = nil
+        startedAt = nil
+    }
+
+    /// Bottom-centre of the screen under the mouse, canvas bottom above the dock.
     private func place() {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main ?? NSScreen.screens[0]

@@ -1,74 +1,83 @@
 import AppKit
 import DeskpouchCore
+import ToolVoice
 
-/// Composition root. Owns hotkeys, overlay, status item and the menubar panel.
-/// Tools plug in here from milestone 2 on.
+/// Composition root. Owns hotkeys, overlay, output pipeline, status item, the menubar panel and the tools.
 @MainActor
 final class Shell {
     let state = ShellState()
     private let hotkeys = HotkeyCenter()
     private let overlay = OverlayController()
+    private let pipeline = OutputPipeline()
     private let statusItem = StatusItemController()
     private lazy var panel = MenuPanelController(state: state, actions: panelActions)
 
-    private var ticker: Timer?
-    private var lastTick: Date?
-    private var levelSource = SimulatedLevelSource()
+    private let voice = VoiceTool()
+    private var tools: [Tool] { [voice] }
+
     private var permissionPoll: Timer?
 
     init() {}
 
     func start() {
-        hotkeys.registerHold(state.holdKey) { [weak self] phase in
-            switch phase {
-            case .pressed: self?.beginListening()
-            case .released: self?.endListening()
+        let context = ToolContext(overlay: overlay) { [weak self] result in
+            self?.deliver(result)
+        }
+        for tool in tools {
+            tool.attach(context)
+            if let key = tool.holdKey {
+                hotkeys.registerHold(key) { [weak self, weak tool] phase in
+                    guard let self, let tool else { return }
+                    switch phase {
+                    case .pressed:
+                        state.isListening = true
+                        statusItem.beginListening()
+                        tool.holdBegan()
+                    case .released:
+                        state.isListening = false
+                        statusItem.showIdle()
+                        tool.holdEnded()
+                    }
+                }
             }
         }
+        overlay.onLevel = { [weak self] level, dt in
+            guard let self else { return }
+            statusItem.push(level: level, dt: dt)
+            state.panelMeter.push(level: level, dt: dt)
+        }
+        voice.onStatus = { [weak self] text in
+            self?.state.voiceStatus = text
+        }
+        state.holdKey = voice.holdKey ?? .rightOption
         statusItem.onClick = { [weak self] button in
             self?.panel.toggle(relativeTo: button)
         }
         statusItem.showIdle()
         startHotkeysOrWait()
+        voice.warmUp()
         runDemoIfRequested()
     }
 
-    /// `DESKPOUCH_DEMO=pill` shows the listening state and the panel for a few seconds at launch.
-    /// With `DESKPOUCH_DEMO_OUT=<dir>` it also writes PNGs of both. Design review only.
-    private func runDemoIfRequested() {
-        let env = ProcessInfo.processInfo.environment
-        guard env["DESKPOUCH_DEMO"] == "pill" else { return }
-        let out = env["DESKPOUCH_DEMO_OUT"].map { URL(fileURLWithPath: $0, isDirectory: true) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            guard let self else { return }
-            beginListening()
-            if let button = statusItem.button { panel.open(relativeTo: button) }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            guard let self, let out else { return }
-            Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill.png"))
-            Self.writePNG(panel.debugSnapshot(), to: out.appending(path: "app-panel.png"))
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
-            self?.endListening()
-            self?.panel.close()
-        }
-    }
-
-    private static func writePNG(_ image: NSImage?, to url: URL) {
-        guard let image, let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else {
-            NSLog("deskpouch demo: could not encode %@", url.lastPathComponent)
-            return
-        }
-        do { try png.write(to: url) } catch { NSLog("deskpouch demo: write failed %@", "\(error)") }
-    }
-
     func stop() {
-        endListening()
         hotkeys.stop()
         permissionPoll?.invalidate()
+    }
+
+    // MARK: Output
+
+    private func deliver(_ result: ToolResult) {
+        Task { [weak self] in
+            guard let self else { return }
+            let delivery = await pipeline.deliver(result)
+            if let target = delivery.pastedInto {
+                overlay.flash(.pasted(target: target))
+            } else if delivery.copied {
+                overlay.flash(.copied)
+            } else {
+                overlay.hide()
+            }
+        }
     }
 
     // MARK: Hotkey permission
@@ -93,50 +102,102 @@ final class Shell {
         MenuPanelActions(
             requestPermission: { [weak self] in
                 guard let self else { return }
-                if !Permissions.accessibilityGranted {
-                    Permissions.requestAccessibility()
-                    Permissions.openAccessibilitySettings()
-                } else {
-                    // Accessibility is on but the tap still failed: fall back to Input Monitoring.
-                    Permissions.requestInputMonitoring()
-                    Permissions.openInputMonitoringSettings()
-                }
+                Permissions.requestAccessibility()
+                Permissions.openAccessibilitySettings()
                 startHotkeysOrWait()
             },
             quit: { NSApp.terminate(nil) }
         )
     }
 
-    // MARK: Listening
+    // MARK: Demo
 
-    private func beginListening() {
-        guard !state.isListening else { return }
-        state.isListening = true
-        levelSource = SimulatedLevelSource()
-        overlay.showListening()
-        statusItem.beginListening()
-        lastTick = Date()
-        ticker = Timer.scheduledTimer(withTimeInterval: 1 / 30, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.tick() }
+    /// `DESKPOUCH_DEMO=pill` shows the listening state and the panel for a few seconds at launch.
+    /// With `DESKPOUCH_DEMO_OUT=<dir>` it also writes PNGs of both. Design review only.
+    private func runDemoIfRequested() {
+        let env = ProcessInfo.processInfo.environment
+        let out = env["DESKPOUCH_DEMO_OUT"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        if env["DESKPOUCH_DEMO"] == "states" {
+            runStatesDemo(out: out)
+            return
         }
-        RunLoop.main.add(ticker!, forMode: .common)
+        if env["DESKPOUCH_DEMO"] == "transcribe", let wav = env["DESKPOUCH_DEMO_WAV"] {
+            runTranscribeDemo(wav: URL(fileURLWithPath: wav), out: out)
+            return
+        }
+        guard env["DESKPOUCH_DEMO"] == "pill" else { return }
+        var source = SimulatedLevelSource()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self else { return }
+            state.isListening = true
+            statusItem.beginListening()
+            overlay.showListening { source.next() }
+            if let button = statusItem.button { panel.open(relativeTo: button) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self, let out else { return }
+            Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill.png"))
+            Self.writePNG(panel.debugSnapshot(), to: out.appending(path: "app-panel.png"))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            guard let self else { return }
+            state.isListening = false
+            statusItem.showIdle()
+            overlay.hide()
+            panel.close()
+        }
     }
 
-    private func endListening() {
-        guard state.isListening else { return }
-        state.isListening = false
-        ticker?.invalidate()
-        ticker = nil
-        overlay.hide()
-        statusItem.showIdle()
+    /// `DESKPOUCH_DEMO=states` walks every pill state, 1.6 s each, dumping a PNG per state.
+    private func runStatesDemo(out: URL?) {
+        let states: [(String, PillState)] = [
+            ("preparing", .preparing("Downloading model · 42%")),
+            ("transcribing", .transcribing(detail: "Parakeet v3")),
+            ("pasted", .pasted(target: "Slack")),
+            ("copied", .copied),
+            ("failed", .failed("Nothing heard")),
+        ]
+        for (i, (name, state)) in states.enumerated() {
+            let t = 1 + Double(i) * 1.6
+            DispatchQueue.main.asyncAfter(deadline: .now() + t) { [weak self] in
+                self?.overlay.show(state)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + t + 1.3) { [weak self] in
+                guard let self, let out else { return }
+                Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "state-\(name).png"))
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1 + Double(states.count) * 1.6) { [weak self] in
+            self?.overlay.hide()
+        }
     }
 
-    private func tick() {
-        let now = Date()
-        let dt = lastTick.map { now.timeIntervalSince($0) } ?? 1 / 30
-        lastTick = now
-        let level = levelSource.next()
-        overlay.push(level: level, dt: dt)
-        statusItem.push(level: level, dt: dt)
+    /// `DESKPOUCH_DEMO=transcribe` with `DESKPOUCH_DEMO_WAV=<16 kHz mono float wav>` runs the engine on a file.
+    /// Shows the pill states, logs the transcript, never pastes.
+    private func runTranscribeDemo(wav: URL, out: URL?) {
+        Task { [weak self] in
+            guard let self else { return }
+            guard let samples = WavLoader.samples16kMono(wav) else {
+                NSLog("deskpouch demo: could not read %@ as 16 kHz mono float", wav.path)
+                return
+            }
+            try? await Task.sleep(for: .seconds(1))
+            let text = await voice.debugTranscribe(samples)
+            NSLog("deskpouch demo: transcript = %@", text ?? "<nil>")
+            if let out { Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "demo-transcript.png")) }
+            if let out, let text { try? text.write(to: out.appending(path: "demo-transcript.txt"), atomically: true, encoding: .utf8) }
+            try? await Task.sleep(for: .seconds(1))
+            overlay.hide()
+        }
+    }
+
+    private static func writePNG(_ image: NSImage?, to url: URL) {
+        guard let image, let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else {
+            NSLog("deskpouch demo: could not encode %@", url.lastPathComponent)
+            return
+        }
+        do { try png.write(to: url) } catch { NSLog("deskpouch demo: write failed %@", "\(error)") }
     }
 }

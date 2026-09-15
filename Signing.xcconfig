@@ -1,0 +1,2 @@
+// Local signing identity. "-" is ad-hoc. scripts/make-dev-cert.sh switches this to a stable self-signed certificate.
+CODE_SIGN_IDENTITY = Deskpouch Dev
