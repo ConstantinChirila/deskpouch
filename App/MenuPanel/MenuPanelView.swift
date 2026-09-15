@@ -659,6 +659,15 @@ struct GeneralView: View {
                 OptionRow("Show timer in menubar", detail: "While recording") {
                     ToggleSwitch(isOn: Binding(get: { state.general.menubarTimer }, set: { state.general.menubarTimer = $0 }))
                 }
+                OptionRow("Pill position", detail: "Listening and recording") {
+                    PopupPicker(
+                        id: "general.pill",
+                        selection: Binding(get: { state.general.pillPosition }, set: { actions.setPillPosition($0) }),
+                        options: PillPosition.allCases,
+                        title: { $0 == .top ? "Top" : "Bottom" },
+                        detail: { $0 == .top ? "under the menubar" : "above the Dock" }
+                    )
+                }
             }
             OptionsGroup {
                 OptionRow("Keep history", detail: historyDetail) {

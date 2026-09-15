@@ -44,7 +44,7 @@ The panel's engine line shows the active code, e.g. "Parakeet v3 · EN". Takes e
 
 ## History and after-capture actions
 
-Every capture that has the History chip on is logged to `~/Library/Application Support/Deskpouch/history.sqlite` (plain SQLite, table `results`). The panel shows the last 5 under Recent with a total count; the copy button puts the transcript back on the clipboard, double-click reveals a recording in Finder. The "All N ›" link in the Recent header opens History: search, an All / Voice / Recordings filter, rows grouped by day, "Show older" for the next page, and a delete button on hover that removes the row and keeps the file. General (footer of the panel) has the global "Keep history" switch, the count and size, and "Clear…".
+Every capture that has the History chip on is logged to `~/Library/Application Support/Deskpouch/history.sqlite` (plain SQLite, table `results`). The panel shows the last 5 under Recent with a total count; the copy button puts the transcript back on the clipboard, double-click reveals a recording in Finder. The "All N ›" link in the Recent header opens History: search, an All / Voice / Recordings filter, rows grouped by day, "Show older" for the next page, and a delete button on hover that removes the row and keeps the file. General (footer of the panel) has the global "Keep history" switch, the count and size, "Clear…", and the pill position (top under the menubar, or bottom above the Dock).
 
 The chips in the Voice view (Paste, Copy, History) are the after-capture actions for that tool, stored as JSON in `defaults` under `output.voice`. Paste with Copy off still uses the pasteboard for ⌘V, then restores what was there. Save to folder, reveal and shell command exist in the pipeline but have no UI yet.
 

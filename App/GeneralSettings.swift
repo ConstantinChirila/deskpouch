@@ -1,3 +1,4 @@
+import DeskpouchCore
 import Foundation
 import Observation
 import ServiceManagement
@@ -16,6 +17,8 @@ final class GeneralSettings {
     var menubarTimer: Bool { didSet { defaults.set(menubarTimer, forKey: Key.menubarTimer) } }
     /// Off means the pipeline never writes a history row, whatever the tools' chips say.
     var keepHistory: Bool { didSet { defaults.set(keepHistory, forKey: Key.keepHistory) } }
+    /// Where the listening and recording pill floats.
+    var pillPosition: PillPosition { didSet { defaults.set(pillPosition.rawValue, forKey: Key.pillPosition) } }
     /// Mirror of `SMAppService.mainApp.status`; refreshed by `refreshLaunchAtLogin()`.
     private(set) var launchAtLogin = false
 
@@ -25,6 +28,7 @@ final class GeneralSettings {
         static let sounds = "general.sounds"
         static let menubarTimer = "general.menubarTimer"
         static let keepHistory = "general.keepHistory"
+        static let pillPosition = "general.pillPosition"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -32,6 +36,7 @@ final class GeneralSettings {
         sounds = defaults.object(forKey: Key.sounds) == nil ? true : defaults.bool(forKey: Key.sounds)
         menubarTimer = defaults.object(forKey: Key.menubarTimer) == nil ? true : defaults.bool(forKey: Key.menubarTimer)
         keepHistory = defaults.object(forKey: Key.keepHistory) == nil ? true : defaults.bool(forKey: Key.keepHistory)
+        pillPosition = defaults.string(forKey: Key.pillPosition).flatMap(PillPosition.init(rawValue:)) ?? .top
         refreshLaunchAtLogin()
     }
 

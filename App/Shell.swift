@@ -60,6 +60,7 @@ final class Shell {
         voice.onStatus = { [weak self] text in
             self?.state.voiceStatus = text
         }
+        overlay.position = state.general.pillPosition
         state.holdKey = voice.holdKey ?? .rightOption
         state.screenKey = screen.pressKey ?? .commandShift6
         state.screenStatus = screen.settings.summary
@@ -372,6 +373,11 @@ final class Shell {
             },
             chooseFolder: { [weak self] in self?.chooseFolder() },
             setLaunchAtLogin: { [weak self] on in self?.state.general.setLaunchAtLogin(on) },
+            setPillPosition: { [weak self] position in
+                guard let self else { return }
+                state.general.pillPosition = position
+                overlay.position = position
+            },
             clearHistory: { [weak self] in self?.clearHistory() },
             loadHistory: { [weak self] more in self?.loadHistory(more: more) },
             deleteHistory: { [weak self] item in self?.deleteHistory(item) },

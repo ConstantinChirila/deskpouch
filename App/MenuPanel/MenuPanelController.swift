@@ -16,6 +16,7 @@ struct MenuPanelActions {
     var updateRecorder: @MainActor ((inout RecorderSettings) -> Void) -> Void
     var chooseFolder: @MainActor () -> Void
     var setLaunchAtLogin: @MainActor (Bool) -> Void
+    var setPillPosition: @MainActor (PillPosition) -> Void
     var clearHistory: @MainActor () -> Void
     /// Reloads the History rows for the current query and filter (`more` appends the next page).
     var loadHistory: @MainActor (_ more: Bool) -> Void

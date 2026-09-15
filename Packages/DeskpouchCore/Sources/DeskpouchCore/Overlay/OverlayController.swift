@@ -5,6 +5,21 @@ import os
 
 private let overlayLog = Logger(subsystem: "com.constantinchirila.deskpouch", category: "overlay")
 
+/// Where the pill floats on the screen under the mouse.
+public enum PillPosition: String, CaseIterable, Codable, Sendable {
+    /// Centred just under the menubar. Default: chat inputs and terminals live at the bottom.
+    case top
+    /// Centred just above the Dock.
+    case bottom
+
+    public var label: String {
+        switch self {
+        case .top: "Top, under the menubar"
+        case .bottom: "Bottom, above the Dock"
+        }
+    }
+}
+
 /// Owns the floating pill: one panel, one state, one meter. Tools push state; the shell positions it.
 @MainActor
 @Observable
@@ -17,6 +32,10 @@ public final class OverlayController {
     /// Window size. The default canvas leaves room for shadows; while recording it shrinks to the pill so the
     /// clickable window covers as little of the screen as possible.
     private(set) var canvasSize = OverlayController.defaultCanvasSize
+    /// Applied on the next show; a visible pill moves right away.
+    public var position: PillPosition = .top {
+        didSet { if state != .hidden { place() } }
+    }
 
     /// Called on every meter tick while listening, so other meters (menubar, panel) can follow.
     @ObservationIgnored public var onLevel: (@MainActor (Float, TimeInterval) -> Void)?
@@ -32,8 +51,8 @@ public final class OverlayController {
     /// Canvas around the pill so shadows have room. The pill sits at the top of the canvas; the shadow falls below it.
     static let defaultCanvasSize = CGSize(width: 560, height: 140)
     static let topInset: CGFloat = 12
-    /// Gap between the menubar and the pill.
-    static let menubarGap: CGFloat = 10
+    /// Gap between the menubar (or the Dock) and the pill.
+    static let edgeGap: CGFloat = 10
     /// Room either side of the recording pill for its ring and glow.
     static let recordingMargin: CGFloat = 24
     static let tickInterval: TimeInterval = 1 / 30
@@ -173,16 +192,16 @@ public final class OverlayController {
         CGPoint(x: panel.frame.midX, y: panel.frame.maxY - Self.topInset - 26)
     }
 
-    /// Top-centre of the screen under the mouse, just under the menubar: away from chat inputs and terminals,
-    /// which live at the bottom of most windows.
+    /// Centred on the screen under the mouse, at the chosen edge. The pill is always at the top of its canvas
+    /// (the shadow needs the room below), so at the bottom the canvas is placed pill-first above the Dock.
     private func place() {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main ?? NSScreen.screens[0]
         let visible = screen.visibleFrame
-        let origin = CGPoint(
-            x: visible.midX - canvasSize.width / 2,
-            y: visible.maxY - Self.menubarGap + Self.topInset - canvasSize.height
-        )
-        panel.setFrameOrigin(origin)
+        let y: CGFloat = switch position {
+        case .top: visible.maxY - Self.edgeGap + Self.topInset - canvasSize.height
+        case .bottom: visible.minY + Self.edgeGap + Self.topInset + 52 - canvasSize.height
+        }
+        panel.setFrameOrigin(CGPoint(x: visible.midX - canvasSize.width / 2, y: y))
     }
 }
