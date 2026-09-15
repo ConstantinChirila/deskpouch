@@ -1,7 +1,7 @@
 import DeskpouchCore
 import SwiftUI
 
-/// Milestone 1 panel: header, the voice card shell, footer. Recent and General arrive in later milestones.
+/// The panel: header, voice card, Recent, footer. General arrives in milestone 5.
 struct MenuPanelView: View {
     let state: ShellState
     let actions: MenuPanelActions
@@ -12,7 +12,10 @@ struct MenuPanelView: View {
             if !state.hotkeyReady {
                 PermissionCard(action: actions.requestPermission)
             }
-            VoiceCard(state: state)
+            VoiceCard(state: state, actions: actions)
+            if !state.recent.isEmpty {
+                RecentSection(items: state.recent, count: state.historyCount, copy: actions.copyRecent)
+            }
             footer
         }
         .padding(18)
@@ -87,9 +90,14 @@ struct MenuPanelView: View {
     }
 }
 
-/// Voice tool card. Active (amber) while listening. Meter well shows the live meter.
+/// Voice tool card. Active (amber) while listening. Meter well shows the live meter; chips pick after-capture actions.
 struct VoiceCard: View {
     let state: ShellState
+    let actions: MenuPanelActions
+
+    static let toolID = "voice"
+    /// Notify is left out on purpose: the pill already says what happened. The recorder will use it.
+    static let chips: [OutputAction] = [.paste, .copy, .history]
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
@@ -130,6 +138,7 @@ struct VoiceCard: View {
                 RoundedRectangle(cornerRadius: Theme.Radius.well, style: .continuous)
                     .strokeBorder(Theme.Colors.tint(0.08), lineWidth: 1)
             )
+            chipRow
         }
         .padding(16)
         .background(shape.fill(Theme.Colors.card))
@@ -153,6 +162,29 @@ struct VoiceCard: View {
         }
     }
 
+    private var chipRow: some View {
+        let enabled = state.output.config(for: Self.toolID).actions
+        return FlowLayout(spacing: 6, trailingLast: true) {
+            ForEach(Self.chips, id: \.self) { action in
+                Chip(action.label, isOn: enabled.contains(action)) {
+                    actions.toggleOutput(Self.toolID, action)
+                }
+            }
+            HStack(spacing: 4) {
+                Text("Options")
+                ChevronIcon()
+                    .stroke(style: .icon(1.4))
+                    .frame(width: 10, height: 10)
+            }
+            .font(.dp(12))
+            .foregroundStyle(Theme.Colors.textSecondary)
+            .fixedSize()
+            .padding(.horizontal, 6)
+            .frame(height: 26)
+            .opacity(0.5) // Milestone 5
+        }
+    }
+
     private var iconTile: some View {
         let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
         return MicIcon()
@@ -171,6 +203,110 @@ struct VoiceCard: View {
                     .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
             }
             .shadow(color: Theme.Colors.accent(0.35), radius: 8, y: 6)
+    }
+}
+
+/// "Recent" label, total count, then one row per item (newest first). Times refresh every half minute while open.
+struct RecentSection: View {
+    let items: [HistoryItem]
+    let count: Int
+    let copy: @MainActor (HistoryItem) -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("Recent")
+                    .font(.dp(11, .semibold))
+                    .tracking(0.66)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                Spacer()
+                Text(count == 1 ? "1 item" : "\(count) items")
+                    .font(.dp(11))
+                    .foregroundStyle(Theme.Colors.textFaint)
+            }
+            .padding(.horizontal, 4)
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                ForEach(items) { item in
+                    RecentRow(item: item, now: context.date, copy: { copy(item) })
+                }
+            }
+        }
+    }
+}
+
+struct RecentRow: View {
+    let item: HistoryItem
+    let now: Date
+    let copy: @MainActor () -> Void
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+        HStack(spacing: 12) {
+            tile
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.dp(13, .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(meta)
+                    .font(.dp(11))
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            RowActionButton(icon: CopyIcon(), action: copy)
+                .help(item.text != nil ? "Copy transcript" : "Copy file")
+        }
+        .padding(.vertical, 9)
+        .padding(.horizontal, 10)
+        .background(shape.fill(Theme.Colors.tint(0.03)))
+        .overlay(shape.strokeBorder(Theme.Colors.tint(0.07), lineWidth: 1))
+    }
+
+    private var title: String {
+        if let text = item.text, !text.isEmpty { return text }
+        return item.fileURL?.lastPathComponent ?? "Capture"
+    }
+
+    private var meta: String {
+        var parts = [RelativeTime.phrase(from: item.createdAt, now: now)]
+        if let target = item.pastedInto {
+            parts.append("pasted into \(target)")
+        } else if let duration = item.duration {
+            parts.append(TimeFormat.minutesSeconds(duration))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    @ViewBuilder
+    private var tile: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+        if item.text != nil {
+            MicIcon()
+                .stroke(style: .icon(1.7))
+                .foregroundStyle(Theme.Colors.accentHigh)
+                .frame(width: 14, height: 14)
+                .frame(width: 44, height: 30)
+                .background(shape.fill(Theme.Colors.accent(0.14)))
+                .overlay(shape.strokeBorder(Theme.Colors.accent(0.25), lineWidth: 1))
+        } else {
+            // File capture: dark thumbnail placeholder with a duration badge.
+            ZStack(alignment: .bottomTrailing) {
+                shape.fill(LinearGradient(colors: [Color(hex: 0x3B42_52), Color(hex: 0x2226_2F)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                if let duration = item.duration {
+                    Text(TimeFormat.minutesSeconds(duration))
+                        .font(.dp(9))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .frame(height: 12)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(Color.black.opacity(0.6)))
+                        .padding([.trailing, .bottom], 3)
+                }
+            }
+            .frame(width: 44, height: 30)
+            .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+        }
     }
 }
 

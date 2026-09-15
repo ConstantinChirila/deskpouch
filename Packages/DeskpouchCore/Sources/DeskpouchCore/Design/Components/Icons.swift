@@ -73,6 +73,37 @@ public struct GearIcon: Shape {
     }
 }
 
+/// Two overlapping sheets: rect x5.5 y5.5 w8 h8 rx1.5 plus the back sheet outline.
+public struct CopyIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: 5.5, y: 5.5, width: 8, height: 8), cornerSize: CGSize(width: 1.5, height: 1.5))
+        // M10.5 5.5 v-2 a1 1 0 0 0 -1 -1 h-6 a1 1 0 0 0 -1 1 v6 a1 1 0 0 0 1 1 h2
+        p.move(to: CGPoint(x: 10.5, y: 5.5))
+        p.addLine(to: CGPoint(x: 10.5, y: 3.5))
+        p.addArc(center: CGPoint(x: 9.5, y: 3.5), radius: 1, startAngle: .degrees(0), endAngle: .degrees(-90), clockwise: true)
+        p.addLine(to: CGPoint(x: 3.5, y: 2.5))
+        p.addArc(center: CGPoint(x: 3.5, y: 3.5), radius: 1, startAngle: .degrees(-90), endAngle: .degrees(180), clockwise: true)
+        p.addLine(to: CGPoint(x: 2.5, y: 9.5))
+        p.addArc(center: CGPoint(x: 3.5, y: 9.5), radius: 1, startAngle: .degrees(180), endAngle: .degrees(90), clockwise: true)
+        p.addLine(to: CGPoint(x: 5.5, y: 10.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Down chevron: M4 6.5 l4 4 4-4. Rotate for other directions.
+public struct ChevronIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 4, y: 6.5))
+        p.addLine(to: CGPoint(x: 8, y: 10.5))
+        p.addLine(to: CGPoint(x: 12, y: 6.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
 extension Path {
     /// Scales a path authored in a 16 unit box into `rect`, preserving aspect.
     fileprivate func scaled(toFit rect: CGRect) -> Path {

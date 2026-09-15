@@ -1,6 +1,9 @@
 import AppKit
 import DeskpouchCore
 import ToolVoice
+import os
+
+private let log = Logger(subsystem: "com.constantinchirila.deskpouch", category: "shell")
 
 /// Composition root. Owns hotkeys, overlay, output pipeline, status item, the menubar panel and the tools.
 @MainActor
@@ -8,7 +11,8 @@ final class Shell {
     let state = ShellState()
     private let hotkeys = HotkeyCenter()
     private let overlay = OverlayController()
-    private let pipeline = OutputPipeline()
+    private let history: HistoryStore?
+    private let pipeline: OutputPipeline
     private let statusItem = StatusItemController()
     private lazy var panel = MenuPanelController(state: state, actions: panelActions)
 
@@ -17,13 +21,24 @@ final class Shell {
 
     private var permissionPoll: Timer?
 
-    init() {}
+    static let recentLimit = 5
+
+    init() {
+        do {
+            history = try HistoryStore(url: HistoryStore.defaultURL)
+        } catch {
+            log.error("history unavailable: \(String(describing: error), privacy: .public)")
+            history = nil
+        }
+        pipeline = OutputPipeline(effects: SystemOutputEffects(), history: history)
+    }
 
     func start() {
         let context = ToolContext(overlay: overlay) { [weak self] result in
             self?.deliver(result)
         }
         for tool in tools {
+            state.output.registerDefault(tool.defaultOutput, for: tool.id)
             tool.attach(context)
             if let key = tool.holdKey {
                 hotkeys.registerHold(key) { [weak self, weak tool] phase in
@@ -54,6 +69,7 @@ final class Shell {
             self?.panel.toggle(relativeTo: button)
         }
         statusItem.showIdle()
+        refreshRecent()
         startHotkeysOrWait()
         voice.warmUp()
         runDemoIfRequested()
@@ -69,7 +85,8 @@ final class Shell {
     private func deliver(_ result: ToolResult) {
         Task { [weak self] in
             guard let self else { return }
-            let delivery = await pipeline.deliver(result)
+            let config = state.output.config(for: result.toolID)
+            let delivery = await pipeline.deliver(result, config: config)
             if let target = delivery.pastedInto {
                 overlay.flash(.pasted(target: target))
             } else if delivery.copied {
@@ -77,7 +94,30 @@ final class Shell {
             } else {
                 overlay.hide()
             }
+            if delivery.recorded { refreshRecent() }
         }
+    }
+
+    private func refreshRecent() {
+        guard let history else { return }
+        do {
+            state.recent = try history.recent(limit: Self.recentLimit)
+            state.historyCount = try history.count()
+        } catch {
+            log.error("history read failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func copyRecent(_ item: HistoryItem) {
+        if let text = item.text, !text.isEmpty {
+            Paster.copy(text)
+        } else if let file = item.fileURL {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([file as NSURL])
+        } else {
+            return
+        }
+        overlay.flash(.copied)
     }
 
     // MARK: Hotkey permission
@@ -106,6 +146,12 @@ final class Shell {
                 Permissions.openAccessibilitySettings()
                 startHotkeysOrWait()
             },
+            toggleOutput: { [weak self] toolID, action in
+                self?.state.output.toggle(action, for: toolID)
+            },
+            copyRecent: { [weak self] item in
+                self?.copyRecent(item)
+            },
             quit: { NSApp.terminate(nil) }
         )
     }
@@ -126,6 +172,7 @@ final class Shell {
             return
         }
         guard env["DESKPOUCH_DEMO"] == "pill" else { return }
+        if state.recent.isEmpty { seedDemoRecent() }
         var source = SimulatedLevelSource()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             guard let self else { return }
@@ -146,6 +193,29 @@ final class Shell {
             overlay.hide()
             panel.close()
         }
+    }
+
+    /// Fake Recent rows for the panel snapshot when the real history is empty. State only, nothing is written.
+    private func seedDemoRecent() {
+        let now = Date()
+        state.recent = [
+            HistoryItem(id: UUID(), toolID: "voice", createdAt: now.addingTimeInterval(-120),
+                        text: "Can we move standup to 10 so the Berlin folks can join", fileURL: nil,
+                        duration: 4.2, pastedInto: "Slack"),
+            HistoryItem(id: UUID(), toolID: "screen", createdAt: now.addingTimeInterval(-9 * 60),
+                        text: nil, fileURL: URL(fileURLWithPath: "/tmp/Recording 10.32.mp4"),
+                        duration: 42, pastedInto: nil),
+            HistoryItem(id: UUID(), toolID: "voice", createdAt: now.addingTimeInterval(-3600),
+                        text: "Ship the plan first, then the mocks, then we talk about the rest", fileURL: nil,
+                        duration: 6.1, pastedInto: "Claude"),
+            HistoryItem(id: UUID(), toolID: "voice", createdAt: now.addingTimeInterval(-5 * 3600),
+                        text: "Remind me to send the invoice on Friday", fileURL: nil,
+                        duration: 2.8, pastedInto: nil),
+            HistoryItem(id: UUID(), toolID: "voice", createdAt: now.addingTimeInterval(-30 * 3600),
+                        text: "Draft: thanks for the intro, happy to chat next week", fileURL: nil,
+                        duration: 3.4, pastedInto: "Mail"),
+        ]
+        state.historyCount = 48
     }
 
     /// `DESKPOUCH_DEMO=states` walks every pill state, 1.6 s each, dumping a PNG per state.

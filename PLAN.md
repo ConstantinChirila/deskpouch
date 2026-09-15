@@ -68,7 +68,7 @@ Rules: tools never import each other. Core never imports a tool. Tests live per 
 Design direction settled 2026-09-14: "Mint ground, amber accent", custom chrome. Full spec with tokens and components in `design/DESIGN.md`. Mocks in `design/mocks/Final*.dc.html`.
 
 - One floating panel drops from the menubar icon and is the whole app. No Settings window, no dashboard, no library.
-- Panel: header, tool cards (active card highlighted, each expands in place for its options), Recent list (last 3, tile per item), footer with General and Quit.
+- Panel: header, tool cards (active card highlighted, each expands in place for its options), Recent list (last 5, tile per item), footer with General and Quit.
 - General is a second view inside the same panel behind a back chevron: launch at login, sounds, menubar timer, history toggles, clear history, permissions status, version and updates.
 - Pill: bottom-center, non-activating. Listening (bar meter), transcribing (grows into a card, text types in), pasted (undo hint), recording (timer, dims, Stop).
 - Menubar icon: idle glyph, listening mini meter, recording red timer.
@@ -86,7 +86,7 @@ The `Tool` protocol starts as a stub for voice and gets reshaped by the second t
 
 ## Status (2026-09-15)
 
-Milestones 1 and 2 are implemented and working on the dev machine. Nothing committed yet: first job of the next session is two commits, one per milestone. `README.md` has build, permissions, and verification instructions.
+Milestones 1, 2 and 3 are implemented on the dev machine. Milestones 1 and 2 are committed; milestone 3 is uncommitted and verified with the Core tests plus the panel snapshot demo, not yet with a real dictation. `README.md` has build, permissions, and verification instructions.
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -95,14 +95,24 @@ Decisions made while implementing:
 - Voice language is a persisted hint (`voice.language`, ISO 639-1, default system language) passed to Parakeet's decoder so names do not drift scripts. UI for it comes in milestone 5.
 - `Tool` protocol v1: id, name, holdKey, `attach(ToolContext)`, `holdBegan`, `holdEnded`. Shell owns copy and paste via `OutputPipeline`.
 - Superwhisper on the same machine also reacts to Right Option; quit it while testing.
+- History is plain SQLite through the system `SQLite3` module (`HistoryStore`, one table, WAL). SwiftData rejected: it would pull a model container into Core for one table.
+- `OutputPipeline` runs a fixed action order (copy, paste, save, reveal, shell, notify, history) through an injectable `OutputEffects`; tests use a recording fake. Paste with Copy off still has to put the text on the pasteboard, so the previous contents are restored 400 ms after ⌘V.
+- The "History" chip is the "keep transcripts in history" toggle. Off means the pipeline never writes the row.
+- Per-tool output config lives in UserDefaults as JSON under `output.<toolID>`; the tool supplies the default via `Tool.defaultOutput`.
+- Text-only "Save" writes `<tool> <yyyy-MM-dd HH.mm.ss>.txt`; default folder `~/Movies/Deskpouch` until General exposes it.
 
-## Milestone 3 spec: history and after-capture actions
+## Milestone 3 (done 2026-09-15): history and after-capture actions
 
-- SQLite at `~/Library/Application Support/Deskpouch/history.sqlite`, plain SQLite (no ORM, no CoreData). Table `results`: id, tool_id, created_at, text, file_path, duration, pasted_into. Decision pending user confirmation; SwiftData is the alternative.
-- `OutputPipeline` becomes configurable per tool: copy, paste, save to folder, reveal in Finder, run shell command, notify. Voice default: paste + copy. Recorder default: save + copy file + notify.
-- Panel: chips row on the Voice card (Paste, Copy, History, Notify) driving those actions; "Recent" section with the last 3 results as tiles (mic tile + copy action for transcripts) and a total count.
-- "Keep transcripts in history" toggle, default on, honoured before any build is shared.
-- Tests on Core: history store round trip, pipeline action ordering.
+- SQLite at `~/Library/Application Support/Deskpouch/history.sqlite`, plain SQLite (no ORM, no CoreData). Table `results`: id, tool_id, created_at, text, file_path, duration, pasted_into.
+- `OutputPipeline` configurable per tool: copy, paste, save to folder, reveal in Finder, run shell command, notify, history. Voice default: paste + copy + history. Recorder default (milestone 4): save + copy file + notify + history.
+- Panel: chips row on the Voice card (Paste, Copy, History; Notify exists in the pipeline but is not offered for voice, the pill already reports); "Recent" section with the last 5 results (mic tile, copy button re-copies the transcript) and a total count. Hidden while history is empty.
+- "Keep transcripts in history" is the History chip, default on.
+- Tests on Core: history store round trip and persistence, pipeline ordering and clipboard restore, settings persistence, relative time.
+- Not yet: clear history (store has `clear()`, UI lands with General in milestone 5), shell command and save folder editing (config fields exist, no UI).
+
+## Milestone 4 spec: screen recorder
+
+See "Screen recorder tool, v1" above. Emits a `ToolResult` with `fileURL` and `duration`; the pipeline's save/reveal/notify/history already handle files. Recent row shows a dark tile with a duration badge until thumbnails exist.
 
 ## Open items
 - Default hotkeys for screen recorder.

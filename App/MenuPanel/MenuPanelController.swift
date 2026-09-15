@@ -4,6 +4,8 @@ import SwiftUI
 
 struct MenuPanelActions {
     var requestPermission: @MainActor () -> Void
+    var toggleOutput: @MainActor (_ toolID: String, _ action: OutputAction) -> Void
+    var copyRecent: @MainActor (HistoryItem) -> Void
     var quit: @MainActor () -> Void
 }
 

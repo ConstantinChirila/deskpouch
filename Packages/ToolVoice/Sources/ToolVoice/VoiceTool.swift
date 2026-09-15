@@ -10,6 +10,7 @@ public final class VoiceTool: Tool {
     public let id = "voice"
     public let name = "Voice"
     public var holdKey: ModifierKey? = .rightOption
+    public let defaultOutput = ToolOutputConfig(actions: [.paste, .copy, .history])
 
     /// Engine status for the panel, e.g. "Parakeet v3 · local" or "Downloading model · 42%".
     public var onStatus: (@MainActor (String) -> Void)?

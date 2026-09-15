@@ -7,6 +7,8 @@ public protocol Tool: AnyObject {
     var name: String { get }
     /// Hold-to-act modifier key. The shell registers it and forwards begin/end.
     var holdKey: ModifierKey? { get }
+    /// After-capture actions the tool wants until the user changes them in the panel.
+    var defaultOutput: ToolOutputConfig { get }
 
     func attach(_ context: ToolContext)
     func holdBegan()
