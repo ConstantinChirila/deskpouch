@@ -30,7 +30,7 @@ final class StatusItemController {
         item.button?.image = MenubarIcon.listening(levels: meter.bars)
     }
 
-    func showRecording(elapsed: TimeInterval) {
+    func showRecording(elapsed: TimeInterval?) {
         item.button?.image = MenubarIcon.recording(elapsed: elapsed)
     }
 

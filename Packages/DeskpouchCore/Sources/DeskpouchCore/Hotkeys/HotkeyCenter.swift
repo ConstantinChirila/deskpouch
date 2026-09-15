@@ -40,12 +40,21 @@ public final class HotkeyCenter {
         holds.removeAll { $0 === registration }
     }
 
-    /// Registers a press-to-act combo. Works without `start()`. Returns false when another app owns the combo.
+    public struct PressRegistration {
+        fileprivate let id: UInt32
+    }
+
+    /// Registers a press-to-act combo. Works without `start()`. Returns nil when another app owns the combo.
     @discardableResult
-    public func registerPress(_ combo: KeyCombo, handler: @escaping @MainActor () -> Void) -> Bool {
-        guard let id = CarbonHotkeys.shared.register(combo, handler: handler) else { return false }
+    public func registerPress(_ combo: KeyCombo, handler: @escaping @MainActor () -> Void) -> PressRegistration? {
+        guard let id = CarbonHotkeys.shared.register(combo, handler: handler) else { return nil }
         presses.append(id)
-        return true
+        return PressRegistration(id: id)
+    }
+
+    public func unregister(_ registration: PressRegistration) {
+        CarbonHotkeys.shared.unregister(registration.id)
+        presses.removeAll { $0 == registration.id }
     }
 
     /// Installs the monitors. Returns false when the process is not trusted for Accessibility.

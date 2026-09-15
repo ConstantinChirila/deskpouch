@@ -6,7 +6,7 @@ public enum MicRecorderError: Error, Sendable {
     case unsupportedFormat
 }
 
-/// Captures the default microphone into 16 kHz mono Float32 samples and tracks a live level for meters.
+/// Captures a microphone (system default or `deviceUID`) into 16 kHz mono Float32 samples and tracks a live level for meters.
 @MainActor
 public final class MicRecorder {
     public static let sampleRate: Double = 16_000
@@ -14,6 +14,9 @@ public final class MicRecorder {
     private let engine = AVAudioEngine()
     private let store = SampleStore()
     public private(set) var isRecording = false
+
+    /// Core Audio UID of the microphone to use. nil follows the system default input.
+    public var deviceUID: String?
 
     public init() {}
 
@@ -23,6 +26,14 @@ public final class MicRecorder {
     public func start() throws {
         guard !isRecording else { return }
         let input = engine.inputNode
+        if let deviceUID, let device = AudioInputDevices.device(uid: deviceUID), let unit = input.audioUnit {
+            var deviceID = device.id
+            let status = AudioUnitSetProperty(
+                unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size)
+            )
+            if status != noErr { throw MicRecorderError.noInputDevice }
+        }
         let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else { throw MicRecorderError.noInputDevice }
         guard let target = AVAudioFormat(

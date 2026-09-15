@@ -12,6 +12,7 @@
 		2454C12D082F109DF2A6FCB3 /* SimulatedLevelSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */; };
 		3636D94CB915309CD63CE378 /* ToolVoice in Frameworks */ = {isa = PBXBuildFile; productRef = 08AD5B64931757A74D91D445 /* ToolVoice */; };
 		432CA387C71FAA9131026C3B /* ToolScreenRecorder in Frameworks */ = {isa = PBXBuildFile; productRef = A775083F6B6659C1AA9009A5 /* ToolScreenRecorder */; };
+		4993D897E9D41A7EBB0E4B19 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED5BC844B83DC2A399C0B05 /* GeneralSettings.swift */; };
 		55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808C40D7AD0482A78A66418A /* MenuPanelView.swift */; };
 		70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */; };
 		756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3031371CC2D3391D04FE0A /* StatusItemController.swift */; };
@@ -33,11 +34,12 @@
 		6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedLevelSource.swift; sourceTree = "<group>"; };
 		6D081FAD61856D394B8A0F03 /* WavLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WavLoader.swift; sourceTree = "<group>"; };
 		6D3031371CC2D3391D04FE0A /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		7ED5BC844B83DC2A399C0B05 /* GeneralSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettings.swift; sourceTree = "<group>"; };
 		808C40D7AD0482A78A66418A /* MenuPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelView.swift; sourceTree = "<group>"; };
 		9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCore; path = Packages/DeskpouchCore; sourceTree = SOURCE_ROOT; };
 		9F01CE04F0A6AABF0BD257A4 /* WindowSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSnapshot.swift; sourceTree = "<group>"; };
 		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_3F003FCF-AB3E-4358-9EBD-49C812371BF7" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */,
+				7ED5BC844B83DC2A399C0B05 /* GeneralSettings.swift */,
 				3CE7D868125BD06D6B6DD988 /* Shell.swift */,
 				117EB870727BF3B8BEC6B23D /* ShellState.swift */,
 				6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */,
@@ -106,10 +109,10 @@
 			path = Packages;
 			sourceTree = "<group>";
 		};
-		"TEMP_2494131E-E7BC-4D09-AA27-1EA7E53B6881" /* deskpouch */ = {
+		"TEMP_FD15F61C-ED42-4ACD-8ACF-46E91336E1D3" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_3F003FCF-AB3E-4358-9EBD-49C812371BF7" /* Signing.xcconfig */,
+				"TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -183,6 +186,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */,
+				4993D897E9D41A7EBB0E4B19 /* GeneralSettings.swift in Sources */,
 				8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */,
 				55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */,
 				0C02628E7259874D7FD35B64 /* Shell.swift in Sources */,
@@ -219,7 +223,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_3F003FCF-AB3E-4358-9EBD-49C812371BF7" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -284,7 +288,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_3F003FCF-AB3E-4358-9EBD-49C812371BF7" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_BA8ADBC0-1019-4D1E-8304-4052F9FEE01E" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;

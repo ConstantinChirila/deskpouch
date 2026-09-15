@@ -167,6 +167,20 @@ public final class HistoryStore {
         return items
     }
 
+    /// Paths of every logged file, for the "items · size" line in General.
+    public func filePaths() throws -> [String] {
+        let statement = try prepare("SELECT file_path FROM results WHERE file_path IS NOT NULL")
+        defer { sqlite3_finalize(statement) }
+        var paths: [String] = []
+        while true {
+            let rc = sqlite3_step(statement)
+            if rc == SQLITE_DONE { break }
+            guard rc == SQLITE_ROW else { throw StoreError.sql(errorMessage()) }
+            if let path = column(statement, 0) { paths.append(path) }
+        }
+        return paths
+    }
+
     public func count() throws -> Int {
         let statement = try prepare("SELECT COUNT(*) FROM results")
         defer { sqlite3_finalize(statement) }

@@ -86,7 +86,7 @@ The `Tool` protocol starts as a stub for voice and gets reshaped by the second t
 
 ## Status (2026-09-15)
 
-Milestones 1 to 4 are implemented. Milestones 1 to 3 are verified on the dev machine (milestone 3 with a real dictation landing in Recent). Milestone 4 (screen recorder) is verified on the dev machine: a 4 s region recording through `DESKPOUCH_DEMO=record` produced a 1006x734 H.264 mp4 with a system audio track in `~/Movies/Deskpouch`, put the file on the pasteboard and logged it in history; the pill, panel and picker were checked against the mocks through the demo modes. macOS 15 shows its own "bypass the system private window picker" alert on the first recording (and periodically after); click Allow. Next: milestone 5, General view and per-tool options. `README.md` has build, permissions, and verification instructions.
+Milestones 1 to 5 are implemented. Milestones 1 to 3 are verified on the dev machine (milestone 3 with a real dictation landing in Recent). Milestone 5 (options rows and General) is checked against the mocks through `DESKPOUCH_DEMO=options`; its controls still want a hands-on pass (shortcut recording, folder chooser, launch at login). Milestone 4 (screen recorder) is verified on the dev machine: a 4 s region recording through `DESKPOUCH_DEMO=record` produced a 1006x734 H.264 mp4 with a system audio track in `~/Movies/Deskpouch`, put the file on the pasteboard and logged it in history; the pill, panel and picker were checked against the mocks through the demo modes. macOS 15 shows its own "bypass the system private window picker" alert on the first recording (and periodically after); click Allow. Next: whatever comes after v1 (see "Open items"). `README.md` has build, permissions, and verification instructions.
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -130,5 +130,15 @@ Recent rows for files: a frame from the file (generated on demand, `ThumbnailCac
 
 Leftovers closed 2026-09-15: thumbnails, panel spring-in and fade-out (card expand motion lands with the options rows in milestone 5). "Don't keep transcripts" is the History chip on the Voice card, so that open item is closed too.
 
+## Milestone 5 (done 2026-09-15): General view and per-tool options
+
+- Core gained the row controls from DESIGN.md: `OptionRow`, `OptionRows`, `OptionsGroup`, `ToggleSwitch`, `RowButton`, `PopupButton`/`PopupPicker` with one in-panel dropdown (`PopupController`, drawn by the `popupHost` modifier under the button's anchor, scrolls past 8 rows), and `ShortcutRecorder` (records a modifier hold or a key combo through a local monitor, Escape cancels, combos need ⌘, ⌥ or ⌃).
+- Cards expand in place under "Options" (chevron turns). Voice: model (size from the FluidAudio folder), language, microphone (Core Audio device list; `MicRecorder.deviceUID` sets the audio unit's device), shortcut. Screen: save folder (NSOpenPanel, the panel holds itself open meanwhile), quality, frame rate, system audio, microphone, shortcut. Changing a shortcut re-registers the hotkey; hold key is `voice.holdKey`, combo is `screen.hotkey`, mic is `voice.microphone`.
+- General view behind the back chevron (Escape also goes back): launch at login (SMAppService), sounds (Tink/Pop system sounds on start and stop), menubar timer (off leaves just the dot), keep history (off strips the history action before delivery; detail shows count and the size of the files on disk), transcripts in history (the voice History chip), clear history with inline confirm, permissions summary (click opens the first missing one in System Settings), version with a disabled "Check for updates" until Sparkle.
+- The panel window now spans from the status item to the bottom of the screen and the content is top-aligned, so expanding a card or switching views needs no window resize. Clicks on the empty part of the window close the panel.
+- Panel snapshots use a ScreenCaptureKit window screenshot (`WindowSnapshot`); the view cache went blank once the root had scale and opacity effects. The screenshot can raise the system capture alert, so the options demo holds the panel open.
+
 ## Open items
-- Options rows in the screen card (folder, quality, frame rate, audio, shortcut) and the General view come with milestone 5.
+- Sparkle and signed builds before anything is shared; "Check for updates" is disabled until then.
+- Panel content taller than the screen (many rows expanded on a small display) is clipped; no scrolling yet.
+- Custom vocabulary, toggle mode and LLM cleanup for voice remain out of scope.

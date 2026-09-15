@@ -1,10 +1,15 @@
 import DeskpouchCore
+import Foundation
 import Observation
+import ToolScreenRecorder
 
-/// What the menubar panel shows. Written by `Shell`, read by SwiftUI.
+/// What the menubar panel shows. Written by `Shell`, read by SwiftUI. Pure UI state (which view, which card is
+/// expanded) is written by the views themselves.
 @MainActor
 @Observable
 final class ShellState {
+    enum PanelView { case main, general }
+
     var isListening = false
     /// The hold key monitors are live.
     var hotkeyReady = false
@@ -22,16 +27,42 @@ final class ShellState {
     let panelMeter = LevelMeterModel(barCount: 20)
     /// Per-tool after-capture actions. The chips row reads and writes through `Shell`.
     let output: OutputSettings
-    /// Last few history items, newest first, and the total count.
+    /// Last few history items, newest first, the total count, and the size of the files they point at.
     var recent: [HistoryItem] = []
     var historyCount = 0
+    var historyBytes: Int64 = 0
     /// Frames for the file tiles under Recent.
     let thumbnails = ThumbnailCache()
     /// The panel is on screen; drives its spring-in.
     var panelPresented = false
     var version = "0.1.0"
 
-    init(output: OutputSettings = OutputSettings()) {
+    // Navigation and disclosure, written by the views.
+    var panelView: PanelView = .main
+    var expandedTool: String?
+    let popups = PopupController()
+    /// "Clear…" was clicked; the row shows the confirmation.
+    var confirmingClear = false
+
+    // Voice options.
+    var voiceEngine = "Parakeet v3"
+    var voiceModelStatus = ""
+    var voiceLanguage = "en"
+    var voiceLanguages: [String] = []
+    var voiceMicrophoneUID: String?
+    var microphones: [AudioInputDevice] = []
+
+    // Screen options.
+    var recorderSettings = RecorderSettings()
+    /// nil means the pipeline's default folder.
+    var screenFolder: URL?
+
+    // General.
+    let general: GeneralSettings
+    var permissions = PermissionStatus()
+
+    init(output: OutputSettings = OutputSettings(), general: GeneralSettings = GeneralSettings()) {
         self.output = output
+        self.general = general
     }
 }

@@ -1,27 +1,39 @@
 import DeskpouchCore
 import SwiftUI
+import ToolScreenRecorder
+import ToolVoice
 
-/// The panel: header, voice card, screen card, Recent, footer. General arrives in milestone 5.
+/// The panel: main view (header, voice card, screen card, Recent, footer) or the General view behind a back
+/// chevron. Content is top-aligned in a window that reaches the bottom of the screen; clicks below it close.
 struct MenuPanelView: View {
     let state: ShellState
     let actions: MenuPanelActions
 
     var body: some View {
-        VStack(spacing: 16) {
-            header
-            if !state.hotkeyReady {
-                PermissionCard(action: actions.requestPermission)
+        ZStack(alignment: .top) {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { actions.closePanel() }
+            panel
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .foregroundStyle(Theme.Colors.text)
+    }
+
+    private var panel: some View {
+        Group {
+            switch state.panelView {
+            case .main:
+                MainPanelView(state: state, actions: actions)
+                    .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .leading)).combined(with: .opacity))
+            case .general:
+                GeneralView(state: state, actions: actions)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
             }
-            VoiceCard(state: state, actions: actions)
-            ScreenCard(state: state, actions: actions)
-            if !state.recent.isEmpty {
-                RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
-                              copy: actions.copyRecent, reveal: actions.revealRecent)
-            }
-            footer
         }
         .padding(18)
         .frame(width: MenuPanelController.width)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.panel, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.panel, style: .continuous)
                 .fill(Theme.panelGradient)
@@ -39,6 +51,10 @@ struct MenuPanelView: View {
         }
         .shadow(color: .black.opacity(0.65), radius: 35, y: 30)
         .shadow(color: .black.opacity(0.4), radius: 10, y: 8)
+        .popupHost(state.popups)
+        .animation(.easeOut(duration: 0.2), value: state.panelView)
+        .animation(.easeOut(duration: 0.18), value: state.expandedTool)
+        .animation(.easeOut(duration: 0.15), value: state.confirmingClear)
         // Spring in from the menubar icon: slight scale from the top edge plus a fade.
         .scaleEffect(state.panelPresented ? 1 : 0.96, anchor: .top)
         .opacity(state.panelPresented ? 1 : 0)
@@ -46,7 +62,28 @@ struct MenuPanelView: View {
         .padding(.top, MenuPanelController.shadowInset.top)
         .padding(.bottom, MenuPanelController.shadowInset.bottom)
         .padding(.horizontal, MenuPanelController.shadowInset.left)
-        .foregroundStyle(Theme.Colors.text)
+    }
+}
+
+/// Header, tool cards, Recent, footer.
+struct MainPanelView: View {
+    let state: ShellState
+    let actions: MenuPanelActions
+
+    var body: some View {
+        VStack(spacing: 16) {
+            header
+            if !state.hotkeyReady {
+                PermissionCard(action: actions.requestPermission)
+            }
+            VoiceCard(state: state, actions: actions)
+            ScreenCard(state: state, actions: actions)
+            if !state.recent.isEmpty {
+                RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
+                              copy: actions.copyRecent, reveal: actions.revealRecent)
+            }
+            footer
+        }
     }
 
     private var header: some View {
@@ -55,42 +92,25 @@ struct MenuPanelView: View {
                 .font(.dp(15, .semibold))
                 .tracking(-0.15)
             Spacer()
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 6, height: 6)
-                    .shadow(color: statusColor.opacity(0.8), radius: 4)
-                Text(statusText)
-                    .font(.dp(11))
-                    .foregroundStyle(Theme.Colors.textTertiary)
-            }
+            StatusDot(state: state)
         }
-    }
-
-    private var isRecording: Bool {
-        if case .recording = state.activity { return true }
-        return false
-    }
-
-    private var statusColor: Color {
-        if isRecording { return Theme.Colors.record }
-        return state.isListening ? Theme.Colors.accent : (state.hotkeyReady ? Theme.Colors.ok : Theme.Colors.record)
-    }
-
-    private var statusText: String {
-        if isRecording { return "Recording" }
-        return state.isListening ? "Listening" : (state.hotkeyReady ? "Ready" : "Needs access")
     }
 
     private var footer: some View {
         HStack {
-            HStack(spacing: 6) {
-                GearIcon()
-                    .stroke(style: .icon(1.5))
-                    .frame(width: 14, height: 14)
-                Text("General")
+            Button {
+                state.popups.close()
+                state.panelView = .general
+            } label: {
+                HStack(spacing: 6) {
+                    GearIcon()
+                        .stroke(style: .icon(1.5))
+                        .frame(width: 14, height: 14)
+                    Text("General")
+                }
+                .contentShape(Rectangle())
             }
-            .opacity(0.5) // Milestone 5
+            .buttonStyle(.plain)
             Spacer()
             Button(action: actions.quit) {
                 Text("Quit  ⌘Q")
@@ -103,14 +123,74 @@ struct MenuPanelView: View {
     }
 }
 
-/// Voice tool card. Active (amber) while listening. Meter well shows the live meter; chips pick after-capture actions.
+/// Status dot plus word: Recording, Listening, Ready, Needs access.
+struct StatusDot: View {
+    let state: ShellState
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+                .shadow(color: color.opacity(0.8), radius: 4)
+            Text(text)
+                .font(.dp(11))
+                .foregroundStyle(Theme.Colors.textTertiary)
+        }
+    }
+
+    private var isRecording: Bool {
+        if case .recording = state.activity { return true }
+        return false
+    }
+
+    private var color: Color {
+        if isRecording { return Theme.Colors.record }
+        return state.isListening ? Theme.Colors.accent : (state.hotkeyReady ? Theme.Colors.ok : Theme.Colors.record)
+    }
+
+    private var text: String {
+        if isRecording { return "Recording" }
+        return state.isListening ? "Listening" : (state.hotkeyReady ? "Ready" : "Needs access")
+    }
+}
+
+/// "Options" plus chevron at the end of a chip row. Chevron turns over when the card is expanded.
+struct OptionsDisclosure: View {
+    let expanded: Bool
+    let toggle: @MainActor () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 4) {
+                Text("Options")
+                ChevronIcon()
+                    .stroke(style: .icon(1.4))
+                    .frame(width: 10, height: 10)
+                    .rotationEffect(.degrees(expanded ? 180 : 0))
+            }
+            .font(.dp(12))
+            .foregroundStyle(Theme.Colors.textSecondary)
+            .fixedSize()
+            .padding(.horizontal, 6)
+            .frame(height: 26)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Voice tool card. Active (amber) while listening. Meter well shows the live meter; chips pick after-capture
+/// actions; Options expands into model, language, microphone and shortcut rows.
 struct VoiceCard: View {
     let state: ShellState
     let actions: MenuPanelActions
 
     static let toolID = "voice"
-    /// Notify is left out on purpose: the pill already says what happened. The recorder will use it.
+    /// Notify is left out on purpose: the pill already says what happened. The recorder uses it.
     static let chips: [OutputAction] = [.paste, .copy, .history]
+
+    private var expanded: Bool { state.expandedTool == Self.toolID }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
@@ -152,6 +232,10 @@ struct VoiceCard: View {
                     .strokeBorder(Theme.Colors.tint(0.08), lineWidth: 1)
             )
             chipRow
+            if expanded {
+                options
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(16)
         .background(shape.fill(Theme.Colors.card))
@@ -169,6 +253,7 @@ struct VoiceCard: View {
             .opacity(state.isListening ? 1 : 0)
         )
         .overlay(shape.strokeBorder(state.isListening ? Theme.Colors.accent(0.30) : Theme.Colors.tint(0.10), lineWidth: 1))
+        .clipShape(shape)
         .animation(.easeOut(duration: 0.18), value: state.isListening)
         .onChange(of: state.isListening) { _, listening in
             if !listening { state.panelMeter.reset() }
@@ -183,18 +268,45 @@ struct VoiceCard: View {
                     actions.toggleOutput(Self.toolID, action)
                 }
             }
-            HStack(spacing: 4) {
-                Text("Options")
-                ChevronIcon()
-                    .stroke(style: .icon(1.4))
-                    .frame(width: 10, height: 10)
+            OptionsDisclosure(expanded: expanded) {
+                state.popups.close()
+                state.expandedTool = expanded ? nil : Self.toolID
             }
-            .font(.dp(12))
-            .foregroundStyle(Theme.Colors.textSecondary)
-            .fixedSize()
-            .padding(.horizontal, 6)
-            .frame(height: 26)
-            .opacity(0.5) // Milestone 5
+        }
+    }
+
+    private var options: some View {
+        VStack(spacing: 0) {
+            RowDivider()
+            OptionRows {
+                OptionRow("Model", detail: state.voiceModelStatus) {
+                    PopupButton(id: "voice.model", title: state.voiceEngine,
+                                items: [PopupItem(id: 0, title: state.voiceEngine, detail: "local", selected: true)]) { _ in }
+                }
+                OptionRow("Language") {
+                    PopupPicker(
+                        id: "voice.language",
+                        selection: Binding(get: { state.voiceLanguage }, set: { actions.setVoiceLanguage($0) }),
+                        options: state.voiceLanguages,
+                        title: { VoiceTool.languageName($0) },
+                        detail: { $0.uppercased() }
+                    )
+                }
+                OptionRow("Microphone") {
+                    PopupPicker(
+                        id: "voice.microphone",
+                        selection: Binding(get: { state.voiceMicrophoneUID ?? "" }, set: { actions.setVoiceMicrophone($0.isEmpty ? nil : $0) }),
+                        options: [""] + state.microphones.map(\.uid),
+                        title: { uid in uid.isEmpty ? "System default" : (state.microphones.first { $0.uid == uid }?.name ?? "Unavailable") }
+                    )
+                }
+                OptionRow("Shortcut") {
+                    ShortcutRecorder(.hold(state.holdKey)) { kind in
+                        if case .hold(let key) = kind { actions.setHoldKey(key) }
+                    }
+                }
+            }
+            .padding(.top, 4)
         }
     }
 
@@ -219,7 +331,8 @@ struct VoiceCard: View {
     }
 }
 
-/// Screen recorder card. Record ring while recording. Chips pick after-capture actions; keycaps show the combo.
+/// Screen recorder card. Record ring while recording. Chips pick after-capture actions; keycaps show the combo;
+/// Options expands into folder, quality, frame rate, audio and shortcut rows.
 struct ScreenCard: View {
     let state: ShellState
     let actions: MenuPanelActions
@@ -236,6 +349,8 @@ struct ScreenCard: View {
         if case .recording = state.activity { return true }
         return false
     }
+
+    private var expanded: Bool { state.expandedTool == Self.toolID }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
@@ -263,11 +378,16 @@ struct ScreenCard: View {
                 .help(state.screenKeyTaken ? "Another app owns this shortcut" : "Opens the picker")
             }
             chipRow
+            if expanded {
+                options
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(16)
         .background(shape.fill(Theme.Colors.card))
         .background(shape.stroke(Theme.Colors.record(0.06), lineWidth: 4).padding(-2).opacity(isRecording ? 1 : 0))
         .overlay(shape.strokeBorder(isRecording ? Theme.Colors.record(0.30) : Theme.Colors.tint(0.10), lineWidth: 1))
+        .clipShape(shape)
         .animation(.easeOut(duration: 0.18), value: isRecording)
     }
 
@@ -279,18 +399,62 @@ struct ScreenCard: View {
                     actions.toggleOutput(Self.toolID, action)
                 }
             }
-            HStack(spacing: 4) {
-                Text("Options")
-                ChevronIcon()
-                    .stroke(style: .icon(1.4))
-                    .frame(width: 10, height: 10)
+            OptionsDisclosure(expanded: expanded) {
+                state.popups.close()
+                state.expandedTool = expanded ? nil : Self.toolID
             }
-            .font(.dp(12))
-            .foregroundStyle(Theme.Colors.textSecondary)
-            .fixedSize()
-            .padding(.horizontal, 6)
-            .frame(height: 26)
-            .opacity(0.5) // Milestone 5
+        }
+    }
+
+    private var folderLabel: String {
+        let url = state.screenFolder ?? OutputPipeline.defaultFolder
+        return url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    private var options: some View {
+        VStack(spacing: 0) {
+            RowDivider()
+            OptionRows {
+                OptionRow("Save to") {
+                    HStack(spacing: 8) {
+                        Text(folderLabel)
+                            .font(.dp(11))
+                            .foregroundStyle(Theme.Colors.textTertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: 170, alignment: .trailing)
+                        RowButton("Choose…") { actions.chooseFolder() }
+                    }
+                }
+                OptionRow("Quality") {
+                    PopupPicker(
+                        id: "screen.quality",
+                        selection: Binding(get: { state.recorderSettings.quality }, set: { value in actions.updateRecorder { $0.quality = value } }),
+                        options: RecorderSettings.Quality.allCases,
+                        title: { $0.label }
+                    )
+                }
+                OptionRow("Frame rate") {
+                    PopupPicker(
+                        id: "screen.fps",
+                        selection: Binding(get: { state.recorderSettings.frameRate }, set: { value in actions.updateRecorder { $0.frameRate = value } }),
+                        options: RecorderSettings.frameRates,
+                        title: { "\($0) fps" }
+                    )
+                }
+                OptionRow("System audio") {
+                    ToggleSwitch(isOn: Binding(get: { state.recorderSettings.systemAudio }, set: { value in actions.updateRecorder { $0.systemAudio = value } }))
+                }
+                OptionRow("Microphone") {
+                    ToggleSwitch(isOn: Binding(get: { state.recorderSettings.microphone }, set: { value in actions.updateRecorder { $0.microphone = value } }))
+                }
+                OptionRow("Shortcut") {
+                    ShortcutRecorder(.press(state.screenKey)) { kind in
+                        if case .press(let combo) = kind { actions.setPressKey(combo) }
+                    }
+                }
+            }
+            .padding(.top, 4)
         }
     }
 
@@ -307,6 +471,121 @@ struct ScreenCard: View {
                 Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
                     .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
             }
+    }
+}
+
+/// General view: back chevron, then three groups (app, history, about).
+struct GeneralView: View {
+    let state: ShellState
+    let actions: MenuPanelActions
+
+    var body: some View {
+        VStack(spacing: 16) {
+            header
+            OptionsGroup {
+                OptionRow("Launch at login") {
+                    ToggleSwitch(isOn: Binding(get: { state.general.launchAtLogin }, set: { actions.setLaunchAtLogin($0) }))
+                }
+                OptionRow("Sounds", detail: "Start and stop cues") {
+                    ToggleSwitch(isOn: Binding(get: { state.general.sounds }, set: { state.general.sounds = $0 }))
+                }
+                OptionRow("Show timer in menubar", detail: "While recording") {
+                    ToggleSwitch(isOn: Binding(get: { state.general.menubarTimer }, set: { state.general.menubarTimer = $0 }))
+                }
+            }
+            OptionsGroup {
+                OptionRow("Keep history", detail: historyDetail) {
+                    ToggleSwitch(isOn: Binding(get: { state.general.keepHistory }, set: { state.general.keepHistory = $0 }))
+                }
+                OptionRow("Transcripts in history", detail: "Off keeps only recordings") {
+                    ToggleSwitch(isOn: Binding(
+                        get: { state.output.config(for: VoiceCard.toolID).actions.contains(.history) },
+                        set: { _ in actions.toggleOutput(VoiceCard.toolID, .history) }
+                    ))
+                }
+                OptionRow("Clear history", detail: state.confirmingClear ? "Removes the log, keeps the files" : nil) {
+                    if state.confirmingClear {
+                        HStack(spacing: 6) {
+                            RowButton("Keep") { state.confirmingClear = false }
+                            Button {
+                                state.confirmingClear = false
+                                actions.clearHistory()
+                            } label: {
+                                Text("Clear \(state.historyCount)")
+                                    .font(.dp(12, .medium))
+                                    .foregroundStyle(Theme.Colors.bg)
+                                    .padding(.horizontal, 10)
+                                    .frame(height: 26)
+                                    .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(Theme.Colors.record))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } else {
+                        RowButton("Clear…", enabled: state.historyCount > 0) { state.confirmingClear = true }
+                    }
+                }
+            }
+            OptionsGroup {
+                OptionRow("Permissions") {
+                    Button(action: actions.openPermissionSettings) {
+                        HStack(spacing: 6) {
+                            if state.permissions.allGranted {
+                                CheckIcon().stroke(style: .icon(2.4)).frame(width: 10, height: 10)
+                            } else {
+                                Circle().fill(Theme.Colors.record).frame(width: 6, height: 6)
+                            }
+                            Text(state.permissions.summary).font(.dp(12))
+                        }
+                        .foregroundStyle(state.permissions.allGranted ? Theme.Colors.ok : Theme.Colors.record)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(state.permissions.allGranted ? "All granted" : "Open System Settings")
+                }
+                OptionRow("Version") {
+                    HStack(spacing: 8) {
+                        Text(state.version).font(.dp(11)).foregroundStyle(Theme.Colors.textTertiary)
+                        RowButton("Check for updates", enabled: false) {}
+                            .help("Updates arrive with signed builds")
+                    }
+                }
+            }
+        }
+    }
+
+    private var historyDetail: String {
+        let items = state.historyCount == 1 ? "1 item" : "\(state.historyCount) items"
+        guard state.historyBytes > 0 else { return items }
+        return "\(items) · \(ByteCountFormatter.string(fromByteCount: state.historyBytes, countStyle: .file))"
+    }
+
+    private var header: some View {
+        HStack {
+            Button {
+                state.popups.close()
+                state.confirmingClear = false
+                state.panelView = .main
+            } label: {
+                HStack(spacing: 8) {
+                    ChevronIcon()
+                        .stroke(style: .icon(1.6))
+                        .rotationEffect(.degrees(90))
+                        .foregroundStyle(Theme.Colors.text.opacity(0.7))
+                        .frame(width: 12, height: 12)
+                        .frame(width: 24, height: 24)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(Theme.Colors.tint(0.06)))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).strokeBorder(Theme.Colors.tint(0.12), lineWidth: 1))
+                    Text("General")
+                        .font(.dp(15, .semibold))
+                        .tracking(-0.15)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Back")
+            Spacer()
+            StatusDot(state: state)
+        }
     }
 }
 

@@ -23,6 +23,8 @@ final class Shell {
 
     private var permissionPoll: Timer?
     private var recordingTimer: Timer?
+    private var holdRegistrations: [String: HotkeyCenter.Registration] = [:]
+    private var pressRegistrations: [String: HotkeyCenter.PressRegistration] = [:]
 
     static let recentLimit = 5
 
@@ -45,28 +47,8 @@ final class Shell {
         for tool in tools {
             state.output.registerDefault(tool.defaultOutput, for: tool.id)
             tool.attach(context)
-            if let combo = tool.pressKey {
-                let registered = hotkeys.registerPress(combo) { [weak tool] in tool?.keyPressed() }
-                if !registered {
-                    log.error("\(combo.display, privacy: .public) is taken by another app")
-                    if tool.id == screen.id { state.screenKeyTaken = true }
-                }
-            }
-            if let key = tool.holdKey {
-                hotkeys.registerHold(key) { [weak self, weak tool] phase in
-                    guard let self, let tool else { return }
-                    switch phase {
-                    case .pressed:
-                        state.isListening = true
-                        statusItem.beginListening()
-                        tool.holdBegan()
-                    case .released:
-                        state.isListening = false
-                        statusItem.showIdle()
-                        tool.holdEnded()
-                    }
-                }
-            }
+            registerPress(tool)
+            registerHold(tool)
         }
         overlay.onLevel = { [weak self] level, dt in
             guard let self else { return }
@@ -79,8 +61,16 @@ final class Shell {
         state.holdKey = voice.holdKey ?? .rightOption
         state.screenKey = screen.pressKey ?? .commandShift6
         state.screenStatus = screen.settings.summary
+        state.recorderSettings = screen.settings
+        state.screenFolder = state.output.config(for: screen.id).folder
+        state.voiceEngine = voice.engineName
+        state.voiceLanguage = voice.language
+        state.voiceLanguages = voice.supportedLanguages
+        state.voiceMicrophoneUID = voice.microphoneUID
         screen.onStatus = { [weak self] text in
-            self?.state.screenStatus = text
+            guard let self else { return }
+            state.screenStatus = text
+            state.recorderSettings = screen.settings
         }
         statusItem.onClick = { [weak self] button in
             guard let self else { return }
@@ -88,6 +78,7 @@ final class Shell {
             if screen.isRecording {
                 screen.stopRecording()
             } else {
+                if !panel.isVisible { refreshPanelInfo() }
                 panel.toggle(relativeTo: button)
             }
         }
@@ -104,6 +95,52 @@ final class Shell {
         recordingTimer?.invalidate()
     }
 
+    // MARK: Hotkeys
+
+    private func registerHold(_ tool: Tool) {
+        if let old = holdRegistrations.removeValue(forKey: tool.id) { hotkeys.unregister(old) }
+        guard let key = tool.holdKey else { return }
+        holdRegistrations[tool.id] = hotkeys.registerHold(key) { [weak self, weak tool] phase in
+            guard let self, let tool else { return }
+            switch phase {
+            case .pressed:
+                state.isListening = true
+                statusItem.beginListening()
+                playCue(start: true)
+                tool.holdBegan()
+            case .released:
+                state.isListening = false
+                statusItem.showIdle()
+                playCue(start: false)
+                tool.holdEnded()
+            }
+        }
+    }
+
+    private func registerPress(_ tool: Tool) {
+        if let old = pressRegistrations.removeValue(forKey: tool.id) { hotkeys.unregister(old) }
+        guard let combo = tool.pressKey else { return }
+        if let registration = hotkeys.registerPress(combo, handler: { [weak tool] in tool?.keyPressed() }) {
+            pressRegistrations[tool.id] = registration
+            if tool.id == screen.id { state.screenKeyTaken = false }
+        } else {
+            log.error("\(combo.display, privacy: .public) is taken by another app")
+            if tool.id == screen.id { state.screenKeyTaken = true }
+        }
+    }
+
+    private func setHoldKey(_ key: ModifierKey) {
+        voice.holdKey = key
+        state.holdKey = key
+        registerHold(voice)
+    }
+
+    private func setPressKey(_ combo: KeyCombo) {
+        screen.pressKey = combo
+        state.screenKey = combo
+        registerPress(screen)
+    }
+
     // MARK: Activity
 
     private func activityChanged(_ activity: ToolActivity) {
@@ -113,14 +150,85 @@ final class Shell {
         switch activity {
         case .idle:
             statusItem.showIdle()
+            playCue(start: false)
         case .recording(let since):
             panel.close()
-            statusItem.showRecording(elapsed: Date().timeIntervalSince(since))
+            playCue(start: true)
+            showRecordingIcon(since: since)
             recordingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.statusItem.showRecording(elapsed: Date().timeIntervalSince(since))
-                }
+                MainActor.assumeIsolated { self?.showRecordingIcon(since: since) }
             }
+        }
+    }
+
+    private func showRecordingIcon(since: Date) {
+        statusItem.showRecording(elapsed: state.general.menubarTimer ? Date().timeIntervalSince(since) : nil)
+    }
+
+    /// Start and stop cues, system sounds so nothing has to ship.
+    private func playCue(start: Bool) {
+        guard state.general.sounds else { return }
+        NSSound(named: start ? "Tink" : "Pop")?.play()
+    }
+
+    // MARK: Panel info
+
+    /// Things that can change behind the panel's back: permissions, model download, microphones, history size.
+    private func refreshPanelInfo() {
+        state.permissions = PermissionStatus(
+            microphone: Permissions.microphone == .granted,
+            screenRecording: Permissions.screenRecordingGranted,
+            accessibility: Permissions.accessibilityGranted
+        )
+        state.general.refreshLaunchAtLogin()
+        state.voiceModelStatus = voice.modelStatus
+        state.microphones = AudioInputDevices.all()
+        refreshRecent()
+    }
+
+    private func chooseFolder() {
+        let open = NSOpenPanel()
+        open.canChooseDirectories = true
+        open.canChooseFiles = false
+        open.canCreateDirectories = true
+        open.directoryURL = state.screenFolder ?? OutputPipeline.defaultFolder
+        open.prompt = "Use folder"
+        open.message = "Recordings are saved here"
+        panel.holdsOpen = true
+        NSApp.activate()
+        open.begin { [weak self] response in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.panel.holdsOpen = false
+                guard response == .OK, let url = open.url else { return }
+                self.state.output.update(self.screen.id) { $0.folder = url }
+                self.state.screenFolder = url
+            }
+        }
+    }
+
+    private func clearHistory() {
+        guard let history else { return }
+        do {
+            try history.clear()
+        } catch {
+            log.error("clear history failed: \(String(describing: error), privacy: .public)")
+        }
+        refreshRecent()
+    }
+
+    private func openPermissionSettings() {
+        let p = state.permissions
+        if !p.accessibility {
+            Permissions.requestAccessibility()
+            Permissions.openAccessibilitySettings()
+        } else if !p.screenRecording {
+            Permissions.requestScreenRecording()
+            Permissions.openScreenRecordingSettings()
+        } else if !p.microphone {
+            Permissions.openMicrophoneSettings()
+        } else {
+            Permissions.openAccessibilitySettings()
         }
     }
 
@@ -129,7 +237,8 @@ final class Shell {
     private func deliver(_ result: ToolResult) {
         Task { [weak self] in
             guard let self else { return }
-            let config = state.output.config(for: result.toolID)
+            var config = state.output.config(for: result.toolID)
+            if !state.general.keepHistory { config.actions.remove(.history) }
             let delivery = await pipeline.deliver(result, config: config)
             if let target = delivery.pastedInto {
                 overlay.flash(.pasted(target: target))
@@ -149,6 +258,10 @@ final class Shell {
         do {
             state.recent = try history.recent(limit: Self.recentLimit)
             state.historyCount = try history.count()
+            state.historyBytes = try history.filePaths().reduce(into: Int64(0)) { total, path in
+                let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
+                total += size
+            }
         } catch {
             log.error("history read failed: \(String(describing: error), privacy: .public)")
         }
@@ -202,6 +315,30 @@ final class Shell {
                 guard let file = item.fileURL else { return }
                 NSWorkspace.shared.activateFileViewerSelecting([file])
             },
+            setHoldKey: { [weak self] key in self?.setHoldKey(key) },
+            setPressKey: { [weak self] combo in self?.setPressKey(combo) },
+            setVoiceLanguage: { [weak self] code in
+                guard let self else { return }
+                voice.language = code
+                state.voiceLanguage = voice.language
+            },
+            setVoiceMicrophone: { [weak self] uid in
+                guard let self else { return }
+                voice.microphoneUID = uid
+                state.voiceMicrophoneUID = uid
+            },
+            updateRecorder: { [weak self] change in
+                guard let self else { return }
+                var settings = screen.settings
+                change(&settings)
+                screen.settings = settings
+                state.recorderSettings = settings
+            },
+            chooseFolder: { [weak self] in self?.chooseFolder() },
+            setLaunchAtLogin: { [weak self] on in self?.state.general.setLaunchAtLogin(on) },
+            clearHistory: { [weak self] in self?.clearHistory() },
+            openPermissionSettings: { [weak self] in self?.openPermissionSettings() },
+            closePanel: { [weak self] in self?.panel.close() },
             quit: { NSApp.terminate(nil) }
         )
     }
@@ -215,6 +352,10 @@ final class Shell {
         let out = env["DESKPOUCH_DEMO_OUT"].map { URL(fileURLWithPath: $0, isDirectory: true) }
         if env["DESKPOUCH_DEMO"] == "states" {
             runStatesDemo(out: out)
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "options" {
+            runOptionsDemo(out: out)
             return
         }
         if env["DESKPOUCH_DEMO"] == "picker" {
@@ -320,6 +461,52 @@ final class Shell {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1 + Double(states.count) * 1.6) { [weak self] in
             self?.overlay.hide()
+        }
+    }
+
+    /// `DESKPOUCH_DEMO=options` walks the panel: voice options, screen options with a dropdown open, General.
+    private func runOptionsDemo(out: URL?) {
+        if state.recent.isEmpty { seedDemoRecent() }
+        func snap(_ name: String, at seconds: Double) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+                guard let self, let out else { return }
+                log.info("demo: snapshot \(name, privacy: .public) visible=\(self.panel.isVisible) presented=\(self.state.panelPresented) view=\(String(describing: self.state.panelView), privacy: .public) expanded=\(self.state.expandedTool ?? "nil", privacy: .public) popup=\(self.state.popups.isOpen)")
+                Task { [weak self] in
+                    guard let self else { return }
+                    Self.writePNG(await panel.debugSnapshot(), to: out.appending(path: "\(name).png"))
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self else { return }
+            refreshPanelInfo()
+            // The screenshots can raise the system's screen capture alert, which would take key status and close the panel.
+            panel.holdsOpen = true
+            if let button = statusItem.button { panel.open(relativeTo: button) }
+            state.expandedTool = "voice"
+        }
+        snap("app-voice-options", at: 2.5)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self else { return }
+            state.expandedTool = "screen"
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) { [weak self] in
+            guard let self else { return }
+            let options = RecorderSettings.Quality.allCases
+            state.popups.toggle("screen.quality", items: options.enumerated().map { index, quality in
+                PopupItem(id: index, title: quality.label, selected: quality == state.recorderSettings.quality)
+            }) { _ in }
+        }
+        snap("app-screen-options", at: 4.6)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.2) { [weak self] in
+            guard let self else { return }
+            state.popups.close()
+            state.panelView = .general
+        }
+        snap("app-general", at: 6.4)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.panel.holdsOpen = false
+            self?.panel.close()
         }
     }
 

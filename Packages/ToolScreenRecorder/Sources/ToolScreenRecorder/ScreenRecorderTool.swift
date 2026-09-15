@@ -12,7 +12,14 @@ private let log = Logger(subsystem: "com.constantinchirila.deskpouch", category:
 public final class ScreenRecorderTool: Tool {
     public let id = "screen"
     public let name = "Record screen"
-    public let pressKey: KeyCombo? = .commandShift6
+    /// Persisted under `screen.hotkey`. The shell re-registers the hotkey when it changes this.
+    public var pressKey: KeyCombo? {
+        didSet {
+            let data = pressKey.flatMap { try? JSONEncoder().encode($0) }
+            UserDefaults.standard.set(data, forKey: Self.hotkeyDefaultsKey)
+        }
+    }
+    static let hotkeyDefaultsKey = "screen.hotkey"
     public let defaultOutput = ToolOutputConfig(actions: [.saveToFolder, .copy, .notify, .history])
 
     /// Persisted on every change. The picker's audio toggles write through here.
@@ -48,6 +55,12 @@ public final class ScreenRecorderTool: Tool {
 
     public init(settings: RecorderSettings = .load()) {
         self.settings = settings
+        if let data = UserDefaults.standard.data(forKey: Self.hotkeyDefaultsKey),
+           let combo = try? JSONDecoder().decode(KeyCombo.self, from: data) {
+            pressKey = combo
+        } else {
+            pressKey = .commandShift6
+        }
         recorder.onStreamStopped = { [weak self] _ in
             // Window closed, display unplugged or the grant was pulled: finalise whatever was written.
             self?.stopRecording()

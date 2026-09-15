@@ -66,8 +66,9 @@ public enum MenubarIcon {
         return image
     }
 
-    /// Pink pill, ink dot, "0:42" timer. Width grows with the digits.
-    public static func recording(elapsed: TimeInterval) -> NSImage {
+    /// Pink pill, ink dot, "0:42" timer. Width grows with the digits. nil elapsed shows just the dot.
+    public static func recording(elapsed: TimeInterval?) -> NSImage {
+        guard let elapsed else { return recordingDot() }
         let label = TimeFormat.minutesSeconds(elapsed) as NSString
         let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: Theme.NSColors.bg]
@@ -84,6 +85,20 @@ public enum MenubarIcon {
                 at: NSPoint(x: 7 + dot + 6, y: (rect.height - textSize.height) / 2),
                 withAttributes: attributes
             )
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+
+    /// Pink pill with only the ink dot, for "Show timer in menubar" off.
+    private static func recordingDot() -> NSImage {
+        let size = NSSize(width: 26, height: 20)
+        let image = NSImage(size: size, flipped: true) { rect in
+            Theme.NSColors.record.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
+            Theme.NSColors.bg.setFill()
+            NSBezierPath(ovalIn: NSRect(x: (rect.width - 7) / 2, y: (rect.height - 7) / 2, width: 7, height: 7)).fill()
             return true
         }
         image.isTemplate = false

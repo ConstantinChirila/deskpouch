@@ -9,7 +9,10 @@ private let log = Logger(subsystem: "com.constantinchirila.deskpouch", category:
 public final class VoiceTool: Tool {
     public let id = "voice"
     public let name = "Voice"
-    public var holdKey: ModifierKey? = .rightOption
+    /// Persisted under `voice.holdKey`. The shell re-registers the hotkey when it changes this.
+    public var holdKey: ModifierKey? {
+        didSet { UserDefaults.standard.set(holdKey.map { Int($0.rawValue) }, forKey: Self.holdKeyDefaultsKey) }
+    }
     public let defaultOutput = ToolOutputConfig(actions: [.paste, .copy, .history])
 
     /// Engine status for the panel, e.g. "Parakeet v3 · local" or "Downloading model · 42%".
@@ -19,6 +22,40 @@ public final class VoiceTool: Tool {
     static let minimumHold: TimeInterval = 0.4
 
     static let languageDefaultsKey = "voice.language"
+    static let holdKeyDefaultsKey = "voice.holdKey"
+    static let microphoneDefaultsKey = "voice.microphone"
+
+    /// Core Audio UID of the microphone, nil for the system default. Persisted.
+    public var microphoneUID: String? {
+        get { recorder.deviceUID }
+        set {
+            recorder.deviceUID = newValue
+            UserDefaults.standard.set(newValue, forKey: Self.microphoneDefaultsKey)
+        }
+    }
+
+    /// Display name for the engine popup.
+    public var engineName: String { transcriber.displayName }
+
+    /// "623 MB · downloaded" or "not downloaded", from the FluidAudio model folder.
+    public var modelStatus: String {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let folder = support.appending(path: "FluidAudio", directoryHint: .isDirectory)
+        guard let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.fileSizeKey]) else {
+            return "not downloaded"
+        }
+        var bytes: Int64 = 0
+        for case let url as URL in files {
+            bytes += Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+        guard bytes > 0 else { return "not downloaded" }
+        return "\(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)) · downloaded"
+    }
+
+    /// Localised name for a supported language code.
+    public static func languageName(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code)?.capitalized ?? code.uppercased()
+    }
 
     /// ISO 639-1 language hint for the engine. Persisted. Defaults to the system language when supported, else English.
     public var language: String {
@@ -48,6 +85,14 @@ public final class VoiceTool: Tool {
 
     public init(transcriber: any Transcriber = ParakeetTranscriber()) {
         self.transcriber = transcriber
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: Self.holdKeyDefaultsKey) != nil,
+           let key = ModifierKey(rawValue: UInt16(clamping: defaults.integer(forKey: Self.holdKeyDefaultsKey))) {
+            holdKey = key
+        } else {
+            holdKey = .rightOption
+        }
+        recorder.deviceUID = defaults.string(forKey: Self.microphoneDefaultsKey)
     }
 
     public func attach(_ context: ToolContext) {
