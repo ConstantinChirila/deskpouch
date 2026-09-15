@@ -86,7 +86,7 @@ The `Tool` protocol starts as a stub for voice and gets reshaped by the second t
 
 ## Status (2026-09-15)
 
-Milestones 1, 2 and 3 are implemented on the dev machine. Milestones 1 and 2 are committed; milestone 3 is uncommitted and verified with the Core tests plus the panel snapshot demo, not yet with a real dictation. `README.md` has build, permissions, and verification instructions.
+Milestones 1, 2 and 3 are implemented, committed, and verified on the dev machine (milestone 3 with a real dictation landing in Recent). Next: milestone 4, screen recorder. Its open items (hotkey, output folder, quality preset, max length) are listed under "Open items" and need a decision at the start of that session. `README.md` has build, permissions, and verification instructions.
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
