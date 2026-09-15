@@ -37,6 +37,10 @@ struct SnapshotDumpTests {
         )
 
         try writeImage(MenubarIcon.idle(), scale: 6, to: out, "menubar-idle", template: true)
+        for glyph in MenubarGlyph.allCases {
+            try writeImage(glyph.image(), scale: 6, to: out, "glyph-\(glyph.rawValue)", template: true)
+        }
+        try writeMenubarStrip(to: out)
         try writeImage(MenubarIcon.listening(levels: Array(meter.bars.suffix(7))), scale: 6, to: out, "menubar-listening", template: false)
     }
 
@@ -71,4 +75,35 @@ struct SnapshotDumpTests {
     }
 
     enum SnapshotError: Error { case render(String), encode(String) }
+
+    /// A dark and a light menubar strip with the current glyph and every candidate at 1x and 2x, as macOS would tint them.
+    private func writeMenubarStrip(to out: URL) throws {
+        let glyphs: [(String, NSImage)] = MenubarGlyph.allCases.map { ($0.rawValue, $0.image()) }
+        for (name, dark) in [("dark", true), ("light", false)] {
+            for scale in [1, 2] {
+                let cell: CGFloat = 40
+                let size = NSSize(width: cell * CGFloat(glyphs.count) + 20, height: 24)
+                let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width) * scale, pixelsHigh: Int(size.height) * scale,
+                                           bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                           colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+                rep.size = size
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+                (dark ? NSColor(white: 0.12, alpha: 1) : NSColor(white: 0.93, alpha: 1)).setFill()
+                NSRect(origin: .zero, size: size).fill()
+                for (i, (_, image)) in glyphs.enumerated() {
+                    let tinted = image.copy() as! NSImage
+                    tinted.isTemplate = false
+                    let rect = NSRect(x: 10 + cell * CGFloat(i) + (cell - 18) / 2, y: 3, width: 18, height: 18)
+                    tinted.lockFocus()
+                    (dark ? NSColor.white : NSColor.black).set()
+                    NSRect(origin: .zero, size: tinted.size).fill(using: .sourceAtop)
+                    tinted.unlockFocus()
+                    tinted.draw(in: rect)
+                }
+                NSGraphicsContext.restoreGraphicsState()
+                try rep.representation(using: .png, properties: [:])?.write(to: out.appending(path: "menubar-strip-\(name)-\(scale)x.png"))
+            }
+        }
+    }
 }

@@ -97,7 +97,8 @@ struct MainPanelView: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 8) {
+            BrandMark(size: 22)
             Text("Deskpouch")
                 .font(.dp(15, .semibold))
                 .tracking(-0.15)

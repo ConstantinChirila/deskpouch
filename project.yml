@@ -42,6 +42,7 @@ targets:
         excludes:
           - "Info.plist"
           - "*.entitlements"
+      - path: App/Resources/AppIcon.icns
     dependencies:
       - package: DeskpouchCore
       - package: ToolVoice
@@ -57,6 +58,8 @@ targets:
         LSMinimumSystemVersion: "15.0"
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: "Constantin Chirila"
+        CFBundleIconFile: AppIcon
+        CFBundleIconName: AppIcon
         NSMicrophoneUsageDescription: "Deskpouch records your voice while you hold the dictation key, and optionally during screen recordings."
         NSSpeechRecognitionUsageDescription: "Deskpouch can transcribe dictation with macOS's on-device speech recognition instead of a downloaded model."
     entitlements:

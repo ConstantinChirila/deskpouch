@@ -111,6 +111,10 @@ Logs: `/usr/bin/log stream --predicate 'subsystem == "com.constantinchirila.desk
 
 Note: ImageRenderer drops a trailing `Text` in an `HStack` on this OS; the in-app dump is the source of truth.
 
+## Branding
+
+The app icon is `App/Resources/AppIcon.icns`. Rebuild it from the asset pack with `iconutil --convert icns` on an iconset holding the 16 to 512 pt sizes at 1x and 2x; the Xcode asset catalog route silently drops sizes with this toolchain. The panel's amber mark lives in `Packages/DeskpouchCore/Sources/DeskpouchCore/Resources/Brand`; the menubar glyph is drawn in code (`MenubarGlyph`), and the snapshot test dumps every candidate into dark and light menubar strips.
+
 ## Layout
 
 ```

@@ -4,8 +4,13 @@ import AppKit
 /// The recording pill is pink with ink (not white) dot and timer for contrast.
 @MainActor
 public enum MenubarIcon {
-    /// Pouch glyph, 18x18, template so it follows the menubar appearance.
+    /// Idle glyph: the drawstring pouch with strings, beads and three meter bars (`MenubarGlyph.pouchOutline`), drawn as a
+    /// template so it follows the menubar appearance. The asset pack's outline glyph was too fine at 18 pt.
     public static func idle() -> NSImage {
+        MenubarGlyph.pouchOutline.image()
+    }
+
+    private static func drawnIdle() -> NSImage {
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: true) { _ in
             let path = NSBezierPath()

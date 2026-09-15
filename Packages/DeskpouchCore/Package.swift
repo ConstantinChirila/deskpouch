@@ -10,7 +10,7 @@ let package = Package(
     targets: [
         .target(
             name: "DeskpouchCore",
-            resources: [.copy("Resources/Fonts")]
+            resources: [.copy("Resources/Fonts"), .copy("Resources/Brand")]
         ),
         .testTarget(
             name: "DeskpouchCoreTests",
