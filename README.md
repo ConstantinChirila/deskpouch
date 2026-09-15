@@ -83,7 +83,7 @@ Two helpers render the custom UI to PNG so it can be compared against the mocks 
 cd Packages/DeskpouchCore && DESKPOUCH_SNAPSHOT_DIR=/tmp/snap swift test --filter SnapshotDumpTests
 
 # The live app: shows the pill and the panel for 5 s and dumps both (Recent is seeded with fake rows when empty).
-# The panel PNG takes ~10 s: its shadow is blurred on the CPU.
+# The panel PNG is a ScreenCaptureKit screenshot of the window, so it needs the Screen Recording grant.
 DESKPOUCH_DEMO=pill DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
 # Every pill state, one PNG each. The recording state also logs a hit test: the pill must take clicks, clear pixels must not.

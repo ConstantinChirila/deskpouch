@@ -246,7 +246,10 @@ final class Shell {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             guard let self, let out else { return }
             Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill.png"))
-            Self.writePNG(panel.debugSnapshot(), to: out.appending(path: "app-panel.png"))
+            Task { [weak self] in
+                guard let self else { return }
+                Self.writePNG(await panel.debugSnapshot(), to: out.appending(path: "app-panel.png"))
+            }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
             guard let self else { return }

@@ -64,9 +64,9 @@ Shadows: panel `0 30px 70px rgba(0,0,0,0.65), 0 8px 20px rgba(0,0,0,0.4)` plus `
 - **Menubar icon**: idle pouch glyph; listening amber pill with a 7-bar meter; recording pink pill with bg-ink dot and timer (ink, not white, for contrast).
 - **Region picker**: dim `rgba(4,8,6,0.62)`, selection amber 2px border with 4px ring and glow, cream corner brackets, amber dimension chip, bottom pill toolbar with segmented Region/Window/Screen, round audio toggles, cream Record button with return hint.
 
-## Motion (to implement)
+## Motion
 
-- Panel: spring in from the menubar icon, 220ms, slight scale from 0.96.
-- Card expand: height animates, chevron rotates, 180ms ease-out.
-- Pill: states cross-fade in place, 200ms. Pasted auto-dismisses after 1.2s.
-- Meter bars: driven by live audio level, 30fps, with 80ms decay.
+- Panel: spring in from the menubar icon, 220ms, slight scale from 0.96 anchored at the top; 120ms fade out. Done.
+- Card expand: height animates, chevron rotates, 180ms ease-out. With milestone 5.
+- Pill: states cross-fade in place, 200ms. Pasted auto-dismisses after 1.2s; saved after 2s. Recording pill dims to 0.55 after 4s, hover restores. Done.
+- Meter bars: driven by live audio level, 30fps, with 80ms decay. Done.

@@ -126,9 +126,9 @@ Decisions for the open items, taken from the Final mocks:
 
 Package `ToolScreenRecorder`: `ScreenRecorderTool` (phases: idle, picking, starting, recording, stopping), `ScreenRecorder` (one SCStream plus `SCRecordingOutput`), `CaptureGeometry` (scaling, drag rects, aspect snap), `PickerModel` (pure state, tested) with `PickerWindowController` (one borderless window per screen at screen-saver level) and the SwiftUI picker views. Region mode: drag, drag inside to move, ⇧ snaps 16:9, Return or Record starts. Window and screen modes: hover highlights, click starts. Escape cancels.
 
-Recent rows for files: dark tile with a duration badge, double-click reveals in Finder, the button copies the file. Thumbnails are still to come.
+Recent rows for files: a frame from the file (generated on demand, `ThumbnailCache`, dark tile while loading or when the file is gone) with a duration badge; double-click reveals in Finder, the button copies the file.
+
+Leftovers closed 2026-09-15: thumbnails, panel spring-in and fade-out (card expand motion lands with the options rows in milestone 5). "Don't keep transcripts" is the History chip on the Voice card, so that open item is closed too.
 
 ## Open items
-- "Don't keep transcripts" toggle before any public release.
-- Recording thumbnails in Recent.
-- Options rows in the screen card (folder, quality, frame rate, audio, shortcut) come with milestone 5.
+- Options rows in the screen card (folder, quality, frame rate, audio, shortcut) and the General view come with milestone 5.

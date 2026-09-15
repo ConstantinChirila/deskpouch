@@ -25,6 +25,10 @@ final class ShellState {
     /// Last few history items, newest first, and the total count.
     var recent: [HistoryItem] = []
     var historyCount = 0
+    /// Frames for the file tiles under Recent.
+    let thumbnails = ThumbnailCache()
+    /// The panel is on screen; drives its spring-in.
+    var panelPresented = false
     var version = "0.1.0"
 
     init(output: OutputSettings = OutputSettings()) {

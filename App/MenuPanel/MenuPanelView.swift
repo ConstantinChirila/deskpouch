@@ -15,7 +15,8 @@ struct MenuPanelView: View {
             VoiceCard(state: state, actions: actions)
             ScreenCard(state: state, actions: actions)
             if !state.recent.isEmpty {
-                RecentSection(items: state.recent, count: state.historyCount, copy: actions.copyRecent, reveal: actions.revealRecent)
+                RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
+                              copy: actions.copyRecent, reveal: actions.revealRecent)
             }
             footer
         }
@@ -38,6 +39,10 @@ struct MenuPanelView: View {
         }
         .shadow(color: .black.opacity(0.65), radius: 35, y: 30)
         .shadow(color: .black.opacity(0.4), radius: 10, y: 8)
+        // Spring in from the menubar icon: slight scale from the top edge plus a fade.
+        .scaleEffect(state.panelPresented ? 1 : 0.96, anchor: .top)
+        .opacity(state.panelPresented ? 1 : 0)
+        .animation(.spring(duration: 0.22, bounce: 0.18), value: state.panelPresented)
         .padding(.top, MenuPanelController.shadowInset.top)
         .padding(.bottom, MenuPanelController.shadowInset.bottom)
         .padding(.horizontal, MenuPanelController.shadowInset.left)
@@ -309,6 +314,7 @@ struct ScreenCard: View {
 struct RecentSection: View {
     let items: [HistoryItem]
     let count: Int
+    let thumbnails: ThumbnailCache
     let copy: @MainActor (HistoryItem) -> Void
     let reveal: @MainActor (HistoryItem) -> Void
 
@@ -328,7 +334,7 @@ struct RecentSection: View {
             .padding(.horizontal, 4)
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 ForEach(items) { item in
-                    RecentRow(item: item, now: context.date, copy: { copy(item) }, reveal: { reveal(item) })
+                    RecentRow(item: item, now: context.date, thumbnails: thumbnails, copy: { copy(item) }, reveal: { reveal(item) })
                 }
             }
         }
@@ -338,6 +344,7 @@ struct RecentSection: View {
 struct RecentRow: View {
     let item: HistoryItem
     let now: Date
+    let thumbnails: ThumbnailCache
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
 
@@ -397,9 +404,17 @@ struct RecentRow: View {
                 .background(shape.fill(Theme.Colors.accent(0.14)))
                 .overlay(shape.strokeBorder(Theme.Colors.accent(0.25), lineWidth: 1))
         } else {
-            // File capture: dark thumbnail placeholder with a duration badge.
+            // File capture: a frame from the file, dark placeholder until it loads or when the file is gone.
             ZStack(alignment: .bottomTrailing) {
                 shape.fill(LinearGradient(colors: [Color(hex: 0x3B42_52), Color(hex: 0x2226_2F)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                if let file = item.fileURL, let frame = thumbnails.image(for: file) {
+                    Image(decorative: frame, scale: 2)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 44, height: 30)
+                        .clipShape(shape)
+                        .transition(.opacity)
+                }
                 if let duration = item.duration {
                     Text(TimeFormat.minutesSeconds(duration))
                         .font(.dp(9))
@@ -412,6 +427,7 @@ struct RecentRow: View {
             }
             .frame(width: 44, height: 30)
             .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+            .animation(.easeOut(duration: 0.2), value: item.fileURL.flatMap { thumbnails.image(for: $0) } != nil)
         }
     }
 }

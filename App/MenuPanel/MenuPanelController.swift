@@ -15,14 +15,17 @@ struct MenuPanelActions {
 final class MenuPanelController {
     private let panel: NSPanel
     private let hosting: NSHostingView<MenuPanelView>
+    private let state: ShellState
     private var resignObserver: NSObjectProtocol?
     private var keyMonitor: Any?
+    private var closing: Task<Void, Never>?
 
     static let width: CGFloat = 400
     /// Room around the panel for its shadow.
     static let shadowInset = NSEdgeInsets(top: 20, left: 60, bottom: 90, right: 60)
 
     init(state: ShellState, actions: MenuPanelActions) {
+        self.state = state
         hosting = NSHostingView(rootView: MenuPanelView(state: state, actions: actions))
         hosting.sizingOptions = [.intrinsicContentSize]
 
@@ -52,10 +55,12 @@ final class MenuPanelController {
     var isVisible: Bool { panel.isVisible }
 
     func toggle(relativeTo button: NSStatusBarButton) {
-        if isVisible { close() } else { open(relativeTo: button) }
+        if state.panelPresented { close() } else { open(relativeTo: button) }
     }
 
     func open(relativeTo button: NSStatusBarButton) {
+        closing?.cancel()
+        closing = nil
         hosting.layoutSubtreeIfNeeded()
         let content = hosting.fittingSize
         panel.setContentSize(content)
@@ -79,20 +84,25 @@ final class MenuPanelController {
         NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
         installKeyMonitor()
+        state.panelPresented = true
     }
 
-    func debugSnapshot() -> NSImage? {
-        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return nil }
-        hosting.cacheDisplay(in: hosting.bounds, to: rep)
-        let image = NSImage(size: hosting.bounds.size)
-        image.addRepresentation(rep)
-        return image
+    /// Screenshot of the live panel window. Design review only.
+    func debugSnapshot() async -> NSImage? {
+        await WindowSnapshot.capture(windowNumber: panel.windowNumber)
     }
 
+    /// Fades out over 120 ms, then takes the window off screen.
     func close() {
-        guard panel.isVisible else { return }
+        guard panel.isVisible, closing == nil else { return }
         removeKeyMonitor()
-        panel.orderOut(nil)
+        state.panelPresented = false
+        closing = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard let self, !Task.isCancelled else { return }
+            panel.orderOut(nil)
+            closing = nil
+        }
     }
 
     private func installKeyMonitor() {
