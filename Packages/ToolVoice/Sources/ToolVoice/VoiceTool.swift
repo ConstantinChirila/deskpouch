@@ -4,6 +4,21 @@ import os
 
 private let log = Logger(subsystem: "com.constantinchirila.deskpouch", category: "voice")
 
+/// Which speech engine dictation runs on. Persisted under `voice.engine`.
+public enum VoiceEngine: String, CaseIterable, Sendable {
+    /// Parakeet TDT 0.6B v3 through FluidAudio: downloaded once, best accuracy.
+    case parakeet
+    /// macOS's own on-device recognition: nothing to download, less accurate.
+    case apple
+
+    public var name: String {
+        switch self {
+        case .parakeet: "Parakeet v3"
+        case .apple: "Apple Speech"
+        }
+    }
+}
+
 /// Hold-to-talk dictation. Hold the key, speak, release: the transcript is emitted as a `ToolResult`.
 @MainActor
 public final class VoiceTool: Tool {
@@ -24,6 +39,52 @@ public final class VoiceTool: Tool {
     static let languageDefaultsKey = "voice.language"
     static let holdKeyDefaultsKey = "voice.holdKey"
     static let microphoneDefaultsKey = "voice.microphone"
+    static let engineDefaultsKey = "voice.engine"
+
+    /// Persisted. Switching to Parakeet starts its download; switching away leaves the download in place.
+    public var engine: VoiceEngine {
+        didSet {
+            guard engine != oldValue else { return }
+            UserDefaults.standard.set(engine.rawValue, forKey: Self.engineDefaultsKey)
+            if engine == .parakeet { warmUp() } else { onStatus?(statusLine) }
+        }
+    }
+
+    /// Where FluidAudio keeps the Parakeet v3 files. Removing it frees the download; the next Parakeet use fetches it again.
+    static let parakeetFolder: URL = {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return support.appending(path: "FluidAudio/Models/parakeet-tdt-0.6b-v3", directoryHint: .isDirectory)
+    }()
+
+    public var parakeetDownloaded: Bool { parakeetBytes > 0 }
+
+    private var parakeetBytes: Int64 {
+        guard let files = FileManager.default.enumerator(at: Self.parakeetFolder, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        var bytes: Int64 = 0
+        for case let url as URL in files {
+            bytes += Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+        return bytes
+    }
+
+    /// Deletes the Parakeet download. Only sensible while Apple Speech is selected.
+    public func removeParakeetDownload() throws {
+        try FileManager.default.removeItem(at: Self.parakeetFolder)
+        onStatus?(statusLine)
+    }
+
+    /// One line per engine for the Model popup: what it costs and where it stands.
+    public func engineDetail(_ engine: VoiceEngine) -> String {
+        switch engine {
+        case .parakeet:
+            let bytes = parakeetBytes
+            return bytes > 0
+                ? "\(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)) · downloaded"
+                : "about 470 MB, downloads on first use"
+        case .apple:
+            return "built into macOS · on device"
+        }
+    }
     static let skipFillersDefaultsKey = "voice.skipFillers"
 
     /// Drop "um", "uh", "hmm" from transcripts. Persisted, on by default. Parakeet has no knob for this,
@@ -44,20 +105,8 @@ public final class VoiceTool: Tool {
     /// Display name for the engine popup.
     public var engineName: String { transcriber.displayName }
 
-    /// "623 MB · downloaded" or "not downloaded", from the FluidAudio model folder.
-    public var modelStatus: String {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let folder = support.appending(path: "FluidAudio", directoryHint: .isDirectory)
-        guard let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.fileSizeKey]) else {
-            return "not downloaded"
-        }
-        var bytes: Int64 = 0
-        for case let url as URL in files {
-            bytes += Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-        }
-        guard bytes > 0 else { return "not downloaded" }
-        return "\(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)) · downloaded"
-    }
+    /// Detail line for the selected engine.
+    public var modelStatus: String { engineDetail(engine) }
 
     /// Localised name for a supported language code.
     public static func languageName(_ code: String) -> String {
@@ -85,14 +134,18 @@ public final class VoiceTool: Tool {
     /// "Parakeet v3 · EN" style line for the panel.
     private var statusLine: String { "\(transcriber.displayName) · \(language.uppercased())" }
 
-    private let transcriber: any Transcriber
+    private let parakeet: any Transcriber
+    private let apple: any Transcriber
+    private var transcriber: any Transcriber { engine == .apple ? apple : parakeet }
     private let recorder = MicRecorder()
     private var context: ToolContext?
     private var job: Task<Void, Never>?
 
-    public init(transcriber: any Transcriber = ParakeetTranscriber()) {
-        self.transcriber = transcriber
+    public init(parakeet: any Transcriber = ParakeetTranscriber(), apple: any Transcriber = AppleTranscriber()) {
+        self.parakeet = parakeet
+        self.apple = apple
         let defaults = UserDefaults.standard
+        engine = defaults.string(forKey: Self.engineDefaultsKey).flatMap(VoiceEngine.init(rawValue:)) ?? .parakeet
         if defaults.object(forKey: Self.holdKeyDefaultsKey) != nil,
            let key = ModifierKey(rawValue: UInt16(clamping: defaults.integer(forKey: Self.holdKeyDefaultsKey))) {
             holdKey = key
@@ -109,7 +162,12 @@ public final class VoiceTool: Tool {
     }
 
     /// Downloads and loads the model in the background so the first dictation is not stuck waiting.
+    /// Apple Speech has nothing to load, and asking for its permission waits for the first dictation.
     public func warmUp() {
+        guard engine == .parakeet else {
+            onStatus?(statusLine)
+            return
+        }
         onStatus?("\(transcriber.displayName) · loading")
         Task { [transcriber, self] in
             do {
@@ -207,7 +265,11 @@ public final class VoiceTool: Tool {
             return text
         } catch {
             log.error("transcription failed: \(String(describing: error), privacy: .public)")
-            context.overlay.flash(.failed("Transcription failed"), for: .seconds(2))
+            if let described = error as? any LocalizedError, let message = described.errorDescription {
+                context.overlay.flash(.failed(message), for: .seconds(4))
+            } else {
+                context.overlay.flash(.failed("Transcription failed"), for: .seconds(2))
+            }
             return nil
         }
     }

@@ -80,8 +80,16 @@ final class ShellState {
     var confirmingClear = false
 
     // Voice options.
+    struct EngineOption: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let detail: String
+    }
     var voiceEngine = "Parakeet v3"
+    var voiceEngineID = "parakeet"
+    var voiceEngines: [EngineOption] = []
     var voiceModelStatus = ""
+    var parakeetDownloaded = false
     var voiceLanguage = "en"
     var voiceLanguages: [String] = []
     var voiceMicrophoneUID: String?

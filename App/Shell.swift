@@ -66,9 +66,7 @@ final class Shell {
         state.screenStatus = screen.settings.summary
         state.recorderSettings = screen.settings
         state.screenFolder = state.output.config(for: screen.id).folder
-        state.voiceEngine = voice.engineName
-        state.voiceLanguage = voice.language
-        state.voiceLanguages = voice.supportedLanguages
+        refreshVoiceEngine()
         state.voiceMicrophoneUID = voice.microphoneUID
         state.voiceSkipFillers = voice.skipFillers
         screen.onStatus = { [weak self] text in
@@ -185,9 +183,22 @@ final class Shell {
             accessibility: Permissions.accessibilityGranted
         )
         state.general.refreshLaunchAtLogin()
-        state.voiceModelStatus = voice.modelStatus
+        refreshVoiceEngine()
         state.microphones = AudioInputDevices.all()
         refreshRecent()
+    }
+
+    /// Engine name, options, language list and download state for the Voice view.
+    private func refreshVoiceEngine() {
+        state.voiceEngineID = voice.engine.rawValue
+        state.voiceEngine = voice.engineName
+        state.voiceEngines = VoiceEngine.allCases.map {
+            ShellState.EngineOption(id: $0.rawValue, name: $0.name, detail: voice.engineDetail($0))
+        }
+        state.voiceModelStatus = voice.modelStatus
+        state.parakeetDownloaded = voice.parakeetDownloaded
+        state.voiceLanguages = voice.supportedLanguages
+        state.voiceLanguage = voice.language
     }
 
     private func chooseFolder() {
@@ -353,6 +364,20 @@ final class Shell {
                 guard let self else { return }
                 voice.language = code
                 state.voiceLanguage = voice.language
+            },
+            setVoiceEngine: { [weak self] id in
+                guard let self, let engine = VoiceEngine(rawValue: id) else { return }
+                voice.engine = engine
+                refreshVoiceEngine()
+            },
+            removeVoiceModel: { [weak self] in
+                guard let self else { return }
+                do {
+                    try voice.removeParakeetDownload()
+                } catch {
+                    log.error("remove model failed: \(String(describing: error), privacy: .public)")
+                }
+                refreshVoiceEngine()
             },
             setVoiceMicrophone: { [weak self] uid in
                 guard let self else { return }

@@ -32,6 +32,10 @@ scripts/make-dev-cert.sh
 
 It writes the identity into `Signing.xcconfig`. Keep that change local.
 
+## Voice engine
+
+The Model row in the Voice view picks the engine: Parakeet v3 (downloaded once, about 470 MB, best accuracy) or Apple Speech (macOS's on-device recognition, nothing to download, less accurate; asks for Speech Recognition access on first use, and needs Dictation turned on in System Settings › Keyboard, which also installs the on-device language). With Apple Speech selected, "Remove download" deletes the Parakeet files. From the shell: `defaults write com.constantinchirila.deskpouch voice.engine apple` (or `parakeet`).
+
 ## Voice language
 
 Parakeet v3 is multilingual and can drift scripts on unknown names. The voice tool passes a language hint that keeps the decoder on one script. It defaults to the system language when supported, otherwise English. Change it in the Voice view (click the Voice row in the panel; the microphone and the hold key are there too), or with:

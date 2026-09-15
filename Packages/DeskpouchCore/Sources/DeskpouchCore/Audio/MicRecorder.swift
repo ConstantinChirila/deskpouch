@@ -9,7 +9,7 @@ public enum MicRecorderError: Error, Sendable {
 /// Captures a microphone (system default or `deviceUID`) into 16 kHz mono Float32 samples and tracks a live level for meters.
 @MainActor
 public final class MicRecorder {
-    public static let sampleRate: Double = 16_000
+    public nonisolated static let sampleRate: Double = 16_000
 
     private let engine = AVAudioEngine()
     private let store = SampleStore()

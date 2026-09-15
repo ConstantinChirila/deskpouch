@@ -500,8 +500,19 @@ struct VoiceToolView: View {
             RowDivider()
             OptionRows {
                 OptionRow("Model", detail: state.voiceModelStatus) {
-                    PopupButton(id: "voice.model", title: state.voiceEngine,
-                                items: [PopupItem(id: 0, title: state.voiceEngine, detail: "local", selected: true)]) { _ in }
+                    HStack(spacing: 8) {
+                        if state.voiceEngineID == "apple", state.parakeetDownloaded {
+                            RowButton("Remove download") { actions.removeVoiceModel() }
+                                .help("Deletes the Parakeet files; selecting Parakeet again downloads them")
+                        }
+                        PopupPicker(
+                            id: "voice.model",
+                            selection: Binding(get: { state.voiceEngineID }, set: { actions.setVoiceEngine($0) }),
+                            options: state.voiceEngines.map(\.id),
+                            title: { id in state.voiceEngines.first { $0.id == id }?.name ?? id },
+                            detail: { id in state.voiceEngines.first { $0.id == id }?.detail }
+                        )
+                    }
                 }
                 OptionRow("Language") {
                     PopupPicker(

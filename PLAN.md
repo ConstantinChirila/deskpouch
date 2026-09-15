@@ -142,6 +142,10 @@ Leftovers closed 2026-09-15: thumbnails, panel spring-in and fade-out (card expa
 
 "All N ›" in the Recent header pushes the History view (mock: `design/mocks/History*.dc.html`): search over transcripts and file names (SQLite LIKE with escaped wildcards), All / Voice / Recordings filter (by tool id), rows grouped by day (`DayGroup`: Today, Yesterday, "Tue 8 Sep") with clock times, 20 rows per page and "Show older · N more", delete on hover (removes the log row, never the file). The list scrolls inside the panel; the controller tells the view how tall it may be. Core: `HistoryStore.items(matching:toolID:limit:offset:)` and `count(matching:toolID:)`, `Segmented`, `SearchField`, tests for the query and the day labels.
 
+## Voice engines (2026-09-15)
+
+The Model row offers two engines behind the `Transcriber` protocol: Parakeet v3 (FluidAudio, about 470 MB download, best accuracy, 25 European languages) and Apple Speech (`AppleTranscriber`: the Speech framework with `requiresOnDeviceRecognition`, nothing to download, less accurate, languages follow the dictation assets installed in macOS). `voice.engine` persists the choice; Parakeet only downloads when it is the selected engine, and with Apple selected a "Remove download" button deletes the Parakeet folder. Apple Speech needs the Speech Recognition grant (prompted on first use) and Dictation turned on in System Settings › Keyboard; with it off, macOS answers kLSRErrorDomain 201 and the pill says so. Other local models under 500 MB were assessed and not added: Parakeet TDT-CTC 110M (English, lighter, less accurate) and SenseVoice small (Asian languages) are one day's work inside FluidAudio if a need appears; WhisperKit's small models lose to Parakeet in English; Apple's SpeechAnalyzer needs macOS 26.
+
 ## Open items
 - Fifteen-plus tools: the list still grows 52 pt per tool; revisit (grouping, or a compact mode) when it happens.
 - Sparkle and signed builds before anything is shared; "Check for updates" is disabled until then.

@@ -58,6 +58,7 @@ targets:
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: "Constantin Chirila"
         NSMicrophoneUsageDescription: "Deskpouch records your voice while you hold the dictation key, and optionally during screen recordings."
+        NSSpeechRecognitionUsageDescription: "Deskpouch can transcribe dictation with macOS's on-device speech recognition instead of a downloaded model."
     entitlements:
       path: App/Deskpouch.entitlements
       properties:

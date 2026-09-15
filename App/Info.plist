@@ -28,6 +28,8 @@
 	<string>Constantin Chirila</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Deskpouch records your voice while you hold the dictation key, and optionally during screen recordings.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Deskpouch can transcribe dictation with macOS's on-device speech recognition instead of a downloaded model.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

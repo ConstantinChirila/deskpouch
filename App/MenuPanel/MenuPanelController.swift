@@ -11,6 +11,8 @@ struct MenuPanelActions {
     var setHoldKey: @MainActor (ModifierKey) -> Void
     var setPressKey: @MainActor (KeyCombo) -> Void
     var setVoiceLanguage: @MainActor (String) -> Void
+    var setVoiceEngine: @MainActor (String) -> Void
+    var removeVoiceModel: @MainActor () -> Void
     var setVoiceMicrophone: @MainActor (String?) -> Void
     var setVoiceSkipFillers: @MainActor (Bool) -> Void
     var updateRecorder: @MainActor ((inout RecorderSettings) -> Void) -> Void
