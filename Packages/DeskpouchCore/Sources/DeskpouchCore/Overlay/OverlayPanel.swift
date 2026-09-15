@@ -1,6 +1,7 @@
 import AppKit
 
-/// Non-activating, click-through, transparent panel that floats above everything including full screen apps.
+/// Non-activating, transparent panel that floats above everything including full screen apps. Click-through except
+/// while the recording pill shows its Stop button; clear pixels pass clicks through even then.
 @MainActor
 final class OverlayPanel: NSPanel {
     init() {

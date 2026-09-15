@@ -49,6 +49,21 @@ public enum Permissions {
         await AVCaptureDevice.requestAccess(for: .audio)
     }
 
+    /// Screen Recording (kTCCServiceScreenCapture). Needed for ScreenCaptureKit; macOS may want a relaunch after the grant.
+    public static var screenRecordingGranted: Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
+    /// Shows the system Screen Recording prompt once per app identity. Returns the current grant.
+    @discardableResult
+    public static func requestScreenRecording() -> Bool {
+        CGRequestScreenCaptureAccess()
+    }
+
+    public static func openScreenRecordingSettings() {
+        open("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+    }
+
     public static func openMicrophoneSettings() {
         open("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
     }

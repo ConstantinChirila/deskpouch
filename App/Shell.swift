@@ -1,5 +1,6 @@
 import AppKit
 import DeskpouchCore
+import ToolScreenRecorder
 import ToolVoice
 import os
 
@@ -17,9 +18,11 @@ final class Shell {
     private lazy var panel = MenuPanelController(state: state, actions: panelActions)
 
     private let voice = VoiceTool()
-    private var tools: [Tool] { [voice] }
+    private let screen = ScreenRecorderTool()
+    private var tools: [Tool] { [voice, screen] }
 
     private var permissionPoll: Timer?
+    private var recordingTimer: Timer?
 
     static let recentLimit = 5
 
@@ -34,12 +37,21 @@ final class Shell {
     }
 
     func start() {
-        let context = ToolContext(overlay: overlay) { [weak self] result in
-            self?.deliver(result)
-        }
+        let context = ToolContext(
+            overlay: overlay,
+            emit: { [weak self] result in self?.deliver(result) },
+            activity: { [weak self] _, activity in self?.activityChanged(activity) }
+        )
         for tool in tools {
             state.output.registerDefault(tool.defaultOutput, for: tool.id)
             tool.attach(context)
+            if let combo = tool.pressKey {
+                let registered = hotkeys.registerPress(combo) { [weak tool] in tool?.keyPressed() }
+                if !registered {
+                    log.error("\(combo.display, privacy: .public) is taken by another app")
+                    if tool.id == screen.id { state.screenKeyTaken = true }
+                }
+            }
             if let key = tool.holdKey {
                 hotkeys.registerHold(key) { [weak self, weak tool] phase in
                     guard let self, let tool else { return }
@@ -65,8 +77,19 @@ final class Shell {
             self?.state.voiceStatus = text
         }
         state.holdKey = voice.holdKey ?? .rightOption
+        state.screenKey = screen.pressKey ?? .commandShift6
+        state.screenStatus = screen.settings.summary
+        screen.onStatus = { [weak self] text in
+            self?.state.screenStatus = text
+        }
         statusItem.onClick = { [weak self] button in
-            self?.panel.toggle(relativeTo: button)
+            guard let self else { return }
+            // While recording the icon is the stop button; the panel is not reachable until the recording ends.
+            if screen.isRecording {
+                screen.stopRecording()
+            } else {
+                panel.toggle(relativeTo: button)
+            }
         }
         statusItem.showIdle()
         refreshRecent()
@@ -78,6 +101,27 @@ final class Shell {
     func stop() {
         hotkeys.stop()
         permissionPoll?.invalidate()
+        recordingTimer?.invalidate()
+    }
+
+    // MARK: Activity
+
+    private func activityChanged(_ activity: ToolActivity) {
+        state.activity = activity
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        switch activity {
+        case .idle:
+            statusItem.showIdle()
+        case .recording(let since):
+            panel.close()
+            statusItem.showRecording(elapsed: Date().timeIntervalSince(since))
+            recordingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.statusItem.showRecording(elapsed: Date().timeIntervalSince(since))
+                }
+            }
+        }
     }
 
     // MARK: Output
@@ -89,6 +133,8 @@ final class Shell {
             let delivery = await pipeline.deliver(result, config: config)
             if let target = delivery.pastedInto {
                 overlay.flash(.pasted(target: target))
+            } else if let saved = delivery.savedTo {
+                overlay.flash(.saved(name: saved.lastPathComponent, copied: delivery.copied), for: .seconds(2))
             } else if delivery.copied {
                 overlay.flash(.copied)
             } else {
@@ -152,6 +198,10 @@ final class Shell {
             copyRecent: { [weak self] item in
                 self?.copyRecent(item)
             },
+            revealRecent: { item in
+                guard let file = item.fileURL else { return }
+                NSWorkspace.shared.activateFileViewerSelecting([file])
+            },
             quit: { NSApp.terminate(nil) }
         )
     }
@@ -165,6 +215,18 @@ final class Shell {
         let out = env["DESKPOUCH_DEMO_OUT"].map { URL(fileURLWithPath: $0, isDirectory: true) }
         if env["DESKPOUCH_DEMO"] == "states" {
             runStatesDemo(out: out)
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "picker" {
+            runPickerDemo(out: out)
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "record" {
+            // Real recording of a fixed region for 4 s, delivered through the real pipeline (saves to Movies, logs history).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                let full = ProcessInfo.processInfo.environment["DESKPOUCH_DEMO_FULL"] != nil
+                self?.screen.debugRecord(region: full ? nil : CGRect(x: 160, y: 140, width: 1040, height: 760), seconds: 4)
+            }
             return
         }
         if env["DESKPOUCH_DEMO"] == "transcribe", let wav = env["DESKPOUCH_DEMO_WAV"] {
@@ -219,18 +281,34 @@ final class Shell {
     }
 
     /// `DESKPOUCH_DEMO=states` walks every pill state, 1.6 s each, dumping a PNG per state.
+    /// The recording state also logs whether the pill takes clicks and clear pixels pass them through.
     private func runStatesDemo(out: URL?) {
         let states: [(String, PillState)] = [
             ("preparing", .preparing("Downloading model · 42%")),
             ("transcribing", .transcribing(detail: "Parakeet v3")),
             ("pasted", .pasted(target: "Slack")),
             ("copied", .copied),
+            ("saved", .saved(name: "Recording 2026-09-15 10.32.05.mp4", copied: true)),
+            ("recording", .recording(detail: "1040 × 760 · 60 fps")),
             ("failed", .failed("Nothing heard")),
         ]
         for (i, (name, state)) in states.enumerated() {
             let t = 1 + Double(i) * 1.6
             DispatchQueue.main.asyncAfter(deadline: .now() + t) { [weak self] in
-                self?.overlay.show(state)
+                guard let self else { return }
+                if case .recording(let detail) = state {
+                    overlay.showRecording(detail: detail, since: Date().addingTimeInterval(-42)) { log.info("demo: stop tapped") }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                        guard let self else { return }
+                        let centre = overlay.debugPillCenter
+                        let aside = CGPoint(x: centre.x - 300, y: centre.y + 40)
+                        let atPill = NSWindow.windowNumber(at: centre, belowWindowWithWindowNumber: 0)
+                        let atClear = NSWindow.windowNumber(at: aside, belowWindowWithWindowNumber: 0)
+                        log.info("demo: hit test pill=\(atPill) clear=\(atClear) (clear must differ from pill)")
+                    }
+                } else {
+                    overlay.show(state)
+                }
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + t + 1.3) { [weak self] in
                 guard let self, let out else { return }
@@ -239,6 +317,20 @@ final class Shell {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1 + Double(states.count) * 1.6) { [weak self] in
             self?.overlay.hide()
+        }
+    }
+
+    /// `DESKPOUCH_DEMO=picker` opens the region picker with a region drawn, dumps it, and cancels.
+    private func runPickerDemo(out: URL?) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            self?.screen.debugOpenPicker(region: CGRect(x: 160, y: 140, width: 1040, height: 760))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self, let out else { return }
+            Self.writePNG(screen.debugSnapshotPicker(), to: out.appending(path: "app-picker.png"))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.screen.debugCancelPicker()
         }
     }
 
@@ -265,9 +357,9 @@ final class Shell {
         guard let image, let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff),
               let png = rep.representation(using: .png, properties: [:]) else {
-            NSLog("deskpouch demo: could not encode %@", url.lastPathComponent)
+            log.error("demo: could not encode \(url.lastPathComponent, privacy: .public)")
             return
         }
-        do { try png.write(to: url) } catch { NSLog("deskpouch demo: write failed %@", "\(error)") }
+        do { try png.write(to: url) } catch { log.error("demo: write failed \(String(describing: error), privacy: .public)") }
     }
 }

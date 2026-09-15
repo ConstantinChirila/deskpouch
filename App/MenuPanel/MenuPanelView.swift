@@ -1,7 +1,7 @@
 import DeskpouchCore
 import SwiftUI
 
-/// The panel: header, voice card, Recent, footer. General arrives in milestone 5.
+/// The panel: header, voice card, screen card, Recent, footer. General arrives in milestone 5.
 struct MenuPanelView: View {
     let state: ShellState
     let actions: MenuPanelActions
@@ -13,8 +13,9 @@ struct MenuPanelView: View {
                 PermissionCard(action: actions.requestPermission)
             }
             VoiceCard(state: state, actions: actions)
+            ScreenCard(state: state, actions: actions)
             if !state.recent.isEmpty {
-                RecentSection(items: state.recent, count: state.historyCount, copy: actions.copyRecent)
+                RecentSection(items: state.recent, count: state.historyCount, copy: actions.copyRecent, reveal: actions.revealRecent)
             }
             footer
         }
@@ -61,12 +62,19 @@ struct MenuPanelView: View {
         }
     }
 
+    private var isRecording: Bool {
+        if case .recording = state.activity { return true }
+        return false
+    }
+
     private var statusColor: Color {
-        state.isListening ? Theme.Colors.accent : (state.hotkeyReady ? Theme.Colors.ok : Theme.Colors.record)
+        if isRecording { return Theme.Colors.record }
+        return state.isListening ? Theme.Colors.accent : (state.hotkeyReady ? Theme.Colors.ok : Theme.Colors.record)
     }
 
     private var statusText: String {
-        state.isListening ? "Listening" : (state.hotkeyReady ? "Ready" : "Needs access")
+        if isRecording { return "Recording" }
+        return state.isListening ? "Listening" : (state.hotkeyReady ? "Ready" : "Needs access")
     }
 
     private var footer: some View {
@@ -206,11 +214,103 @@ struct VoiceCard: View {
     }
 }
 
+/// Screen recorder card. Record ring while recording. Chips pick after-capture actions; keycaps show the combo.
+struct ScreenCard: View {
+    let state: ShellState
+    let actions: MenuPanelActions
+
+    static let toolID = "screen"
+    static let chips: [OutputAction] = [.saveToFolder, .copy, .revealInFinder, .notify, .history]
+
+    /// "Copy" reads as "Copy file" here; the other labels are shared.
+    static func label(_ action: OutputAction) -> String {
+        action == .copy ? "Copy file" : action.label
+    }
+
+    private var isRecording: Bool {
+        if case .recording = state.activity { return true }
+        return false
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+        VStack(spacing: 14) {
+            HStack(spacing: 12) {
+                iconTile
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Record screen").font(.dp(15, .semibold))
+                    Text(isRecording ? "Recording · \(state.screenKey.display) or the menubar stops" : "Region, window or screen")
+                        .font(.dp(12))
+                        .foregroundStyle(isRecording ? Theme.Colors.record : Theme.Colors.textSecondary)
+                        .lineLimit(1)
+                    Text(state.screenStatus)
+                        .font(.dp(11))
+                        .foregroundStyle(Theme.Colors.textFaint)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                HStack(spacing: 4) {
+                    ForEach(Array(state.screenKey.symbols.enumerated()), id: \.offset) { _, symbol in
+                        Keycap(symbol)
+                    }
+                }
+                .opacity(state.screenKeyTaken ? 0.4 : 1)
+                .help(state.screenKeyTaken ? "Another app owns this shortcut" : "Opens the picker")
+            }
+            chipRow
+        }
+        .padding(16)
+        .background(shape.fill(Theme.Colors.card))
+        .background(shape.stroke(Theme.Colors.record(0.06), lineWidth: 4).padding(-2).opacity(isRecording ? 1 : 0))
+        .overlay(shape.strokeBorder(isRecording ? Theme.Colors.record(0.30) : Theme.Colors.tint(0.10), lineWidth: 1))
+        .animation(.easeOut(duration: 0.18), value: isRecording)
+    }
+
+    private var chipRow: some View {
+        let enabled = state.output.config(for: Self.toolID).actions
+        return FlowLayout(spacing: 6, trailingLast: true) {
+            ForEach(Self.chips, id: \.self) { action in
+                Chip(Self.label(action), isOn: enabled.contains(action)) {
+                    actions.toggleOutput(Self.toolID, action)
+                }
+            }
+            HStack(spacing: 4) {
+                Text("Options")
+                ChevronIcon()
+                    .stroke(style: .icon(1.4))
+                    .frame(width: 10, height: 10)
+            }
+            .font(.dp(12))
+            .foregroundStyle(Theme.Colors.textSecondary)
+            .fixedSize()
+            .padding(.horizontal, 6)
+            .frame(height: 26)
+            .opacity(0.5) // Milestone 5
+        }
+    }
+
+    private var iconTile: some View {
+        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+        return ScreenIcon()
+            .stroke(style: .icon(1.6))
+            .foregroundStyle(Theme.Colors.text)
+            .frame(width: 18, height: 18)
+            .frame(width: 36, height: 36)
+            .background(tile.fill(Theme.Colors.tint(0.06)))
+            .overlay(tile.strokeBorder(Theme.Colors.tint(0.14), lineWidth: 1))
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+                    .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
+            }
+    }
+}
+
 /// "Recent" label, total count, then one row per item (newest first). Times refresh every half minute while open.
 struct RecentSection: View {
     let items: [HistoryItem]
     let count: Int
     let copy: @MainActor (HistoryItem) -> Void
+    let reveal: @MainActor (HistoryItem) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
@@ -228,7 +328,7 @@ struct RecentSection: View {
             .padding(.horizontal, 4)
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 ForEach(items) { item in
-                    RecentRow(item: item, now: context.date, copy: { copy(item) })
+                    RecentRow(item: item, now: context.date, copy: { copy(item) }, reveal: { reveal(item) })
                 }
             }
         }
@@ -239,6 +339,7 @@ struct RecentRow: View {
     let item: HistoryItem
     let now: Date
     let copy: @MainActor () -> Void
+    let reveal: @MainActor () -> Void
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
@@ -262,6 +363,11 @@ struct RecentRow: View {
         .padding(.horizontal, 10)
         .background(shape.fill(Theme.Colors.tint(0.03)))
         .overlay(shape.strokeBorder(Theme.Colors.tint(0.07), lineWidth: 1))
+        .contentShape(shape)
+        .onTapGesture(count: 2) {
+            if item.fileURL != nil { reveal() }
+        }
+        .help(item.fileURL != nil ? "Double-click to show in Finder" : "")
     }
 
     private var title: String {

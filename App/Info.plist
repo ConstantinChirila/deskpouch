@@ -27,7 +27,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Constantin Chirila</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Deskpouch records your voice while you hold the dictation key.</string>
+	<string>Deskpouch records your voice while you hold the dictation key, and optionally during screen recordings.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

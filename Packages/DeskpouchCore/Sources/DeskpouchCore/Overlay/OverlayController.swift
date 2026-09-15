@@ -14,6 +14,9 @@ public final class OverlayController {
     public private(set) var state: PillState = .hidden
     public let meter = LevelMeterModel(barCount: 25)
     public private(set) var elapsed: TimeInterval = 0
+    /// Window size. The default canvas leaves room for shadows; while recording it shrinks to the pill so the
+    /// clickable window covers as little of the screen as possible.
+    private(set) var canvasSize = OverlayController.defaultCanvasSize
 
     /// Called on every meter tick while listening, so other meters (menubar, panel) can follow.
     @ObservationIgnored public var onLevel: (@MainActor (Float, TimeInterval) -> Void)?
@@ -24,40 +27,57 @@ public final class OverlayController {
     @ObservationIgnored private var ticker: Timer?
     @ObservationIgnored private var levelProvider: LevelProvider?
     @ObservationIgnored private var autoHide: Task<Void, Never>?
+    @ObservationIgnored private var stopHandler: (@MainActor () -> Void)?
 
     /// Canvas around the pill so shadows and the transcribing card have room.
-    static let canvasSize = CGSize(width: 560, height: 200)
+    static let defaultCanvasSize = CGSize(width: 560, height: 200)
     static let bottomInset: CGFloat = 48
+    /// Room either side of the recording pill for its ring and glow.
+    static let recordingMargin: CGFloat = 24
     static let tickInterval: TimeInterval = 1 / 30
 
     public init() {
         let hosting = NSHostingView(rootView: PillRoot(controller: self))
-        hosting.frame = CGRect(origin: .zero, size: Self.canvasSize)
+        hosting.frame = CGRect(origin: .zero, size: Self.defaultCanvasSize)
+        hosting.autoresizingMask = [.width, .height]
         panel.contentView = hosting
-        panel.setContentSize(Self.canvasSize)
+        panel.setContentSize(Self.defaultCanvasSize)
     }
 
     /// Listening state with a 30 fps meter pulled from `levelProvider`.
     public func showListening(levelProvider: @escaping LevelProvider) {
         meter.reset()
-        startedAt = Date()
-        lastTick = startedAt
-        elapsed = 0
         self.levelProvider = levelProvider
         show(.listening)
-        ticker?.invalidate()
-        let timer = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.tick() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        ticker = timer
+        startTicker(since: Date())
     }
 
-    /// Any state. Cancels a pending auto-hide; stops the meter unless listening.
+    /// Recording state: timer counted from `since`, Stop button calling `onStop`. The pill takes clicks in this state.
+    public func showRecording(detail: String, since: Date = Date(), onStop: @escaping @MainActor () -> Void) {
+        stopHandler = onStop
+        show(.recording(detail: detail))
+        startTicker(since: since)
+    }
+
+    /// Replaces the recording detail line without restarting the timer.
+    public func updateRecording(detail: String) {
+        guard state.isRecording else { return }
+        state = .recording(detail: detail)
+    }
+
+    func stopRequested() {
+        stopHandler?()
+    }
+
+    /// Any state. Cancels a pending auto-hide; stops the ticker unless the state is timed.
     public func show(_ newState: PillState) {
         autoHide?.cancel()
         autoHide = nil
-        if !newState.isListening { stopTicker() }
+        if !newState.isTimed { stopTicker() }
+        if !newState.isRecording { stopHandler = nil }
+        panel.ignoresMouseEvents = !newState.isRecording
+        canvasSize = Self.canvasSize(for: newState)
+        panel.setContentSize(canvasSize)
         place()
         panel.alphaValue = 1
         if !panel.isVisible {
@@ -104,13 +124,30 @@ public final class OverlayController {
         return image
     }
 
+    private func startTicker(since: Date) {
+        startedAt = since
+        lastTick = Date()
+        elapsed = Date().timeIntervalSince(since)
+        ticker?.invalidate()
+        let timer = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
+    }
+
     private func tick() {
         let now = Date()
         let dt = lastTick.map { now.timeIntervalSince($0) } ?? Self.tickInterval
         lastTick = now
-        let level = levelProvider?() ?? 0
+        if let startedAt {
+            let next = now.timeIntervalSince(startedAt)
+            // The recording pill only shows whole seconds; skip redraws in between.
+            if state.isListening || Int(next) != Int(elapsed) { elapsed = next }
+        }
+        guard let levelProvider else { return }
+        let level = levelProvider()
         meter.push(level: level, dt: dt)
-        if let startedAt { elapsed = now.timeIntervalSince(startedAt) }
         onLevel?(level, dt)
     }
 
@@ -121,13 +158,26 @@ public final class OverlayController {
         startedAt = nil
     }
 
+    /// The recording pill gets a window just wide enough for its widest timer; everything else gets the full canvas.
+    private static func canvasSize(for state: PillState) -> CGSize {
+        guard case .recording(let detail) = state else { return defaultCanvasSize }
+        let probe = NSHostingView(rootView: RecordingPill(elapsed: 5999, detail: detail, stop: {}))
+        let width = probe.fittingSize.width + 2 * recordingMargin
+        return CGSize(width: max(width, 200), height: 52 + bottomInset + 12)
+    }
+
+    /// Screen point of the pill's centre, for hit-test checks in demos.
+    public var debugPillCenter: CGPoint {
+        CGPoint(x: panel.frame.midX, y: panel.frame.minY + Self.bottomInset + 26)
+    }
+
     /// Bottom-centre of the screen under the mouse, canvas bottom above the dock.
     private func place() {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main ?? NSScreen.screens[0]
         let visible = screen.visibleFrame
         let origin = CGPoint(
-            x: visible.midX - Self.canvasSize.width / 2,
+            x: visible.midX - canvasSize.width / 2,
             y: visible.minY + 8
         )
         panel.setFrameOrigin(origin)

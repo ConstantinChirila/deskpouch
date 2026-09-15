@@ -1,6 +1,7 @@
 import AppKit
 
 /// Status item images. Idle is a template glyph; listening and recording are drawn in colour.
+/// The recording pill is pink with ink (not white) dot and timer for contrast.
 @MainActor
 public enum MenubarIcon {
     /// Pouch glyph, 18x18, template so it follows the menubar appearance.
@@ -59,6 +60,30 @@ public enum MenubarIcon {
                 bar.fill()
                 x += barWidth + gap
             }
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+
+    /// Pink pill, ink dot, "0:42" timer. Width grows with the digits.
+    public static func recording(elapsed: TimeInterval) -> NSImage {
+        let label = TimeFormat.minutesSeconds(elapsed) as NSString
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: Theme.NSColors.bg]
+        let textSize = label.size(withAttributes: attributes)
+        let dot: CGFloat = 7
+        let size = NSSize(width: ceil(7 + dot + 6 + textSize.width + 9), height: 20)
+        let image = NSImage(size: size, flipped: true) { rect in
+            let pill = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
+            Theme.NSColors.record.setFill()
+            pill.fill()
+            Theme.NSColors.bg.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 7, y: (rect.height - dot) / 2, width: dot, height: dot)).fill()
+            label.draw(
+                at: NSPoint(x: 7 + dot + 6, y: (rect.height - textSize.height) / 2),
+                withAttributes: attributes
+            )
             return true
         }
         image.isTemplate = false

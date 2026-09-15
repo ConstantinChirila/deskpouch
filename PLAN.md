@@ -86,7 +86,7 @@ The `Tool` protocol starts as a stub for voice and gets reshaped by the second t
 
 ## Status (2026-09-15)
 
-Milestones 1, 2 and 3 are implemented, committed, and verified on the dev machine (milestone 3 with a real dictation landing in Recent). Next: milestone 4, screen recorder. Its open items (hotkey, output folder, quality preset, max length) are listed under "Open items" and need a decision at the start of that session. `README.md` has build, permissions, and verification instructions.
+Milestones 1 to 4 are implemented. Milestones 1 to 3 are verified on the dev machine (milestone 3 with a real dictation landing in Recent). Milestone 4 (screen recorder) is verified on the dev machine: a 4 s region recording through `DESKPOUCH_DEMO=record` produced a 1006x734 H.264 mp4 with a system audio track in `~/Movies/Deskpouch`, put the file on the pasteboard and logged it in history; the pill, panel and picker were checked against the mocks through the demo modes. macOS 15 shows its own "bypass the system private window picker" alert on the first recording (and periodically after); click Allow. Next: milestone 5, General view and per-tool options. `README.md` has build, permissions, and verification instructions.
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -100,6 +100,11 @@ Decisions made while implementing:
 - The "History" chip is the "keep transcripts in history" toggle. Off means the pipeline never writes the row.
 - Per-tool output config lives in UserDefaults as JSON under `output.<toolID>`; the tool supplies the default via `Tool.defaultOutput`.
 - Text-only "Save" writes `<tool> <yyyy-MM-dd HH.mm.ss>.txt`; default folder `~/Movies/Deskpouch` until General exposes it.
+- Key combos (⌘⇧6) go through Carbon `RegisterEventHotKey`: no Accessibility dependence and the press never reaches the frontmost app. Modifier holds stay on the NSEvent monitors. `Tool` grew `pressKey` and `keyPressed()` with no-op defaults, plus `ToolContext.report(_:from:)` so a tool can tell the shell it is recording.
+- Keycaps print ⌘⇧6 (mock order), not Apple's ⇧⌘6.
+- Recordings are written by `SCRecordingOutput` into a temp folder; the pipeline's Save moves the file, and Copy file runs after Save for file results so the pasteboard points at the final path. Save off means the file stays in temp (system-purged), for "paste it into Slack and forget it".
+- The recording pill keeps its Stop button (Visible surfaces spec wins over the older "no floating controls" line); Deskpouch's own windows are excluded from display captures through `SCContentFilter(display:excludingApplications:)`, so the pill never appears in the file. The app object for that has to come from `SCShareableContent.currentProcess`: the general content list leaves Deskpouch out (no regular windows) and the exclusion silently did nothing until 2026-09-15. Window captures use `desktopIndependentWindow`.
+- Menubar click while recording stops the recording instead of opening the panel.
 
 ## Milestone 3 (done 2026-09-15): history and after-capture actions
 
@@ -110,12 +115,20 @@ Decisions made while implementing:
 - Tests on Core: history store round trip and persistence, pipeline ordering and clipboard restore, settings persistence, relative time.
 - Not yet: clear history (store has `clear()`, UI lands with General in milestone 5), shell command and save folder editing (config fields exist, no UI).
 
-## Milestone 4 spec: screen recorder
+## Milestone 4 (done 2026-09-15): screen recorder
 
-See "Screen recorder tool, v1" above. Emits a `ToolResult` with `fileURL` and `duration`; the pipeline's save/reveal/notify/history already handle files. Recent row shows a dark tile with a duration badge until thumbnails exist.
+Decisions for the open items, taken from the Final mocks:
+- Hotkey ⌘⇧6. Opens the picker; pressed again it cancels the picker or stops the recording.
+- Output folder `~/Movies/Deskpouch`, file `Recording yyyy-MM-dd HH.mm.ss.mp4`.
+- Quality "High, 1080p" at 60 fps, H.264 in mp4: a full-screen recording is scaled to fit 1080 rows and regions and windows use the same pixels-per-point. "Full" keeps native pixels. Options live in `defaults` under `screen.*` until milestone 5.
+- Max length 30 minutes, then the recording stops and is delivered normally.
+- System audio on and microphone off by default; the picker's round toggles change both and persist.
+
+Package `ToolScreenRecorder`: `ScreenRecorderTool` (phases: idle, picking, starting, recording, stopping), `ScreenRecorder` (one SCStream plus `SCRecordingOutput`), `CaptureGeometry` (scaling, drag rects, aspect snap), `PickerModel` (pure state, tested) with `PickerWindowController` (one borderless window per screen at screen-saver level) and the SwiftUI picker views. Region mode: drag, drag inside to move, ⇧ snaps 16:9, Return or Record starts. Window and screen modes: hover highlights, click starts. Escape cancels.
+
+Recent rows for files: dark tile with a duration badge, double-click reveals in Finder, the button copies the file. Thumbnails are still to come.
 
 ## Open items
-- Default hotkeys for screen recorder.
-- Output folder name and location (likely `~/Movies/Deskpouch` for video, transcripts in history only).
-- Video quality preset and max length guard.
 - "Don't keep transcripts" toggle before any public release.
+- Recording thumbnails in Recent.
+- Options rows in the screen card (folder, quality, frame rate, audio, shortcut) come with milestone 5.

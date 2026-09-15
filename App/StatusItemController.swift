@@ -1,7 +1,7 @@
 import AppKit
 import DeskpouchCore
 
-/// The menubar item. Idle glyph, or an amber meter pill while listening.
+/// The menubar item. Idle glyph, an amber meter pill while listening, a pink timer pill while recording.
 @MainActor
 final class StatusItemController {
     private let item: NSStatusItem
@@ -28,6 +28,10 @@ final class StatusItemController {
     func beginListening() {
         meter.reset()
         item.button?.image = MenubarIcon.listening(levels: meter.bars)
+    }
+
+    func showRecording(elapsed: TimeInterval) {
+        item.button?.image = MenubarIcon.recording(elapsed: elapsed)
     }
 
     func push(level: Float, dt: TimeInterval) {

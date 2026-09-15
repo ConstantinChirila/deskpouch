@@ -4,8 +4,8 @@ import os
 
 let hotkeyLog = Logger(subsystem: "com.constantinchirila.deskpouch", category: "hotkeys")
 
-/// Global hotkeys via AppKit event monitors. Needs Accessibility access; without it the monitors receive nothing.
-/// v1 supports modifier hold keys only; key combos come with the second tool.
+/// Global hotkeys. Modifier holds go through AppKit event monitors (Accessibility access needed; without it the
+/// monitors receive nothing). Key combos go through Carbon hotkeys, which need no grant and swallow the key press.
 @MainActor
 public final class HotkeyCenter {
     public typealias HoldHandler = @MainActor (HotkeyPhase) -> Void
@@ -20,6 +20,7 @@ public final class HotkeyCenter {
     }
 
     private var holds: [Registration] = []
+    private var presses: [UInt32] = []
     private var globalMonitor: Any?
     private var localMonitor: Any?
 
@@ -37,6 +38,14 @@ public final class HotkeyCenter {
 
     public func unregister(_ registration: Registration) {
         holds.removeAll { $0 === registration }
+    }
+
+    /// Registers a press-to-act combo. Works without `start()`. Returns false when another app owns the combo.
+    @discardableResult
+    public func registerPress(_ combo: KeyCombo, handler: @escaping @MainActor () -> Void) -> Bool {
+        guard let id = CarbonHotkeys.shared.register(combo, handler: handler) else { return false }
+        presses.append(id)
+        return true
     }
 
     /// Installs the monitors. Returns false when the process is not trusted for Accessibility.
@@ -59,6 +68,8 @@ public final class HotkeyCenter {
     }
 
     public func stop() {
+        for id in presses { CarbonHotkeys.shared.unregister(id) }
+        presses.removeAll()
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         globalMonitor = nil

@@ -57,6 +57,31 @@ struct OutputPipelineTests {
         #expect(logged.first?.id == result.id)
     }
 
+    @Test func fileResultsAreCopiedAfterSaveMovesThem() async throws {
+        let effects = RecordingEffects()
+        effects.savedURL = URL(fileURLWithPath: "/Movies/Deskpouch/Recording.mp4")
+        let pipeline = OutputPipeline(effects: effects, history: try HistoryStore.inMemory())
+        let result = ToolResult(toolID: "screen", fileURL: URL(fileURLWithPath: "/tmp/Recording.mp4"), duration: 42)
+
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.copy, .saveToFolder, .notify, .history]))
+
+        #expect(effects.calls == ["save(Deskpouch)", "copyFile", "notify(Saved Recording.mp4)"])
+        #expect(delivery.ran == [.saveToFolder, .copy, .notify, .history])
+        #expect(delivery.copied)
+        #expect(delivery.savedTo == effects.savedURL)
+    }
+
+    @Test func fileResultsWithoutSaveAreCopiedInPlace() async throws {
+        let effects = RecordingEffects()
+        let pipeline = OutputPipeline(effects: effects, history: nil)
+        let result = ToolResult(toolID: "screen", fileURL: URL(fileURLWithPath: "/tmp/Recording.mp4"), duration: 42)
+
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.copy, .revealInFinder]))
+
+        #expect(effects.calls == ["copyFile", "reveal(Recording.mp4)"])
+        #expect(delivery.copied)
+    }
+
     @Test func pasteWithoutCopyRestoresTheClipboard() async throws {
         let effects = RecordingEffects()
         let pipeline = OutputPipeline(effects: effects, history: nil)
@@ -82,8 +107,8 @@ struct OutputPipelineTests {
         let delivery = await pipeline.deliver(result, config: config)
 
         // Paste is skipped: nothing to paste for a file-only result.
-        #expect(effects.calls == ["copyFile", "save(Out)", "reveal(saved.txt)", "shell(echo hi)", "notify(Saved saved.txt)"])
-        #expect(delivery.ran == [.copy, .saveToFolder, .revealInFinder, .runShellCommand, .notify])
+        #expect(effects.calls == ["save(Out)", "copyFile", "reveal(saved.txt)", "shell(echo hi)", "notify(Saved saved.txt)"])
+        #expect(delivery.ran == [.saveToFolder, .copy, .revealInFinder, .runShellCommand, .notify])
         #expect(delivery.savedTo == effects.savedURL)
     }
 

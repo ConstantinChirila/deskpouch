@@ -104,6 +104,75 @@ public struct ChevronIcon: Shape {
     }
 }
 
+/// Display on a stand: rect x1.5 y2.5 w13 h9 rx1.5, foot M5.5 14h5, neck M8 11.5V14.
+public struct ScreenIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: 1.5, y: 2.5, width: 13, height: 9), cornerSize: CGSize(width: 1.5, height: 1.5))
+        p.move(to: CGPoint(x: 5.5, y: 14))
+        p.addLine(to: CGPoint(x: 10.5, y: 14))
+        p.move(to: CGPoint(x: 8, y: 11.5))
+        p.addLine(to: CGPoint(x: 8, y: 14))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Window with a title bar: rect x1.5 y2.5 w13 h11 rx1.5, bar M1.5 5.5h13.
+public struct WindowIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: 1.5, y: 2.5, width: 13, height: 11), cornerSize: CGSize(width: 1.5, height: 1.5))
+        p.move(to: CGPoint(x: 1.5, y: 5.5))
+        p.addLine(to: CGPoint(x: 14.5, y: 5.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Four corner brackets, the region picker's mark.
+public struct RegionIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        // M2 5V3a1 1 0 0 1 1-1h2
+        p.move(to: CGPoint(x: 2, y: 5)); p.addLine(to: CGPoint(x: 2, y: 3))
+        p.addArc(center: CGPoint(x: 3, y: 3), radius: 1, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        p.addLine(to: CGPoint(x: 5, y: 2))
+        // M11 2h2a1 1 0 0 1 1 1v2
+        p.move(to: CGPoint(x: 11, y: 2)); p.addLine(to: CGPoint(x: 13, y: 2))
+        p.addArc(center: CGPoint(x: 13, y: 3), radius: 1, startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
+        p.addLine(to: CGPoint(x: 14, y: 5))
+        // M14 11v2a1 1 0 0 1-1 1h-2
+        p.move(to: CGPoint(x: 14, y: 11)); p.addLine(to: CGPoint(x: 14, y: 13))
+        p.addArc(center: CGPoint(x: 13, y: 13), radius: 1, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        p.addLine(to: CGPoint(x: 11, y: 14))
+        // M5 14H3a1 1 0 0 1-1-1v-2
+        p.move(to: CGPoint(x: 5, y: 14)); p.addLine(to: CGPoint(x: 3, y: 14))
+        p.addArc(center: CGPoint(x: 3, y: 13), radius: 1, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        p.addLine(to: CGPoint(x: 2, y: 11))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Speaker with one wave: M2 6v4h3l4 3V3L5 6z, M11.5 5.5a3.5 3.5 0 0 1 0 5.
+public struct SpeakerIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 2, y: 6))
+        p.addLine(to: CGPoint(x: 2, y: 10))
+        p.addLine(to: CGPoint(x: 5, y: 10))
+        p.addLine(to: CGPoint(x: 9, y: 13))
+        p.addLine(to: CGPoint(x: 9, y: 3))
+        p.addLine(to: CGPoint(x: 5, y: 6))
+        p.closeSubpath()
+        p.move(to: CGPoint(x: 11.5, y: 5.5))
+        p.addArc(center: CGPoint(x: 11.5, y: 8), radius: 2.5, startAngle: .degrees(-90), endAngle: .degrees(90), clockwise: false)
+        return p.scaled(toFit: rect)
+    }
+}
+
 extension Path {
     /// Scales a path authored in a 16 unit box into `rect`, preserving aspect.
     fileprivate func scaled(toFit rect: CGRect) -> Path {

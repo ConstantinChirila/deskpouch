@@ -11,6 +11,13 @@ final class ShellState {
     var holdKey: ModifierKey = .rightOption
     /// Engine line in the voice card, e.g. "Parakeet v3 · local".
     var voiceStatus = "Parakeet v3"
+    /// What the recorder is doing; drives the menubar timer and the screen card.
+    var activity: ToolActivity = .idle
+    var screenKey: KeyCombo = .commandShift6
+    /// Settings line in the screen card, e.g. "1080p · system audio".
+    var screenStatus = "1080p · 60 fps · system audio"
+    /// The recorder's key combo could not be registered (another app owns it).
+    var screenKeyTaken = false
     /// 20 bar meter in the voice card, fed from the overlay's ticks.
     let panelMeter = LevelMeterModel(barCount: 20)
     /// Per-tool after-capture actions. The chips row reads and writes through `Shell`.

@@ -26,6 +26,8 @@ packages:
     path: Packages/DeskpouchCore
   ToolVoice:
     path: Packages/ToolVoice
+  ToolScreenRecorder:
+    path: Packages/ToolScreenRecorder
 
 configFiles:
   Debug: Signing.xcconfig
@@ -43,6 +45,7 @@ targets:
     dependencies:
       - package: DeskpouchCore
       - package: ToolVoice
+      - package: ToolScreenRecorder
     info:
       path: App/Info.plist
       properties:
@@ -54,7 +57,7 @@ targets:
         LSMinimumSystemVersion: "15.0"
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: "Constantin Chirila"
-        NSMicrophoneUsageDescription: "Deskpouch records your voice while you hold the dictation key."
+        NSMicrophoneUsageDescription: "Deskpouch records your voice while you hold the dictation key, and optionally during screen recordings."
     entitlements:
       path: App/Deskpouch.entitlements
       properties:
@@ -79,3 +82,4 @@ schemes:
       config: Debug
       targets:
         - package: DeskpouchCore/DeskpouchCoreTests
+        - package: ToolScreenRecorder/ToolScreenRecorderTests

@@ -50,6 +50,17 @@
                ReferencedContainer = "container:Packages/DeskpouchCore">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "ToolScreenRecorderTests"
+               BuildableName = "ToolScreenRecorderTests"
+               BlueprintName = "ToolScreenRecorderTests"
+               ReferencedContainer = "container:Packages/ToolScreenRecorder">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

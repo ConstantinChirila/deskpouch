@@ -25,13 +25,19 @@ struct PillRoot: View {
             case .copied:
                 PastedPill(title: "Copied", hint: "⌘V to paste")
                     .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            case .saved(let name, let copied):
+                PastedPill(title: copied ? "Saved and copied" : "Saved", hint: name)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            case .recording(let detail):
+                RecordingPill(elapsed: controller.elapsed, detail: detail, stop: { controller.stopRequested() })
+                    .transition(.opacity.combined(with: .offset(y: 8)))
             case .failed(let message):
                 FailedPill(message: message)
                     .transition(.opacity.combined(with: .offset(y: 8)))
             }
         }
         .padding(.bottom, OverlayController.bottomInset)
-        .frame(width: OverlayController.canvasSize.width, height: OverlayController.canvasSize.height)
+        .frame(width: controller.canvasSize.width, height: controller.canvasSize.height)
         .animation(.easeOut(duration: 0.2), value: controller.state)
     }
 }
@@ -124,6 +130,57 @@ struct PastedPill: View {
         .padding(.trailing, 22)
         .frame(height: 52)
         .modifier(PillChrome(ring: Theme.Colors.ok))
+    }
+}
+
+/// Recording: record ring, pulsing dot, timer, capture detail, Stop. Dims after a few seconds; hover restores it.
+struct RecordingPill: View {
+    let elapsed: TimeInterval
+    let detail: String
+    let stop: @MainActor () -> Void
+    @State private var dimmed = false
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 14) {
+            PulsingDot(color: Theme.Colors.record)
+            Text(TimeFormat.minutesSeconds(elapsed))
+                .font(.dp(15, .medium))
+                .monospacedDigit()
+                .foregroundStyle(Theme.Colors.text)
+            if !detail.isEmpty {
+                Text(detail)
+                    .font(.dp(12))
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .lineLimit(1)
+            }
+            Rectangle().fill(Theme.Colors.tint(0.15)).frame(width: 1, height: 18)
+            Button(action: stop) {
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 2).fill(Theme.Colors.bg).frame(width: 10, height: 10)
+                    Text("Stop").font(.dp(13, .semibold))
+                }
+                .foregroundStyle(Theme.Colors.bg)
+                .padding(.horizontal, 14)
+                .frame(height: 34)
+                .background(Capsule().fill(Theme.Colors.text))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Stop recording")
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, 10)
+        .frame(height: 52)
+        .modifier(PillChrome(ring: Theme.Colors.record))
+        .opacity(dimmed && !hovering ? 0.55 : 1)
+        .animation(.easeOut(duration: 0.3), value: dimmed)
+        .animation(.easeOut(duration: 0.15), value: hovering)
+        .onHover { hovering = $0 }
+        .task {
+            try? await Task.sleep(for: .seconds(4))
+            dimmed = true
+        }
     }
 }
 

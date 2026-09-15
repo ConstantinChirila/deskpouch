@@ -38,13 +38,16 @@ public final class OutputPipeline {
         var delivery = Delivery()
         let text = result.text.flatMap { $0.isEmpty ? nil : $0 }
         var pasteboardSnapshot: (any Sendable)?
+        // A file that is about to be moved by Save is copied afterwards, so the pasteboard points at its final home.
+        let copyFileAfterSave = result.fileURL != nil && text == nil
+            && config.actions.contains(.copy) && config.actions.contains(.saveToFolder)
 
         for action in OutputAction.executionOrder where config.actions.contains(action) {
             switch action {
             case .copy:
                 if let text {
                     effects.copyText(text)
-                } else if let file = result.fileURL {
+                } else if let file = result.fileURL, !copyFileAfterSave {
                     effects.copyFile(file)
                 } else {
                     continue
@@ -66,6 +69,11 @@ public final class OutputPipeline {
                     delivery.savedTo = try effects.save(result, to: config.folder ?? Self.defaultFolder)
                 } catch {
                     log.error("save failed: \(String(describing: error), privacy: .public)")
+                    if copyFileAfterSave, let file = result.fileURL {
+                        effects.copyFile(file)
+                        delivery.copied = true
+                        delivery.ran.append(.copy)
+                    }
                     continue
                 }
 
@@ -100,6 +108,11 @@ public final class OutputPipeline {
                 }
             }
             delivery.ran.append(action)
+            if action == .saveToFolder, copyFileAfterSave, let saved = delivery.savedTo {
+                effects.copyFile(saved)
+                delivery.copied = true
+                delivery.ran.append(.copy)
+            }
         }
 
         if let pasteboardSnapshot {

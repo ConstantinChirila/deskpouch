@@ -13,6 +13,10 @@ public enum PillState: Sendable, Equatable {
     case pasted(target: String)
     /// Mint ring, check, "Copied". Shown when there was no app to paste into.
     case copied
+    /// Mint ring, check, "Saved", file name. `copied` adds the pasteboard hint.
+    case saved(name: String, copied: Bool)
+    /// Record ring, pulsing dot, timer, Stop button. `detail` is e.g. "1040 × 760 · 60 fps".
+    case recording(detail: String)
     /// Record ring, message.
     case failed(String)
 
@@ -20,4 +24,12 @@ public enum PillState: Sendable, Equatable {
         if case .listening = self { return true }
         return false
     }
+
+    var isRecording: Bool {
+        if case .recording = self { return true }
+        return false
+    }
+
+    /// States that run the elapsed-time ticker.
+    var isTimed: Bool { isListening || isRecording }
 }
