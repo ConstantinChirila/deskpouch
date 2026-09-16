@@ -146,6 +146,23 @@ Leftovers closed 2026-09-15: thumbnails, panel spring-in and fade-out (card expa
 
 The Model row offers two engines behind the `Transcriber` protocol: Parakeet v3 (FluidAudio, about 470 MB download, best accuracy, 25 European languages) and Apple Speech (`AppleTranscriber`: the Speech framework with `requiresOnDeviceRecognition`, nothing to download, less accurate, languages follow the dictation assets installed in macOS). `voice.engine` persists the choice; Parakeet only downloads when it is the selected engine, and with Apple selected a "Remove download" button deletes the Parakeet folder. Apple Speech needs the Speech Recognition grant (prompted on first use) and Dictation turned on in System Settings › Keyboard; with it off, macOS answers kLSRErrorDomain 201 and the pill says so. Other local models under 500 MB were assessed and not added: Parakeet TDT-CTC 110M (English, lighter, less accurate) and SenseVoice small (Asian languages) are one day's work inside FluidAudio if a need appears; WhisperKit's small models lose to Parakeet in English; Apple's SpeechAnalyzer needs macOS 26.
 
+## v2 tools (planned 2026-09-16)
+
+Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Build order, foundation first:
+
+0. [Foundation](docs/plans/00-foundation.md): `DeskpouchCapture` package (picker and still capture move out of the recorder), `EditorWindowController` in Core, image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory.
+1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧4: quick capture, pill Annotate button, editor with arrow/box/text/blur/badge.
+2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted.
+3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint.
+4. [Screenshot diff](docs/plans/04-diff.md): two history rows → Compare; Recapture same region; slider / onion / pixels.
+5. [Trim + GIF](docs/plans/05-trim-gif.md): pill Trim button, passthrough MP4, capped GIF.
+6. [Demo polish](docs/plans/06-demo-polish.md): click ripple, keystroke chip, presenter mode; exclusion becomes per-window. Webcam bubble later.
+7. [Meeting](docs/plans/07-meeting.md), ⌘⇧M: system audio + mic as Me/Them, live 30 s chunks, markdown into the vault. Moves the transcribers into a `DeskpouchSpeech` package.
+8. [Voice note](docs/plans/08-voice-note.md), Right Command hold: append to the daily note, no paste.
+9. [Image convert](docs/plans/09-image-convert.md): drop on row or Finder service, WebP/PNG/JPEG beside the source.
+
+Package rule after 0 and 7: tools import Core, Capture and Speech only; those three never import a tool; Core imports neither of the other two.
+
 ## Open items
 - Fifteen-plus tools: the list still grows 52 pt per tool; revisit (grouping, or a compact mode) when it happens.
 - Sparkle and signed builds before anything is shared; "Check for updates" is disabled until then.
