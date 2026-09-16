@@ -41,7 +41,8 @@
 		9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCore; path = Packages/DeskpouchCore; sourceTree = SOURCE_ROOT; };
 		9F01CE04F0A6AABF0BD257A4 /* WindowSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSnapshot.swift; sourceTree = "<group>"; };
 		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCapture; path = Packages/DeskpouchCapture; sourceTree = SOURCE_ROOT; };
+		"TEMP_BA9BCD4B-0A1F-4E51-AD7D-42E7A3AC7CD2" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +106,7 @@
 		D9D6D45861DD987322E962A6 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */,
 				9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */,
 				4EE4C6D7A2F44EB9EB61D4E0 /* ToolScreenRecorder */,
 				21C511F9445B0D2F2566D16C /* ToolVoice */,
@@ -120,10 +122,10 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_4DBDF8A6-F55C-4088-86E6-0EDC013705E1" /* deskpouch */ = {
+		"TEMP_BFE3444A-451C-4283-9F9E-A22C9BBF1F56" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */,
+				"TEMP_BA9BCD4B-0A1F-4E51-AD7D-42E7A3AC7CD2" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -178,6 +180,7 @@
 			mainGroup = BF665C1CACCF6C4BBAEDE834;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				F83E15E34BEA534A43778172 /* XCLocalSwiftPackageReference "Packages/DeskpouchCapture" */,
 				0360330C54A5569B7F57133A /* XCLocalSwiftPackageReference "Packages/DeskpouchCore" */,
 				EDE94C1FB7BFFF29E9E1FCBA /* XCLocalSwiftPackageReference "Packages/ToolScreenRecorder" */,
 				92BDEAE78AC14603D825DCB4 /* XCLocalSwiftPackageReference "Packages/ToolVoice" */,
@@ -247,7 +250,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_BA9BCD4B-0A1F-4E51-AD7D-42E7A3AC7CD2" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -312,7 +315,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_BA9BCD4B-0A1F-4E51-AD7D-42E7A3AC7CD2" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -436,6 +439,10 @@
 		EDE94C1FB7BFFF29E9E1FCBA /* XCLocalSwiftPackageReference "Packages/ToolScreenRecorder" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/ToolScreenRecorder;
+		};
+		F83E15E34BEA534A43778172 /* XCLocalSwiftPackageReference "Packages/DeskpouchCapture" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/DeskpouchCapture;
 		};
 /* End XCLocalSwiftPackageReference section */
 

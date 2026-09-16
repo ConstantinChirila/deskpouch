@@ -26,6 +26,8 @@ settings:
 packages:
   DeskpouchCore:
     path: Packages/DeskpouchCore
+  DeskpouchCapture:
+    path: Packages/DeskpouchCapture
   ToolVoice:
     path: Packages/ToolVoice
   ToolScreenRecorder:

@@ -1,4 +1,5 @@
 import AppKit
+import DeskpouchCapture
 import DeskpouchCore
 import Foundation
 import ScreenCaptureKit
@@ -110,7 +111,7 @@ public final class ScreenRecorderTool: Tool {
         Task { [weak self] in
             guard let self else { return }
             do {
-                content = try await Self.shareableContent()
+                content = try await ShareableContentLoader.load()
                 guard case .fetchingContent = phase, let content else { return }
                 let model = makeModel(from: content)
                 let picker = PickerWindowController(model: model)
@@ -148,69 +149,10 @@ public final class ScreenRecorderTool: Tool {
         }
     }
 
-    private static func ownApplication(fallback: SCShareableContent) async -> SCRunningApplication? {
-        let pid = ProcessInfo.processInfo.processIdentifier
-        if let own = try? await SCShareableContent.currentProcess, let app = own.applications.first(where: { $0.processID == pid }) {
-            return app
-        }
-        return fallback.applications.first { $0.processID == pid }
-    }
-
-    private static func shareableContent() async throws -> SCShareableContent {
-        try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
-    }
-
-    /// Screens from AppKit, windows from ScreenCaptureKit in front-to-back order, toolbar on the mouse's screen.
     private func makeModel(from content: SCShareableContent) -> PickerModel {
-        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        let mouse = NSEvent.mouseLocation
-        var toolbarScreenID = 0
-        let screens = NSScreen.screens.enumerated().map { index, screen in
-            let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
-            if screen.frame.contains(mouse) { toolbarScreenID = index }
-            return PickerScreen(
-                id: index,
-                displayID: CGDirectDisplayID(number?.uint32Value ?? 0),
-                frame: screen.frame,
-                cgFrame: CGRect(x: screen.frame.minX, y: primaryHeight - screen.frame.maxY,
-                                width: screen.frame.width, height: screen.frame.height),
-                backingScale: screen.backingScaleFactor
-            )
-        }
-
-        let order = Self.windowZOrder()
-        let ownPID = ProcessInfo.processInfo.processIdentifier
-        let windows = content.windows
-            .filter { window in
-                window.isOnScreen && window.windowLayer == 0
-                    && window.owningApplication?.processID != ownPID
-                    && window.frame.width >= 40 && window.frame.height >= 40
-            }
-            .sorted { (order[$0.windowID] ?? .max) < (order[$1.windowID] ?? .max) }
-            .map { window in
-                PickerWindow(
-                    id: window.windowID, frame: window.frame,
-                    title: window.title ?? "", appName: window.owningApplication?.applicationName ?? ""
-                )
-            }
-
-        return PickerModel(
-            screens: screens, windows: windows, toolbarScreenID: toolbarScreenID,
-            systemAudio: settings.systemAudio, microphone: settings.microphone, frameRate: settings.frameRate
+        ShareableContentLoader.makeModel(
+            from: content, systemAudio: settings.systemAudio, microphone: settings.microphone, frameRate: settings.frameRate
         )
-    }
-
-    /// Window id to z index, front-most first. ScreenCaptureKit's list has no documented order.
-    private static func windowZOrder() -> [CGWindowID: Int] {
-        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-            as? [[String: Any]] else { return [:] }
-        var order: [CGWindowID: Int] = [:]
-        for (index, info) in list.enumerated() {
-            if let number = info[kCGWindowNumber as String] as? NSNumber {
-                order[CGWindowID(number.uint32Value)] = index
-            }
-        }
-        return order
     }
 
     // MARK: Recording
@@ -252,11 +194,11 @@ public final class ScreenRecorderTool: Tool {
         }
 
         let pixelsPerPoint = CaptureGeometry.pixelsPerPoint(
-            displayPoints: screen.frame.size, backingScale: screen.backingScale, quality: settings.quality
+            displayPoints: screen.frame.size, backingScale: screen.backingScale, maxHeight: settings.quality.maxPixelHeight
         )
         // The general content list leaves out apps without regular windows, Deskpouch included, so the exclusion
         // that keeps the pill out of the recording has to come from the current-process query.
-        let ownApp = await Self.ownApplication(fallback: content)
+        let ownApp = await ShareableContentLoader.ownApplication(fallback: content)
         log.info("own app for exclusion: \(ownApp != nil)")
         let url = Self.stagingURL(for: Date())
         do {
@@ -273,7 +215,7 @@ public final class ScreenRecorderTool: Tool {
         phase = .recording
         let since = recorder.startedAt ?? Date()
         context.overlay.showRecording(
-            detail: CaptureGeometry.detail(points: target.pointSize, frameRate: settings.frameRate), since: since
+            detail: Self.pillDetail(points: target.pointSize, frameRate: settings.frameRate), since: since
         ) { [weak self] in
             self?.stopRecording()
         }
@@ -330,6 +272,11 @@ public final class ScreenRecorderTool: Tool {
             .appending(path: "Recording \(fileStamp.string(from: date)).mp4")
     }
 
+    /// "1040 × 760 · 60 fps" for the recording pill.
+    static func pillDetail(points: CGSize, frameRate: Int) -> String {
+        "\(CaptureGeometry.dimensionLabel(points)) · \(frameRate) fps"
+    }
+
     private static let fileStamp: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -361,7 +308,7 @@ public final class ScreenRecorderTool: Tool {
         Task { [weak self] in
             guard let self else { return }
             do {
-                content = try await Self.shareableContent()
+                content = try await ShareableContentLoader.load()
                 guard let content else { return }
                 let model = makeModel(from: content)
                 guard let screen = model.screen(model.toolbarScreenID) else { return }

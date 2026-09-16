@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Recorder options. Persisted in UserDefaults under `screen.*`; the panel UI for them lands in milestone 5.
@@ -12,6 +13,14 @@ public struct RecorderSettings: Equatable, Sendable {
             switch self {
             case .high: "High, 1080p"
             case .full: "Full, native"
+            }
+        }
+
+        /// Pixel rows a full-screen recording is fitted into; nil keeps native pixels.
+        var maxPixelHeight: CGFloat? {
+            switch self {
+            case .high: 1080
+            case .full: nil
             }
         }
     }

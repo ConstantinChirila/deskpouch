@@ -2,10 +2,10 @@ import CoreGraphics
 import Foundation
 import Observation
 
-enum PickerMode: String, CaseIterable, Sendable {
+public enum PickerMode: String, CaseIterable, Sendable {
     case region, window, screen
 
-    var label: String {
+    public var label: String {
         switch self {
         case .region: "Region"
         case .window: "Window"
@@ -16,39 +16,39 @@ enum PickerMode: String, CaseIterable, Sendable {
 
 /// One display as the picker sees it. `frame` is AppKit global (bottom-left origin); `cgFrame` is Core Graphics
 /// global (top-left origin), which is also what ScreenCaptureKit uses. Local points are top-left within the screen.
-struct PickerScreen: Identifiable, Equatable, Sendable {
-    let id: Int
-    let displayID: CGDirectDisplayID
-    let frame: CGRect
-    let cgFrame: CGRect
-    let backingScale: CGFloat
+public struct PickerScreen: Identifiable, Equatable, Sendable {
+    public let id: Int
+    public let displayID: CGDirectDisplayID
+    public let frame: CGRect
+    public let cgFrame: CGRect
+    public let backingScale: CGFloat
 
-    var localBounds: CGRect { CGRect(origin: .zero, size: frame.size) }
+    public var localBounds: CGRect { CGRect(origin: .zero, size: frame.size) }
 
-    func cgPoint(fromLocal point: CGPoint) -> CGPoint {
+    public func cgPoint(fromLocal point: CGPoint) -> CGPoint {
         CGPoint(x: cgFrame.minX + point.x, y: cgFrame.minY + point.y)
     }
 
-    func localRect(fromCG rect: CGRect) -> CGRect {
+    public func localRect(fromCG rect: CGRect) -> CGRect {
         rect.offsetBy(dx: -cgFrame.minX, dy: -cgFrame.minY)
     }
 }
 
 /// A window the picker can target. `frame` is Core Graphics global. Front-most first in the model's list.
-struct PickerWindow: Identifiable, Equatable, Sendable {
-    let id: CGWindowID
-    let frame: CGRect
-    let title: String
-    let appName: String
+public struct PickerWindow: Identifiable, Equatable, Sendable {
+    public let id: CGWindowID
+    public let frame: CGRect
+    public let title: String
+    public let appName: String
 }
 
-enum PickerSelection: Equatable, Sendable {
+public enum PickerSelection: Equatable, Sendable {
     /// `rect` is screen-local points, top-left origin.
     case region(screen: PickerScreen, rect: CGRect)
     case window(PickerWindow)
     case screen(PickerScreen)
 
-    var pointSize: CGSize {
+    public var pointSize: CGSize {
         switch self {
         case .region(_, let rect): rect.size
         case .window(let window): window.frame.size
@@ -61,17 +61,17 @@ enum PickerSelection: Equatable, Sendable {
 /// the views feed it local points and the window controller feeds it keys.
 @MainActor
 @Observable
-final class PickerModel {
+public final class PickerModel {
     static let minimumRegion: CGFloat = 8
     static let snapAspect: CGFloat = 16.0 / 9.0
 
-    var mode: PickerMode
-    let screens: [PickerScreen]
+    public var mode: PickerMode
+    public let screens: [PickerScreen]
     var windows: [PickerWindow]
     /// Screen that shows the toolbar: the one under the mouse when the picker opened.
-    let toolbarScreenID: Int
-    var systemAudio: Bool
-    var microphone: Bool
+    public let toolbarScreenID: Int
+    public var systemAudio: Bool
+    public var microphone: Bool
     var frameRate: Int
     /// Shift held: regions snap to 16:9.
     var snapToAspect = false
@@ -81,7 +81,7 @@ final class PickerModel {
     private(set) var hoveredScreenID: Int?
 
     @ObservationIgnored private var drag: Drag?
-    @ObservationIgnored var onFinish: (@MainActor (PickerSelection?) -> Void)?
+    @ObservationIgnored public var onFinish: (@MainActor (PickerSelection?) -> Void)?
     @ObservationIgnored private var finished = false
 
     private struct Drag {
@@ -92,7 +92,7 @@ final class PickerModel {
         var moved = false
     }
 
-    init(
+    public init(
         mode: PickerMode = .region, screens: [PickerScreen], windows: [PickerWindow] = [],
         toolbarScreenID: Int, systemAudio: Bool, microphone: Bool, frameRate: Int
     ) {
@@ -105,7 +105,7 @@ final class PickerModel {
         self.frameRate = frameRate
     }
 
-    func screen(_ id: Int) -> PickerScreen? { screens.first { $0.id == id } }
+    public func screen(_ id: Int) -> PickerScreen? { screens.first { $0.id == id } }
 
     // MARK: Selection
 
@@ -150,7 +150,7 @@ final class PickerModel {
 
     // MARK: Mouse
 
-    func dragChanged(screenID: Int, location: CGPoint) {
+    public func dragChanged(screenID: Int, location: CGPoint) {
         guard mode == .region, let screen = screen(screenID) else { return }
         let point = clamp(location, to: screen.localBounds)
         if drag == nil {
@@ -174,7 +174,7 @@ final class PickerModel {
     }
 
     /// Mouse up. In window and screen mode a click confirms the hovered target.
-    func dragEnded(screenID: Int, location: CGPoint) {
+    public func dragEnded(screenID: Int, location: CGPoint) {
         defer { drag = nil }
         switch mode {
         case .region:
@@ -200,13 +200,13 @@ final class PickerModel {
 
     // MARK: Keys and buttons
 
-    func confirm() {
+    public func confirm() {
         guard !finished, let selection else { return }
         finished = true
         onFinish?(selection)
     }
 
-    func cancel() {
+    public func cancel() {
         guard !finished else { return }
         finished = true
         onFinish?(nil)

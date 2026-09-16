@@ -75,6 +75,7 @@ defaults write com.constantinchirila.deskpouch screen.cursor -bool false
 Recorder tests run without Xcode:
 
 ```sh
+swift test --package-path Packages/DeskpouchCapture
 swift test --package-path Packages/ToolScreenRecorder
 ```
 
@@ -121,7 +122,8 @@ The app icon is `App/Resources/AppIcon.icns`. Rebuild it from the asset pack wit
 App/                      thin app target: entry point, shell, status item, menubar panel
 Packages/DeskpouchCore/   Tool protocol, theme, components, hotkeys, overlay pill, mic capture, output pipeline, history
 Packages/ToolVoice/       VoiceTool and the Parakeet transcriber (FluidAudio)
-Packages/ToolScreenRecorder/  ScreenRecorderTool, ScreenCaptureKit recorder, region/window/screen picker
+Packages/DeskpouchCapture/    region/window/screen picker, capture geometry, shareable content lookup
+Packages/ToolScreenRecorder/  ScreenRecorderTool, ScreenCaptureKit recorder
 design/                   spec and mocks
 ```
 

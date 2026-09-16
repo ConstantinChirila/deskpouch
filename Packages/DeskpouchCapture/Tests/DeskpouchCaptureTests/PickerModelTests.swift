@@ -1,6 +1,6 @@
 import CoreGraphics
 import Testing
-@testable import ToolScreenRecorder
+@testable import DeskpouchCapture
 
 @MainActor
 struct PickerModelTests {

@@ -1,4 +1,5 @@
 import AVFoundation
+import DeskpouchCapture
 import DeskpouchCore
 import Foundation
 import ScreenCaptureKit

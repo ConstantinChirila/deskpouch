@@ -4,20 +4,20 @@ import SwiftUI
 
 /// One borderless window per screen, above everything, showing `PickerScreenView`. Escape cancels, Return records.
 @MainActor
-final class PickerWindowController {
-    let model: PickerModel
+public final class PickerWindowController {
+    public let model: PickerModel
     private var windows: [NSWindow] = []
     private var keyMonitor: Any?
     private var flagsMonitor: Any?
     private var cursorPushed = false
 
-    init(model: PickerModel) {
+    public init(model: PickerModel) {
         self.model = model
     }
 
-    var isPresented: Bool { !windows.isEmpty }
+    public var isPresented: Bool { !windows.isEmpty }
 
-    func present() {
+    public func present() {
         guard windows.isEmpty else { return }
         for screen in model.screens {
             let window = PickerPanelWindow(contentRect: screen.frame)
@@ -53,7 +53,7 @@ final class PickerWindowController {
         cursorPushed = true
     }
 
-    func dismiss() {
+    public func dismiss() {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         if let flagsMonitor { NSEvent.removeMonitor(flagsMonitor) }
         keyMonitor = nil
@@ -65,7 +65,7 @@ final class PickerWindowController {
     }
 
     /// Renders the toolbar screen's picker content. Design review only.
-    func debugSnapshot() -> NSImage? {
+    public func debugSnapshot() -> NSImage? {
         guard let index = model.screens.firstIndex(where: { $0.id == model.toolbarScreenID }),
               index < windows.count, let view = windows[index].contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }

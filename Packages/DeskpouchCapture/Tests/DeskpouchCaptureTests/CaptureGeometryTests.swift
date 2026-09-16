@@ -1,24 +1,13 @@
 import CoreGraphics
 import Testing
-@testable import ToolScreenRecorder
+@testable import DeskpouchCapture
 
 struct CaptureGeometryTests {
-    @Test func highQualityFitsRetinaDisplayInto1080Rows() {
-        // 16" MacBook Pro: 1728x1117 points at 2x.
-        let ppp = CaptureGeometry.pixelsPerPoint(displayPoints: CGSize(width: 1728, height: 1117), backingScale: 2, quality: .high)
-        let full = CaptureGeometry.outputSize(points: CGSize(width: 1728, height: 1117), pixelsPerPoint: ppp)
-        #expect(full.height == 1080)
-        #expect(full.width == 1670)
-    }
-
-    @Test func highQualityLeavesSmallDisplaysAlone() {
-        let ppp = CaptureGeometry.pixelsPerPoint(displayPoints: CGSize(width: 1440, height: 900), backingScale: 1, quality: .high)
-        #expect(ppp == 1)
-    }
-
-    @Test func fullQualityIsNative() {
-        let ppp = CaptureGeometry.pixelsPerPoint(displayPoints: CGSize(width: 1728, height: 1117), backingScale: 2, quality: .full)
-        #expect(ppp == 2)
+    @Test func maxHeightScalesDownTallDisplaysOnly() {
+        let retina = CaptureGeometry.pixelsPerPoint(displayPoints: CGSize(width: 1728, height: 1117), backingScale: 2, maxHeight: 1080)
+        #expect(abs(retina * 1117 - 1080) < 0.001)
+        #expect(CaptureGeometry.pixelsPerPoint(displayPoints: CGSize(width: 1440, height: 900), backingScale: 1, maxHeight: 1080) == 1)
+        #expect(CaptureGeometry.pixelsPerPoint(displayPoints: CGSize(width: 1728, height: 1117), backingScale: 2, maxHeight: nil) == 2)
     }
 
     @Test func outputSizeIsEvenAndNeverBelowTwo() {
@@ -45,8 +34,7 @@ struct CaptureGeometryTests {
         #expect(CaptureGeometry.clamped(CGRect(x: 0, y: 0, width: 300, height: 50), to: bounds).width == 100)
     }
 
-    @Test func labels() {
+    @Test func dimensionLabel() {
         #expect(CaptureGeometry.dimensionLabel(CGSize(width: 1040, height: 760)) == "1040 × 760")
-        #expect(CaptureGeometry.detail(points: CGSize(width: 1040, height: 760), frameRate: 60) == "1040 × 760 · 60 fps")
     }
 }
