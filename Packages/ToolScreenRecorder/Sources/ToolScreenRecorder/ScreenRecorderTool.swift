@@ -50,6 +50,8 @@ public final class ScreenRecorderTool: Tool {
     private var maxLengthTimer: Timer?
     /// Displays, windows and apps as of the last picker session; the recording resolves its target here.
     private var content: SCShareableContent?
+    /// False while switched off in General.
+    private var active = true
 
     /// Recordings shorter than this are dropped as accidental.
     static let minimumDuration: TimeInterval = 0.5
@@ -70,6 +72,26 @@ public final class ScreenRecorderTool: Tool {
 
     public func attach(_ context: ToolContext) {
         self.context = context
+    }
+
+    public func activate() {
+        active = true
+    }
+
+    /// Switched off in General: a picker closes, a recording stops and is delivered as usual. A recording that is
+    /// still starting stops as soon as it is running.
+    public func deactivate() {
+        active = false
+        switch phase {
+        case .fetchingContent:
+            phase = .idle
+        case .picking(let picker):
+            picker.model.cancel()
+        case .recording:
+            stopRecording()
+        case .idle, .starting, .stopping:
+            break
+        }
     }
 
     public var isRecording: Bool {
@@ -213,6 +235,7 @@ public final class ScreenRecorderTool: Tool {
         }
 
         phase = .recording
+        guard active else { return stopRecording() }
         let since = recorder.startedAt ?? Date()
         context.overlay.showRecording(
             detail: Self.pillDetail(points: target.pointSize, frameRate: settings.frameRate), since: since

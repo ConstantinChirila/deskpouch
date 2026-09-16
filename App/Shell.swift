@@ -49,6 +49,7 @@ final class Shell {
             tool.attach(context)
             registerPress(tool)
             registerHold(tool)
+            if state.switches.isEnabled(tool.id) { tool.activate() }
         }
         overlay.onLevel = { [weak self] level, dt in
             // The meter timer can tick once more between the key release and the transcription task stopping it;
@@ -87,7 +88,6 @@ final class Shell {
         statusItem.showIdle()
         refreshRecent()
         startHotkeysOrWait()
-        voice.warmUp()
         #if DEBUG
         runDemoIfRequested()
         #endif
@@ -101,9 +101,10 @@ final class Shell {
 
     // MARK: Hotkeys
 
+    /// Registers the tool's hold key, replacing an earlier one. A switched-off tool only loses its registration.
     private func registerHold(_ tool: Tool) {
         if let old = holdRegistrations.removeValue(forKey: tool.id) { hotkeys.unregister(old) }
-        guard let key = tool.holdKey else { return }
+        guard state.switches.isEnabled(tool.id), let key = tool.holdKey else { return }
         holdRegistrations[tool.id] = hotkeys.registerHold(key) { [weak self, weak tool] phase in
             guard let self, let tool else { return }
             switch phase {
@@ -126,15 +127,35 @@ final class Shell {
         }
     }
 
+    /// Registers the tool's key combo, replacing an earlier one. A switched-off tool only loses its registration.
     private func registerPress(_ tool: Tool) {
         if let old = pressRegistrations.removeValue(forKey: tool.id) { hotkeys.unregister(old) }
-        guard let combo = tool.pressKey else { return }
+        if tool.id == screen.id { state.screenKeyTaken = false }
+        guard state.switches.isEnabled(tool.id), let combo = tool.pressKey else { return }
         if let registration = hotkeys.registerPress(combo, handler: { [weak tool] in tool?.keyPressed() }) {
             pressRegistrations[tool.id] = registration
             if tool.id == screen.id { state.screenKeyTaken = false }
         } else {
             log.error("\(combo.display, privacy: .public) is taken by another app")
             if tool.id == screen.id { state.screenKeyTaken = true }
+        }
+    }
+
+    /// General's per-tool switch. Off frees the hotkeys first, so nothing new starts while the tool winds down.
+    private func setToolEnabled(_ toolID: String, _ enabled: Bool) {
+        guard let tool = tools.first(where: { $0.id == toolID }),
+              state.switches.isEnabled(toolID) != enabled else { return }
+        state.switches.set(toolID, enabled: enabled)
+        registerHold(tool)
+        registerPress(tool)
+        if enabled {
+            tool.activate()
+        } else {
+            if tool.holdKey != nil, state.isListening {
+                state.isListening = false
+                statusItem.showIdle()
+            }
+            tool.deactivate()
         }
     }
 
@@ -375,6 +396,7 @@ final class Shell {
             },
             setHoldKey: { [weak self] key in self?.setHoldKey(key) },
             setPressKey: { [weak self] combo in self?.setPressKey(combo) },
+            setToolEnabled: { [weak self] id, on in self?.setToolEnabled(id, on) },
             setVoiceLanguage: { [weak self] code in
                 guard let self else { return }
                 voice.language = code

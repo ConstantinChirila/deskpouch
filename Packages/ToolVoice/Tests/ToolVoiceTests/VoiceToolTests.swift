@@ -9,6 +9,7 @@ final class StubTranscriber: Transcriber, @unchecked Sendable {
     let supportedLanguages: [String]
     var text: String
     private(set) var languages: [String?] = []
+    private(set) var unloads = 0
 
     init(_ name: String = "Stub", languages: [String] = ["en", "de"], text: String = "hello") {
         displayName = name
@@ -17,6 +18,10 @@ final class StubTranscriber: Transcriber, @unchecked Sendable {
     }
 
     func prepare(status: @escaping @Sendable (String) -> Void) async throws {}
+
+    func unload() async {
+        unloads += 1
+    }
 
     func transcribe(samples: [Float], language: String?) async throws -> Transcript {
         languages.append(language)
@@ -114,5 +119,16 @@ struct VoiceToolTests {
         let (_, emitted) = attach(tool)
         #expect(await tool.debugTranscribe([Float](repeating: 0, count: 16_000)) == "hello")
         #expect(emitted().isEmpty)
+    }
+
+    @Test func deactivateUnloadsBothEngines() async {
+        let parakeet = StubTranscriber()
+        let apple = StubTranscriber("Apple", languages: ["fr"])
+        let tool = tool(parakeet: parakeet, apple: apple)
+        _ = attach(tool)
+        tool.deactivate()
+        await tool.debugWaitForJobs()
+        #expect(parakeet.unloads == 1)
+        #expect(apple.unloads == 1)
     }
 }

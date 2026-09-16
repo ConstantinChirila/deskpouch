@@ -103,10 +103,16 @@ final class ShellState {
 
     // General.
     let general: GeneralSettings
+    /// Tools switched on in General. Off hides the row and frees the hotkey.
+    let switches: ToolSwitches
     var permissions = PermissionStatus()
 
-    init(output: OutputSettings = OutputSettings(), general: GeneralSettings = GeneralSettings()) {
+    init(
+        output: OutputSettings = OutputSettings(), general: GeneralSettings = GeneralSettings(),
+        switches: ToolSwitches = ToolSwitches()
+    ) {
         self.output = output
         self.general = general
+        self.switches = switches
     }
 }

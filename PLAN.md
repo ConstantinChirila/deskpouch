@@ -151,7 +151,7 @@ The Model row offers two engines behind the `Transcriber` protocol: Parakeet v3 
 
 Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Build order, foundation first:
 
-0. [Foundation](docs/plans/00-foundation.md) (step 1, the Capture package move, done 2026-09-16; `PickerStyle`, `StillCapture`, `ImageWriter`, `OverlayWindow` land with their first tool): `DeskpouchCapture` package (picker and still capture move out of the recorder), `EditorWindowController` in Core, image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory.
+0. [Foundation](docs/plans/00-foundation.md) (steps 1 and 2, the Capture package move and tool switches, done 2026-09-16; `PickerStyle`, `StillCapture`, `ImageWriter`, `OverlayWindow` land with their first tool): `DeskpouchCapture` package (picker and still capture move out of the recorder), `EditorWindowController` in Core, image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory.
 1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧4: quick capture, pill Annotate button, editor with arrow/box/text/blur/badge.
 2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted.
 3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint.

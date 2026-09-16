@@ -44,6 +44,17 @@ public final class ParakeetTranscriber: Transcriber, Sendable {
         statusHandlers.withLock { $0.removeAll() }
     }
 
+    /// Waits for a load in progress, then drops the CoreML models. The download stays on disk.
+    public func unload() async {
+        let task = prepareTask.withLock { current in
+            defer { current = nil }
+            return current
+        }
+        _ = try? await task?.value
+        await manager.cleanup()
+        log.info("models unloaded")
+    }
+
     public var supportedLanguages: [String] { Language.allCases.map(\.rawValue) }
 
     public func transcribe(samples: [Float], language: String?) async throws -> Transcript {

@@ -22,4 +22,10 @@ public protocol Transcriber: AnyObject, Sendable {
     var supportedLanguages: [String] { get }
     /// `samples` are 16 kHz mono Float32. `language` is an ISO 639-1 hint or nil for auto.
     func transcribe(samples: [Float], language: String?) async throws -> Transcript
+    /// Free the loaded models. The next `prepare` loads them again.
+    func unload() async
+}
+
+public extension Transcriber {
+    func unload() async {}
 }

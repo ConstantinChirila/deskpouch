@@ -10,6 +10,7 @@ struct MenuPanelActions {
     var revealRecent: @MainActor (HistoryItem) -> Void
     var setHoldKey: @MainActor (ModifierKey) -> Void
     var setPressKey: @MainActor (KeyCombo) -> Void
+    var setToolEnabled: @MainActor (_ toolID: String, _ enabled: Bool) -> Void
     var setVoiceLanguage: @MainActor (String) -> Void
     var setVoiceEngine: @MainActor (String) -> Void
     var removeVoiceModel: @MainActor () -> Void

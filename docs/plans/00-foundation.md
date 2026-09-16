@@ -40,12 +40,12 @@ public final class EditorWindowController { public func present(_ doc: EditorDoc
 - New `OutputAction.appendToFile` (plan 08) with `ToolOutputConfig.appendTarget: AppendTarget?` (path template + heading). Ordered after `saveToFolder`.
 - Panel chips list per tool comes from `Tool.offeredActions` (new protocol member, default all except `notify` and `appendToFile`).
 
-## 4. Tool switches in General
+## 4. Tool switches in General (done 2026-09-16)
 
-- `GeneralSettings.enabledTools: Set<String>` under `tools.enabled` (default: every registered tool id, so a tool added in a new build shows up on first launch).
-- `Tool` gains `func activate()` / `func deactivate()` with no-op defaults. Shell calls `deactivate` on switch-off: unregister hotkeys, release models and capture sessions. `attach` still happens once at launch.
-- General view: "Tools" section between Sounds and History, one 40 pt row per tool: tile, name, switch. Off hides the row from the Tools list and its history rows stay.
-- `ShellState` stops hardcoding `voice`/`screen` rows: `ToolsSection` iterates `shell.tools.filter(enabled)` and asks each tool for its row (`Tool.rowStatus`, `Tool.tile`). This refactor is the biggest item here and is what stops the panel code doubling with each tool.
+- `ToolSwitches` in Core stores the switched-off ids under `tools.disabled`, so a tool added in a new build is on from its first launch (instead of the `enabledTools` set first planned).
+- `Tool` gains `activate()` / `deactivate()` with no-op defaults. `attach` still happens once at launch; `activate` runs at launch for switched-on tools. Switching off drops the hotkeys first, then calls `deactivate`: Voice drops a dictation in progress and unloads both engines after any queued transcription (`Transcriber.unload()`, Parakeet through `AsrManager.cleanup()`); the recorder cancels its picker or stops and delivers a recording.
+- General view: a Tools group between the first group and History, one 40 pt row per tool (24 pt tile, name, switch). Off hides the row from the Tools list; its history rows stay. With every tool off the list shows a dashed hint that opens General.
+- Panel UI stays in the App target: `PanelTools` (App/MenuPanel/PanelTools.swift) is one table of id, name, tile, row and tool view, and the Tools list, tool views and General switches iterate it. Chosen over `Tool.rowStatus` / `Tool.tile`, which would have made each tool own the observable state `ShellState` mirrors today. Revisit once tools own their state.
 
 ## 5. Hotkey inventory
 

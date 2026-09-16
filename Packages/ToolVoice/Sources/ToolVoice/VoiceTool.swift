@@ -175,7 +175,10 @@ public final class VoiceTool: Tool {
             return
         }
         onStatus?("\(transcriber.displayName) · loading")
+        // An unload queued by `deactivate` runs first, so it cannot drop the models this loads.
+        let pending = job
         Task { [transcriber, self] in
+            await pending?.value
             do {
                 try await transcriber.prepare { message in
                     Task { @MainActor in self.onStatus?(message) }
@@ -184,6 +187,24 @@ public final class VoiceTool: Tool {
             } catch {
                 self.onStatus?("\(transcriber.displayName) · failed to load")
             }
+        }
+    }
+
+    public func activate() {
+        warmUp()
+    }
+
+    /// Drops a dictation in progress, lets a queued transcription finish, then frees the models.
+    public func deactivate() {
+        if recorder.isRecording {
+            _ = recorder.stop()
+            context?.overlay.hide()
+        }
+        let previous = job
+        job = Task { [parakeet, apple] in
+            await previous?.value
+            await parakeet.unload()
+            await apple.unload()
         }
     }
 
@@ -258,6 +279,11 @@ public final class VoiceTool: Tool {
     /// Returns the transcript. Used by the demo mode to check the engine without a microphone.
     public func debugTranscribe(_ samples: [Float]) async -> String? {
         await transcribe(samples, duration: Double(samples.count) / MicRecorder.sampleRate, emit: false)
+    }
+
+    /// Returns once every queued transcription and unload has run. Tests only.
+    func debugWaitForJobs() async {
+        await job?.value
     }
     #endif
 

@@ -87,7 +87,10 @@ struct MainPanelView: View {
             if !state.hotkeyReady {
                 PermissionCard(action: actions.requestPermission)
             }
-            ToolsSection(state: state)
+            ToolsSection(state: state) {
+                state.popups.close()
+                state.panelView = .general
+            }
             if !state.recent.isEmpty {
                 RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
                               copy: actions.copyRecent, reveal: actions.revealRecent) {
@@ -172,11 +175,13 @@ struct StatusDot: View {
     }
 }
 
-/// "Tools" label, count, then one row per tool.
+/// "Tools" label, count, then one row per switched-on tool.
 struct ToolsSection: View {
     let state: ShellState
+    let openGeneral: @MainActor () -> Void
 
     var body: some View {
+        let tools = PanelTools.enabled(in: state)
         VStack(spacing: 6) {
             HStack {
                 Text("Tools")
@@ -185,13 +190,28 @@ struct ToolsSection: View {
                     .textCase(.uppercase)
                     .foregroundStyle(Theme.Colors.textTertiary)
                 Spacer()
-                Text("2")
+                Text("\(tools.count)")
                     .font(.dp(11))
                     .foregroundStyle(Theme.Colors.textFaint)
             }
             .padding(.horizontal, 4)
-            VoiceRow(state: state)
-            ScreenRow(state: state)
+            ForEach(tools) { tool in
+                tool.row(state)
+            }
+            if tools.isEmpty {
+                Button(action: openGeneral) {
+                    Text("Every tool is off. Switch one on in General.")
+                        .font(.dp(12))
+                        .foregroundStyle(Theme.Colors.textTertiary)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                                .strokeBorder(Theme.Colors.tint(0.10), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }
@@ -308,15 +328,17 @@ struct ScreenRow: View {
     }
 }
 
-/// Amber gradient tile with the mic.
+/// Amber gradient tile with the mic. 36 in the Tools list, smaller in General's switches.
 struct VoiceTile: View {
+    var size: CGFloat = 36
+
     var body: some View {
-        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile * size / 36, style: .continuous)
         MicIcon()
             .stroke(style: .icon(1.7))
             .foregroundStyle(Theme.Colors.accentInk)
-            .frame(width: 18, height: 18)
-            .frame(width: 36, height: 36)
+            .frame(width: size / 2, height: size / 2)
+            .frame(width: size, height: size)
             .background(
                 tile.fill(LinearGradient(
                     colors: [Theme.Colors.accentHigh, Theme.Colors.accentLow],
@@ -327,19 +349,21 @@ struct VoiceTile: View {
                 Rectangle().fill(Color.white.opacity(0.35)).frame(height: 1)
                     .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
             }
-            .shadow(color: Theme.Colors.accent(0.35), radius: 8, y: 6)
+            .shadow(color: Theme.Colors.accent(0.35), radius: 8 * size / 36, y: 6 * size / 36)
     }
 }
 
-/// Tint tile with the display glyph.
+/// Tint tile with the display glyph. 36 in the Tools list, smaller in General's switches.
 struct ScreenTile: View {
+    var size: CGFloat = 36
+
     var body: some View {
-        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile * size / 36, style: .continuous)
         ScreenIcon()
             .stroke(style: .icon(1.6))
             .foregroundStyle(Theme.Colors.text)
-            .frame(width: 18, height: 18)
-            .frame(width: 36, height: 36)
+            .frame(width: size / 2, height: size / 2)
+            .frame(width: size, height: size)
             .background(tile.fill(Theme.Colors.tint(0.06)))
             .overlay(tile.strokeBorder(Theme.Colors.tint(0.14), lineWidth: 1))
             .overlay(alignment: .top) {
@@ -393,20 +417,12 @@ struct ToolView: View {
                 state.popups.close()
                 state.panelView = .main
             }
-            switch toolID {
-            case VoiceToolView.toolID: VoiceToolView(state: state, actions: actions)
-            case ScreenToolView.toolID: ScreenToolView(state: state, actions: actions)
-            default: EmptyView()
-            }
+            PanelTools.tool(toolID)?.view(state, actions)
         }
     }
 
     private var title: String {
-        switch toolID {
-        case VoiceToolView.toolID: "Voice"
-        case ScreenToolView.toolID: "Record screen"
-        default: toolID
-        }
+        PanelTools.tool(toolID)?.name ?? toolID
     }
 }
 
@@ -688,6 +704,14 @@ struct GeneralView: View {
                 }
             }
             OptionsGroup {
+                ForEach(PanelTools.all) { tool in
+                    ToolSwitchRow(tool: tool, isOn: Binding(
+                        get: { state.switches.isEnabled(tool.id) },
+                        set: { actions.setToolEnabled(tool.id, $0) }
+                    ))
+                }
+            }
+            OptionsGroup {
                 OptionRow("Keep history", detail: historyDetail) {
                     ToggleSwitch("Keep history", isOn: Binding(get: { state.general.keepHistory }, set: { state.general.keepHistory = $0 }))
                 }
@@ -759,6 +783,24 @@ struct GeneralView: View {
             state.confirmingClear = false
             state.panelView = .main
         }
+    }
+}
+
+/// A General row that switches one tool on or off: small tile, name, switch. Off hides the tool's row and frees
+/// its shortcut; its history stays.
+struct ToolSwitchRow: View {
+    let tool: PanelTool
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            tool.tile(24)
+                .opacity(isOn ? 1 : 0.5)
+            Text(tool.name).font(.dp(13)).foregroundStyle(Theme.Colors.text)
+            Spacer(minLength: 8)
+            ToggleSwitch(tool.name, isOn: $isOn)
+        }
+        .frame(height: 40)
     }
 }
 

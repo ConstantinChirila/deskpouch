@@ -13,7 +13,13 @@ public protocol Tool: AnyObject {
     /// After-capture actions the tool wants until the user changes them in the panel.
     var defaultOutput: ToolOutputConfig { get }
 
+    /// Called once at launch, whether or not the tool is switched on.
     func attach(_ context: ToolContext)
+    /// Switched on, at launch or later from General. Load what the first use should not wait for.
+    func activate()
+    /// Switched off in General. The shell has already dropped the hotkeys; end any capture in progress and let go
+    /// of what `activate` loaded.
+    func deactivate()
     func holdBegan()
     func holdEnded()
     /// The hold turned out to be part of a key chord. Drop whatever it started, emit nothing.
@@ -24,6 +30,8 @@ public protocol Tool: AnyObject {
 public extension Tool {
     var holdKey: ModifierKey? { nil }
     var pressKey: KeyCombo? { nil }
+    func activate() {}
+    func deactivate() {}
     func holdBegan() {}
     func holdEnded() {}
     func holdCancelled() {}
