@@ -276,6 +276,9 @@ private struct AudioToggle<Icon: View>: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        .accessibilityLabel(help)
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(isOn ? [.isToggle, .isSelected] : .isToggle)
         .animation(.easeOut(duration: 0.15), value: isOn)
     }
 }

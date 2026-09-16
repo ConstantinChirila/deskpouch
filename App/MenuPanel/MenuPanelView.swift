@@ -8,6 +8,7 @@ import ToolVoice
 struct MenuPanelView: View {
     let state: ShellState
     let actions: MenuPanelActions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -25,16 +26,16 @@ struct MenuPanelView: View {
             switch state.panelView {
             case .main:
                 MainPanelView(state: state, actions: actions)
-                    .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .leading)).combined(with: .opacity))
+                    .transition(slide(from: .leading))
             case .general:
                 GeneralView(state: state, actions: actions)
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
+                    .transition(slide(from: .trailing))
             case .tool(let id):
                 ToolView(toolID: id, state: state, actions: actions)
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
+                    .transition(slide(from: .trailing))
             case .history:
                 HistoryView(state: state, actions: actions)
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
+                    .transition(slide(from: .trailing))
             }
         }
         .padding(18)
@@ -61,12 +62,17 @@ struct MenuPanelView: View {
         .animation(.easeOut(duration: 0.2), value: state.panelView)
         .animation(.easeOut(duration: 0.15), value: state.confirmingClear)
         // Spring in from the menubar icon: slight scale from the top edge plus a fade.
-        .scaleEffect(state.panelPresented ? 1 : 0.96, anchor: .top)
+        .scaleEffect(state.panelPresented || reduceMotion ? 1 : 0.96, anchor: .top)
         .opacity(state.panelPresented ? 1 : 0)
         .animation(.spring(duration: 0.22, bounce: 0.18), value: state.panelPresented)
         .padding(.top, MenuPanelController.shadowInset.top)
         .padding(.bottom, MenuPanelController.shadowInset.bottom)
         .padding(.horizontal, MenuPanelController.shadowInset.left)
+    }
+
+    /// Views slide in from the side, or just fade with Reduce Motion on.
+    private func slide(from edge: Edge) -> AnyTransition {
+        reduceMotion ? .opacity : .move(edge: edge).combined(with: .opacity)
     }
 }
 
@@ -637,10 +643,10 @@ struct ScreenToolView: View {
                     )
                 }
                 OptionRow("System audio") {
-                    ToggleSwitch(isOn: Binding(get: { state.recorderSettings.systemAudio }, set: { value in actions.updateRecorder { $0.systemAudio = value } }))
+                    ToggleSwitch("System audio", isOn: Binding(get: { state.recorderSettings.systemAudio }, set: { value in actions.updateRecorder { $0.systemAudio = value } }))
                 }
                 OptionRow("Microphone") {
-                    ToggleSwitch(isOn: Binding(get: { state.recorderSettings.microphone }, set: { value in actions.updateRecorder { $0.microphone = value } }))
+                    ToggleSwitch("Microphone", isOn: Binding(get: { state.recorderSettings.microphone }, set: { value in actions.updateRecorder { $0.microphone = value } }))
                 }
                 OptionRow("Shortcut") {
                     ShortcutRecorder(.press(state.screenKey)) { kind in
@@ -663,13 +669,13 @@ struct GeneralView: View {
             header
             OptionsGroup {
                 OptionRow("Launch at login") {
-                    ToggleSwitch(isOn: Binding(get: { state.general.launchAtLogin }, set: { actions.setLaunchAtLogin($0) }))
+                    ToggleSwitch("Launch at login", isOn: Binding(get: { state.general.launchAtLogin }, set: { actions.setLaunchAtLogin($0) }))
                 }
                 OptionRow("Sounds", detail: "Start and stop cues") {
-                    ToggleSwitch(isOn: Binding(get: { state.general.sounds }, set: { state.general.sounds = $0 }))
+                    ToggleSwitch("Sounds", isOn: Binding(get: { state.general.sounds }, set: { state.general.sounds = $0 }))
                 }
                 OptionRow("Show timer in menubar", detail: "While recording") {
-                    ToggleSwitch(isOn: Binding(get: { state.general.menubarTimer }, set: { state.general.menubarTimer = $0 }))
+                    ToggleSwitch("Show timer in menubar", isOn: Binding(get: { state.general.menubarTimer }, set: { state.general.menubarTimer = $0 }))
                 }
                 OptionRow("Pill position", detail: "Listening and recording") {
                     PopupPicker(
@@ -683,10 +689,10 @@ struct GeneralView: View {
             }
             OptionsGroup {
                 OptionRow("Keep history", detail: historyDetail) {
-                    ToggleSwitch(isOn: Binding(get: { state.general.keepHistory }, set: { state.general.keepHistory = $0 }))
+                    ToggleSwitch("Keep history", isOn: Binding(get: { state.general.keepHistory }, set: { state.general.keepHistory = $0 }))
                 }
                 OptionRow("Transcripts in history", detail: "Off keeps only recordings") {
-                    ToggleSwitch(isOn: Binding(
+                    ToggleSwitch("Transcripts in history", isOn: Binding(
                         get: { state.output.config(for: VoiceToolView.toolID).actions.contains(.history) },
                         set: { _ in actions.toggleOutput(VoiceToolView.toolID, .history) }
                     ))
@@ -811,10 +817,7 @@ struct HistoryView: View {
         VStack(spacing: 16) {
             header
             VStack(spacing: 8) {
-                SearchField(text: Binding(get: { state.historyQuery }, set: { value in
-                    state.historyQuery = value
-                    actions.loadHistory(false)
-                }))
+                SearchField(text: Binding(get: { state.historyQuery }, set: { state.historyQuery = $0 }))
                 HStack {
                     Segmented(selection: Binding(get: { state.historyFilter }, set: { value in
                         state.historyFilter = value
@@ -866,6 +869,15 @@ struct HistoryView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .frame(maxHeight: max(200, state.panelMaxHeight - 200))
+        }
+        // Each query is a table scan on the main actor; wait for a pause in typing instead of scanning per key.
+        .task(id: state.historyQuery) {
+            do {
+                try await Task.sleep(for: .milliseconds(150))
+            } catch {
+                return
+            }
+            actions.loadHistory(false)
         }
     }
 
@@ -931,9 +943,9 @@ struct HistoryRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if item.text != nil {
-                RowActionButton(icon: CopyIcon(), action: copy).help("Copy transcript")
+                RowActionButton("Copy transcript", icon: CopyIcon(), action: copy)
             } else {
-                RowActionButton(icon: FolderIcon(), action: reveal).help("Show in Finder")
+                RowActionButton("Show in Finder", icon: FolderIcon(), action: reveal)
             }
             if hovering {
                 Button(action: delete) {
@@ -959,6 +971,15 @@ struct HistoryRow: View {
         .animation(.easeOut(duration: 0.12), value: hovering)
         .onTapGesture(count: 2) {
             if item.fileURL != nil { reveal() }
+        }
+        // The trash button only appears on hover and reveal is a double-click, so both are also row actions
+        // for VoiceOver and keyboard users.
+        .accessibilityElement(children: .combine)
+        .accessibilityAction(named: "Remove from history") { delete() }
+        .accessibilityActions {
+            if item.fileURL != nil {
+                Button("Show in Finder") { reveal() }
+            }
         }
     }
 
@@ -1049,8 +1070,7 @@ struct RecentRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            RowActionButton(icon: CopyIcon(), action: copy)
-                .help(item.text != nil ? "Copy transcript" : "Copy file")
+            RowActionButton(item.text != nil ? "Copy transcript" : "Copy file", icon: CopyIcon(), action: copy)
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 10)
@@ -1061,6 +1081,12 @@ struct RecentRow: View {
             if item.fileURL != nil { reveal() }
         }
         .help(item.fileURL != nil ? "Double-click to show in Finder" : "")
+        .accessibilityElement(children: .combine)
+        .accessibilityActions {
+            if item.fileURL != nil {
+                Button("Show in Finder") { reveal() }
+            }
+        }
     }
 
     private var title: String {

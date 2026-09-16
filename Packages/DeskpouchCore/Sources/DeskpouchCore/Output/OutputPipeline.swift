@@ -56,12 +56,19 @@ public final class OutputPipeline {
 
             case .paste:
                 guard let text else { continue }
-                if !delivery.copied {
+                let copiedForPaste = !delivery.copied
+                if copiedForPaste {
                     // ⌘V reads the pasteboard, so the text has to go there; put the old contents back afterwards.
                     pasteboardSnapshot = effects.snapshotPasteboard()
                     effects.copyText(text)
                 }
                 delivery.pastedInto = await effects.pasteIntoFrontmostApp()
+                if delivery.pastedInto == nil, copiedForPaste {
+                    // Nothing took the paste. Leave the text on the pasteboard rather than lose it.
+                    pasteboardSnapshot = nil
+                    delivery.copied = true
+                    delivery.ran.append(.copy)
+                }
 
             case .saveToFolder:
                 guard text != nil || result.fileURL != nil else { continue }

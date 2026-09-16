@@ -16,6 +16,8 @@ public protocol Tool: AnyObject {
     func attach(_ context: ToolContext)
     func holdBegan()
     func holdEnded()
+    /// The hold turned out to be part of a key chord. Drop whatever it started, emit nothing.
+    func holdCancelled()
     func keyPressed()
 }
 
@@ -24,6 +26,7 @@ public extension Tool {
     var pressKey: KeyCombo? { nil }
     func holdBegan() {}
     func holdEnded() {}
+    func holdCancelled() {}
     func keyPressed() {}
 }
 

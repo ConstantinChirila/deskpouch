@@ -85,41 +85,78 @@ public final class AppleTranscriber: Transcriber, @unchecked Sendable {
 
         let started = Date()
         let outcome = Outcome()
-        let text: String = try await withCheckedThrowingContinuation { continuation in
-            outcome.continuation = continuation
-            recognizer.recognitionTask(with: request) { result, error in
-                if let error {
-                    let nsError = error as NSError
-                    // 1110 is "No speech detected": an empty transcript, not a failure.
-                    if nsError.domain == "kAFAssistantErrorDomain", nsError.code == 1110 {
-                        outcome.finish(.success(""))
-                    } else if nsError.domain == "kLSRErrorDomain", nsError.code == 201 {
-                        // "Siri and Dictation are disabled": the on-device recogniser only runs with Dictation on.
-                        outcome.finish(.failure(AppleTranscriberError.dictationOff))
-                    } else {
-                        log.error("recognition failed: \(String(describing: error), privacy: .public)")
-                        outcome.finish(.failure(error))
+        let text: String = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                outcome.begin(continuation)
+                let task = recognizer.recognitionTask(with: request) { result, error in
+                    if let error {
+                        let nsError = error as NSError
+                        // 1110 is "No speech detected": an empty transcript, not a failure.
+                        if nsError.domain == "kAFAssistantErrorDomain", nsError.code == 1110 {
+                            outcome.finish(.success(""))
+                        } else if nsError.domain == "kLSRErrorDomain", nsError.code == 201 {
+                            // "Siri and Dictation are disabled": the on-device recogniser only runs with Dictation on.
+                            outcome.finish(.failure(AppleTranscriberError.dictationOff))
+                        } else {
+                            log.error("recognition failed: \(String(describing: error), privacy: .public)")
+                            outcome.finish(.failure(error))
+                        }
+                        return
                     }
-                    return
+                    if let result, result.isFinal {
+                        outcome.finish(.success(result.bestTranscription.formattedString))
+                    }
                 }
-                if let result, result.isFinal {
-                    outcome.finish(.success(result.bestTranscription.formattedString))
-                }
+                // The outcome holds the recogniser and its task until a result arrives; nothing else does.
+                outcome.hold(recognizer: recognizer, task: task)
             }
+        } onCancel: {
+            outcome.cancel()
         }
         return Transcript(text: text.trimmingCharacters(in: .whitespacesAndNewlines), processingTime: Date().timeIntervalSince(started))
     }
 
-    /// Resumes the continuation once, whichever callback arrives first.
+    /// Resumes the continuation once, whichever callback arrives first, and keeps the recognition alive until then.
     private final class Outcome: @unchecked Sendable {
         private let lock = NSLock()
-        var continuation: CheckedContinuation<String, Error>?
+        private var continuation: CheckedContinuation<String, Error>?
+        private var recognizer: SFSpeechRecognizer?
+        private var task: SFSpeechRecognitionTask?
+        private var cancelled = false
+
+        func begin(_ continuation: CheckedContinuation<String, Error>) {
+            lock.withLock { self.continuation = continuation }
+        }
+
+        func hold(recognizer: SFSpeechRecognizer, task: SFSpeechRecognitionTask) {
+            let cancelNow = lock.withLock {
+                guard continuation != nil else { return false }
+                self.recognizer = recognizer
+                self.task = task
+                return cancelled
+            }
+            if cancelNow { task.cancel() }
+        }
+
+        func cancel() {
+            let task = lock.withLock {
+                cancelled = true
+                return self.task
+            }
+            task?.cancel()
+            finish(.failure(CancellationError()))
+        }
 
         func finish(_ result: Result<String, Error>) {
-            lock.lock()
-            let continuation = self.continuation
-            self.continuation = nil
-            lock.unlock()
+            let continuation = lock.withLock {
+                defer {
+                    self.continuation = nil
+                    // Break the task -> handler -> outcome cycle.
+                    self.task = nil
+                    self.recognizer = nil
+                }
+                return self.continuation
+            }
             switch result {
             case .success(let text): continuation?.resume(returning: text)
             case .failure(let error): continuation?.resume(throwing: error)

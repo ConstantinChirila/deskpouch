@@ -41,7 +41,7 @@
 		9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCore; path = Packages/DeskpouchCore; sourceTree = SOURCE_ROOT; };
 		9F01CE04F0A6AABF0BD257A4 /* WindowSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSnapshot.swift; sourceTree = "<group>"; };
 		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		"TEMP_ED5A1DE6-8332-49D1-9A45-696BBB8C3D31" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,10 +120,10 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_7AEBB396-BA42-4FC4-9105-ECD5FC6EB7BA" /* deskpouch */ = {
+		"TEMP_4DBDF8A6-F55C-4088-86E6-0EDC013705E1" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_ED5A1DE6-8332-49D1-9A45-696BBB8C3D31" /* Signing.xcconfig */,
+				"TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -231,6 +231,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/Deskpouch.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -246,7 +247,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_ED5A1DE6-8332-49D1-9A45-696BBB8C3D31" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -284,7 +285,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -311,7 +312,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_ED5A1DE6-8332-49D1-9A45-696BBB8C3D31" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_024F05A6-63FB-4A6A-B402-6BF458C4DAB7" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -349,7 +350,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -386,6 +387,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/Deskpouch.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

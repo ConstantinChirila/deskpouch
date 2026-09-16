@@ -3,6 +3,8 @@ import CoreGraphics
 public enum HotkeyPhase: Sendable, Equatable {
     case pressed
     case released
+    /// Another key was typed while the modifier was down: it was part of a chord, not a hold. No release follows.
+    case cancelled
 }
 
 /// Turns a stream of `flagsChanged` events into press/release for one modifier key.
@@ -29,6 +31,14 @@ public struct ModifierHoldDetector: Sendable, Equatable {
         default:
             return nil
         }
+    }
+
+    /// Feed one `keyDown` from any key. A key typed during the hold turns the hold into a chord (Option + e),
+    /// so the hold is dropped and the coming release is ignored.
+    public mutating func handleKeyDown() -> HotkeyPhase? {
+        guard isDown else { return nil }
+        isDown = false
+        return .cancelled
     }
 
     /// True when the generic flag is set and, if the keyboard reports side bits at all, this side's bit is set.

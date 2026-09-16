@@ -114,7 +114,9 @@ public final class ScreenRecorderTool: Tool {
                 guard case .fetchingContent = phase, let content else { return }
                 let model = makeModel(from: content)
                 let picker = PickerWindowController(model: model)
-                model.onFinish = { [weak self] selection in
+                // Weak picker: the picker owns the model, so a strong capture here would keep both alive forever.
+                model.onFinish = { [weak self, weak picker] selection in
+                    guard let picker else { return }
                     self?.pickerFinished(selection, picker: picker)
                 }
                 if let presetRegion, let screen = model.screen(model.toolbarScreenID) {
@@ -320,10 +322,11 @@ public final class ScreenRecorderTool: Tool {
         context?.overlay.flash(.failed(message), for: .seconds(2))
     }
 
-    /// Recordings land in a temp folder; the output pipeline's Save moves them to the user's folder.
+    /// Recordings are written to Application Support; the output pipeline's Save moves them to the user's folder.
+    /// Not the temp folder: with Save off the file stays here, and macOS purges old files from $TMPDIR.
     static func stagingURL(for date: Date) -> URL {
-        FileManager.default.temporaryDirectory
-            .appending(path: "Deskpouch", directoryHint: .isDirectory)
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Deskpouch/Recordings", directoryHint: .isDirectory)
             .appending(path: "Recording \(fileStamp.string(from: date)).mp4")
     }
 
@@ -335,6 +338,9 @@ public final class ScreenRecorderTool: Tool {
     }()
 
     // MARK: Demo
+
+    // Debug builds only: `debugRecord` captures the screen with no picker.
+    #if DEBUG
 
     /// Opens the picker with a region already drawn. Design review only.
     public func debugOpenPicker(region: CGRect) {
@@ -374,4 +380,5 @@ public final class ScreenRecorderTool: Tool {
         guard case .picking(let picker) = phase else { return }
         picker.model.cancel()
     }
+    #endif
 }

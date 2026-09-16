@@ -229,20 +229,22 @@ struct PillChrome: ViewModifier {
 struct ProgressHairline: View {
     var indeterminate = false
     @State private var sweep = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .leading) {
             Capsule().fill(Theme.Colors.accent(0.2))
             Capsule()
                 .fill(Theme.Colors.accent)
-                .frame(width: indeterminate ? 16 : 40)
+                .frame(width: indeterminate && !reduceMotion ? 16 : 40)
                 .offset(x: indeterminate && sweep ? 24 : 0)
         }
         .frame(width: 40, height: 3)
         .clipShape(Capsule())
         .task(id: indeterminate) {
             sweep = false
-            guard indeterminate else { return }
+            // Reduce Motion: a still, full hairline instead of the sweep.
+            guard indeterminate, !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { sweep = true }
         }
     }
@@ -251,6 +253,7 @@ struct ProgressHairline: View {
 struct PulsingDot: View {
     let color: Color
     @State private var on = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -260,6 +263,7 @@ struct PulsingDot: View {
             .scaleEffect(on ? 0.85 : 1)
             .opacity(on ? 0.5 : 1)
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
                     on = true
                 }

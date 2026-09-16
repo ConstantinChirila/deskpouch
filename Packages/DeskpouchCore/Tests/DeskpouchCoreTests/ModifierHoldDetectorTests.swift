@@ -24,6 +24,20 @@ struct ModifierHoldDetectorTests {
         #expect(d.handle(keyCode: rightOption, flags: flags(.maskAlternate, device: 0x40)) == nil)
     }
 
+    @Test func keyDownDuringHoldCancelsAndSwallowsRelease() {
+        var d = ModifierHoldDetector(key: .rightOption)
+        #expect(d.handle(keyCode: rightOption, flags: flags(.maskAlternate, device: 0x40)) == .pressed)
+        #expect(d.handleKeyDown() == .cancelled)
+        #expect(!d.isDown)
+        #expect(d.handleKeyDown() == nil)
+        #expect(d.handle(keyCode: rightOption, flags: flags([])) == nil)
+    }
+
+    @Test func keyDownWithoutHoldIsIgnored() {
+        var d = ModifierHoldDetector(key: .rightOption)
+        #expect(d.handleKeyDown() == nil)
+    }
+
     @Test func releaseWithoutPressIsIgnored() {
         var d = ModifierHoldDetector(key: .rightOption)
         #expect(d.handle(keyCode: rightOption, flags: flags([])) == nil)

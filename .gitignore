@@ -6,3 +6,4 @@ xcuserdata/
 Packages/*/.build/
 Packages/*/.swiftpm/
 .swiftpm/
+Signing.local.xcconfig

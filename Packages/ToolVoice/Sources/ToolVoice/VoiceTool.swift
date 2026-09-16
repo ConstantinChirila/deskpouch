@@ -26,7 +26,7 @@ public final class VoiceTool: Tool {
     public let name = "Voice"
     /// Persisted under `voice.holdKey`. The shell re-registers the hotkey when it changes this.
     public var holdKey: ModifierKey? {
-        didSet { UserDefaults.standard.set(holdKey.map { Int($0.rawValue) }, forKey: Self.holdKeyDefaultsKey) }
+        didSet { defaults.set(holdKey.map { Int($0.rawValue) }, forKey: Self.holdKeyDefaultsKey) }
     }
     public let defaultOutput = ToolOutputConfig(actions: [.paste, .copy, .history])
 
@@ -45,7 +45,7 @@ public final class VoiceTool: Tool {
     public var engine: VoiceEngine {
         didSet {
             guard engine != oldValue else { return }
-            UserDefaults.standard.set(engine.rawValue, forKey: Self.engineDefaultsKey)
+            defaults.set(engine.rawValue, forKey: Self.engineDefaultsKey)
             if engine == .parakeet { warmUp() } else { onStatus?(statusLine) }
         }
     }
@@ -90,7 +90,7 @@ public final class VoiceTool: Tool {
     /// Drop "um", "uh", "hmm" from transcripts. Persisted, on by default. Parakeet has no knob for this,
     /// so `FillerFilter` cleans the text after decode.
     public var skipFillers: Bool {
-        didSet { UserDefaults.standard.set(skipFillers, forKey: Self.skipFillersDefaultsKey) }
+        didSet { defaults.set(skipFillers, forKey: Self.skipFillersDefaultsKey) }
     }
 
     /// Core Audio UID of the microphone, nil for the system default. Persisted.
@@ -98,7 +98,7 @@ public final class VoiceTool: Tool {
         get { recorder.deviceUID }
         set {
             recorder.deviceUID = newValue
-            UserDefaults.standard.set(newValue, forKey: Self.microphoneDefaultsKey)
+            defaults.set(newValue, forKey: Self.microphoneDefaultsKey)
         }
     }
 
@@ -116,7 +116,7 @@ public final class VoiceTool: Tool {
     /// ISO 639-1 language hint for the engine. Persisted. Defaults to the system language when supported, else English.
     public var language: String {
         get {
-            if let stored = UserDefaults.standard.string(forKey: Self.languageDefaultsKey),
+            if let stored = defaults.string(forKey: Self.languageDefaultsKey),
                transcriber.supportedLanguages.contains(stored) {
                 return stored
             }
@@ -124,7 +124,7 @@ public final class VoiceTool: Tool {
             return transcriber.supportedLanguages.contains(system) ? system : "en"
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: Self.languageDefaultsKey)
+            defaults.set(newValue, forKey: Self.languageDefaultsKey)
             onStatus?(statusLine)
         }
     }
@@ -138,13 +138,19 @@ public final class VoiceTool: Tool {
     private let apple: any Transcriber
     private var transcriber: any Transcriber { engine == .apple ? apple : parakeet }
     private let recorder = MicRecorder()
+    private let defaults: UserDefaults
     private var context: ToolContext?
+    /// The newest transcription. Each one waits for the one before, so dictations are emitted in order.
     private var job: Task<Void, Never>?
 
-    public init(parakeet: any Transcriber = ParakeetTranscriber(), apple: any Transcriber = AppleTranscriber()) {
+    public init(
+        parakeet: any Transcriber = ParakeetTranscriber(),
+        apple: any Transcriber = AppleTranscriber(),
+        defaults: UserDefaults = .standard
+    ) {
         self.parakeet = parakeet
         self.apple = apple
-        let defaults = UserDefaults.standard
+        self.defaults = defaults
         engine = defaults.string(forKey: Self.engineDefaultsKey).flatMap(VoiceEngine.init(rawValue:)) ?? .parakeet
         if defaults.object(forKey: Self.holdKeyDefaultsKey) != nil,
            let key = ModifierKey(rawValue: UInt16(clamping: defaults.integer(forKey: Self.holdKeyDefaultsKey))) {
@@ -183,8 +189,6 @@ public final class VoiceTool: Tool {
 
     public func holdBegan() {
         guard let context else { return }
-        job?.cancel()
-        job = nil
         switch Permissions.microphone {
         case .undetermined:
             // First use: ask, and let this hold go. The next one records.
@@ -225,29 +229,50 @@ public final class VoiceTool: Tool {
             context.overlay.hide()
             return
         }
+        // A transcription still running from the previous hold finishes first; nothing is dropped.
+        let previous = job
         job = Task { [weak self] in
+            await previous?.value
             await self?.transcribe(samples, duration: duration, emit: true)
         }
     }
 
+    public func holdCancelled() {
+        guard let context, recorder.isRecording else { return }
+        _ = recorder.stop()
+        log.info("recording dropped: the hold key was part of a chord")
+        context.overlay.hide()
+    }
+
+    // A new hold may have started while an older transcription was queued or running; its listening pill wins.
+    private func show(_ state: PillState) {
+        if !recorder.isRecording { context?.overlay.show(state) }
+    }
+
+    private func flash(_ state: PillState, for duration: Duration = .seconds(1.2)) {
+        if !recorder.isRecording { context?.overlay.flash(state, for: duration) }
+    }
+
+    #if DEBUG
     /// Runs the full transcription path on given samples but never emits a result (so nothing is pasted).
     /// Returns the transcript. Used by the demo mode to check the engine without a microphone.
     public func debugTranscribe(_ samples: [Float]) async -> String? {
         await transcribe(samples, duration: Double(samples.count) / MicRecorder.sampleRate, emit: false)
     }
+    #endif
 
     @discardableResult
     private func transcribe(_ samples: [Float], duration: TimeInterval, emit: Bool) async -> String? {
         guard let context else { return nil }
         let engine = transcriber.displayName
-        context.overlay.show(.transcribing(detail: engine))
+        show(.transcribing(detail: engine))
         do {
             try await transcriber.prepare { message in
-                Task { @MainActor in context.overlay.show(.preparing(message)) }
+                Task { @MainActor [weak self] in self?.show(.preparing(message)) }
             }
             if Task.isCancelled { return nil }
             if case .preparing = context.overlay.state {
-                context.overlay.show(.transcribing(detail: engine))
+                show(.transcribing(detail: engine))
             }
             let transcript = try await transcriber.transcribe(samples: samples, language: language)
             if Task.isCancelled { return nil }
@@ -256,7 +281,7 @@ public final class VoiceTool: Tool {
                 log.info("fillers stripped: \(transcript.text.count) -> \(text.count) chars")
             }
             guard !text.isEmpty else {
-                context.overlay.flash(.failed("Nothing heard"))
+                flash(.failed("Nothing heard"))
                 return nil
             }
             if emit {
@@ -266,9 +291,9 @@ public final class VoiceTool: Tool {
         } catch {
             log.error("transcription failed: \(String(describing: error), privacy: .public)")
             if let described = error as? any LocalizedError, let message = described.errorDescription {
-                context.overlay.flash(.failed(message), for: .seconds(4))
+                flash(.failed(message), for: .seconds(4))
             } else {
-                context.overlay.flash(.failed("Transcription failed"), for: .seconds(2))
+                flash(.failed("Transcription failed"), for: .seconds(2))
             }
             return nil
         }

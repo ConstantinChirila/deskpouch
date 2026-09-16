@@ -57,6 +57,20 @@ struct OutputPipelineTests {
         #expect(logged.first?.id == result.id)
     }
 
+    @Test func failedPasteKeepsTextOnPasteboard() async throws {
+        let effects = RecordingEffects()
+        effects.pasteTarget = nil
+        let pipeline = OutputPipeline(effects: effects, history: nil)
+        let result = ToolResult(toolID: "voice", text: "hello", duration: 2)
+
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste, .notify]))
+
+        #expect(effects.calls == ["snapshot", "copyText", "paste", "notify(Copied: hello)"])
+        #expect(delivery.pastedInto == nil)
+        #expect(delivery.copied)
+        #expect(delivery.ran == [.copy, .paste, .notify])
+    }
+
     @Test func fileResultsAreCopiedAfterSaveMovesThem() async throws {
         let effects = RecordingEffects()
         effects.savedURL = URL(fileURLWithPath: "/Movies/Deskpouch/Recording.mp4")

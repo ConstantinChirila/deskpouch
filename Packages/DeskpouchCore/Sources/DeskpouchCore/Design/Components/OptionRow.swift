@@ -79,10 +79,13 @@ public struct OptionsGroup<Content: View>: View {
 }
 
 /// 28x17 switch. On: amber track with a glow, accent-ink knob. Off: tint track, text-coloured knob.
+/// `label` is what VoiceOver reads; the switch itself shows no text.
 public struct ToggleSwitch: View {
+    let label: String
     @Binding var isOn: Bool
 
-    public init(isOn: Binding<Bool>) {
+    public init(_ label: String, isOn: Binding<Bool>) {
+        self.label = label
         _isOn = isOn
     }
 
@@ -103,6 +106,9 @@ public struct ToggleSwitch: View {
         }
         .buttonStyle(.plain)
         .animation(.easeOut(duration: 0.15), value: isOn)
+        .accessibilityLabel(label)
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
     }
 }
 

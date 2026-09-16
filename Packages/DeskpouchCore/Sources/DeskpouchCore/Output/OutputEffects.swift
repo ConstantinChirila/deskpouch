@@ -31,6 +31,11 @@ public final class SystemOutputEffects: OutputEffects {
     }
 
     private var notificationsAuthorized = false
+    /// Pasteboard change count right after our last copy; a restore is skipped once someone else has copied.
+    private var ownChangeCount: Int?
+
+    /// How long a user shell command may run before it is terminated.
+    static let shellTimeout: Duration = .seconds(30)
 
     public init() {}
 
@@ -49,6 +54,10 @@ public final class SystemOutputEffects: OutputEffects {
         // The target app reads ⌘V asynchronously; give it time before the transcript disappears.
         try? await Task.sleep(for: .milliseconds(400))
         let pasteboard = NSPasteboard.general
+        guard pasteboard.changeCount == ownChangeCount else {
+            log.info("pasteboard changed since the paste, not restoring")
+            return
+        }
         pasteboard.clearContents()
         let items = snapshot.items.map { entry in
             let item = NSPasteboardItem()
@@ -62,6 +71,7 @@ public final class SystemOutputEffects: OutputEffects {
 
     public func copyText(_ text: String) {
         Paster.copy(text)
+        ownChangeCount = NSPasteboard.general.changeCount
     }
 
     public func copyFile(_ url: URL) {
@@ -107,16 +117,54 @@ public final class SystemOutputEffects: OutputEffects {
         process.environment = env
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
+        // Set before run(): a command that exits at once would otherwise never call a handler assigned later.
+        let exit = ProcessExit()
+        process.terminationHandler = { process in exit.finish(process.terminationStatus) }
         do {
             try process.run()
         } catch {
             log.error("shell command failed to start: \(String(describing: error), privacy: .public)")
             return
         }
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            process.terminationHandler = { _ in continuation.resume() }
+        let pid = process.processIdentifier
+        let limit = Self.shellTimeout
+        let timeout = Task.detached {
+            try? await Task.sleep(for: limit)
+            guard !Task.isCancelled, !exit.isFinished else { return }
+            log.error("shell command still running after \(limit), terminating")
+            kill(pid, SIGTERM)
         }
-        log.info("shell command exited \(process.terminationStatus)")
+        let status = await exit.wait()
+        timeout.cancel()
+        log.info("shell command exited \(status)")
+    }
+
+    /// Hands a process's exit status to one waiter, whether it exits before or after the wait starts.
+    private final class ProcessExit: @unchecked Sendable {
+        private let lock = NSLock()
+        private var status: Int32?
+        private var waiter: CheckedContinuation<Int32, Never>?
+
+        var isFinished: Bool { lock.withLock { status != nil } }
+
+        func finish(_ status: Int32) {
+            let waiter = lock.withLock {
+                self.status = status
+                defer { self.waiter = nil }
+                return self.waiter
+            }
+            waiter?.resume(returning: status)
+        }
+
+        func wait() async -> Int32 {
+            await withCheckedContinuation { continuation in
+                let done = lock.withLock {
+                    if status == nil { waiter = continuation }
+                    return status
+                }
+                if let done { continuation.resume(returning: done) }
+            }
+        }
     }
 
     public func notify(title: String, body: String) {

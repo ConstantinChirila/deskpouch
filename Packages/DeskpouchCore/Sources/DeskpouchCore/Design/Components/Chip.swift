@@ -39,11 +39,14 @@ public struct Chip: View {
 }
 
 /// 28px square action button used on Recent rows. Tint fill 0.05, icon at 0.6.
+/// `label` is both the tooltip and what VoiceOver reads, since the button shows only an icon.
 public struct RowActionButton<Icon: Shape>: View {
+    let label: String
     let icon: Icon
     let action: @MainActor () -> Void
 
-    public init(icon: Icon, action: @escaping @MainActor () -> Void) {
+    public init(_ label: String, icon: Icon, action: @escaping @MainActor () -> Void) {
+        self.label = label
         self.icon = icon
         self.action = action
     }
@@ -58,5 +61,7 @@ public struct RowActionButton<Icon: Shape>: View {
                 .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous))
         }
         .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }

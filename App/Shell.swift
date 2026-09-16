@@ -88,7 +88,9 @@ final class Shell {
         refreshRecent()
         startHotkeysOrWait()
         voice.warmUp()
+        #if DEBUG
         runDemoIfRequested()
+        #endif
     }
 
     func stop() {
@@ -115,6 +117,11 @@ final class Shell {
                 statusItem.showIdle()
                 playCue(start: false)
                 tool.holdEnded()
+            case .cancelled:
+                // The modifier was part of a typed chord; stop quietly, no cue.
+                state.isListening = false
+                statusItem.showIdle()
+                tool.holdCancelled()
             }
         }
     }
@@ -222,16 +229,19 @@ final class Shell {
         }
     }
 
-    /// Loads the first page for the current query and filter, or appends the next one.
-    private func loadHistory(more: Bool) {
+    /// Loads the first page for the current query and filter, appends the next one, or re-reads what is shown.
+    private func loadHistory(_ load: HistoryPage.Load) {
         guard let history else { return }
-        let query = state.historyQuery.trimmingCharacters(in: .whitespaces)
-        let toolID = state.historyFilter.toolID
         do {
-            let offset = more ? state.historyItems.count : 0
-            let page = try history.items(matching: query, toolID: toolID, limit: HistoryView.pageSize, offset: offset)
-            state.historyItems = more ? state.historyItems + page : page
-            state.historyMatches = try history.count(matching: query, toolID: toolID)
+            let page = try history.page(
+                load,
+                after: HistoryPage(items: state.historyItems, matches: state.historyMatches),
+                query: state.historyQuery.trimmingCharacters(in: .whitespaces),
+                toolID: state.historyFilter.toolID,
+                pageSize: HistoryView.pageSize
+            )
+            state.historyItems = page.items
+            state.historyMatches = page.matches
         } catch {
             log.error("history query failed: \(String(describing: error), privacy: .public)")
         }
@@ -283,6 +293,12 @@ final class Shell {
             var config = state.output.config(for: result.toolID)
             if !state.general.keepHistory { config.actions.remove(.history) }
             let delivery = await pipeline.deliver(result, config: config)
+            if delivery.recorded {
+                refreshRecent()
+                if state.panelView == .history { loadHistory(.refresh) }
+            }
+            // A new hold started while this result was on its way: leave its listening pill alone.
+            if state.isListening { return }
             if let target = delivery.pastedInto {
                 overlay.flash(.pasted(target: target))
             } else if let saved = delivery.savedTo {
@@ -292,7 +308,6 @@ final class Shell {
             } else {
                 overlay.hide()
             }
-            if delivery.recorded { refreshRecent() }
         }
     }
 
@@ -404,7 +419,7 @@ final class Shell {
                 overlay.position = position
             },
             clearHistory: { [weak self] in self?.clearHistory() },
-            loadHistory: { [weak self] more in self?.loadHistory(more: more) },
+            loadHistory: { [weak self] more in self?.loadHistory(more ? .more : .first) },
             deleteHistory: { [weak self] item in self?.deleteHistory(item) },
             openPermissionSettings: { [weak self] in self?.openPermissionSettings() },
             closePanel: { [weak self] in self?.panel.close() },
@@ -413,6 +428,9 @@ final class Shell {
     }
 
     // MARK: Demo
+
+    // Debug builds only: the demo modes record the screen and write files on an environment variable.
+    #if DEBUG
 
     /// `DESKPOUCH_DEMO=pill` shows the listening state and the panel for a few seconds at launch.
     /// With `DESKPOUCH_DEMO_OUT=<dir>` it also writes PNGs of both. Design review only.
@@ -579,7 +597,7 @@ final class Shell {
             guard let self else { return }
             state.historyQuery = ""
             state.historyFilter = .all
-            loadHistory(more: false)
+            loadHistory(.first)
             state.panelView = .history
         }
         snap("app-history", at: 8.2)
@@ -609,12 +627,12 @@ final class Shell {
         Task { [weak self] in
             guard let self else { return }
             guard let samples = WavLoader.samples16kMono(wav) else {
-                NSLog("deskpouch demo: could not read %@ as 16 kHz mono float", wav.path)
+                log.error("demo: could not read \(wav.path, privacy: .public) as 16 kHz mono float")
                 return
             }
             try? await Task.sleep(for: .seconds(1))
             let text = await voice.debugTranscribe(samples)
-            NSLog("deskpouch demo: transcript = %@", text ?? "<nil>")
+            log.info("demo: transcript = \(text ?? "<nil>", privacy: .private)")
             if let out { Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "demo-transcript.png")) }
             if let out, let text { try? text.write(to: out.appending(path: "demo-transcript.txt"), atomically: true, encoding: .utf8) }
             try? await Task.sleep(for: .seconds(1))
@@ -631,4 +649,5 @@ final class Shell {
         }
         do { try png.write(to: url) } catch { log.error("demo: write failed \(String(describing: error), privacy: .public)") }
     }
+    #endif
 }

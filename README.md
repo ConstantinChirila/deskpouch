@@ -12,10 +12,10 @@ open Deskpouch.xcodeproj     # or:
 scripts/run.sh               # xcodebuild Debug + launch
 ```
 
-Core tests run without Xcode:
+Package tests run without Xcode (CI runs the same script on every push):
 
 ```sh
-cd Packages/DeskpouchCore && swift test
+scripts/test.sh
 ```
 
 If `xcodebuild` fails with "A required plugin failed to load", run `xcodebuild -runFirstLaunch`.
@@ -30,7 +30,7 @@ Builds are ad-hoc signed by default, so macOS treats every rebuild as a new app 
 scripts/make-dev-cert.sh
 ```
 
-It writes the identity into `Signing.xcconfig`. Keep that change local.
+It writes the identity into `Signing.local.xcconfig`, which is git-ignored; `Signing.xcconfig` stays ad-hoc for everyone else.
 
 ## Voice engine
 
@@ -75,7 +75,7 @@ defaults write com.constantinchirila.deskpouch screen.cursor -bool false
 Recorder tests run without Xcode:
 
 ```sh
-cd Packages/ToolScreenRecorder && swift test
+swift test --package-path Packages/ToolScreenRecorder
 ```
 
 ## Design review

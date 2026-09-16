@@ -61,6 +61,17 @@
                ReferencedContainer = "container:Packages/ToolScreenRecorder">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "ToolVoiceTests"
+               BuildableName = "ToolVoiceTests"
+               BlueprintName = "ToolVoiceTests"
+               ReferencedContainer = "container:Packages/ToolVoice">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

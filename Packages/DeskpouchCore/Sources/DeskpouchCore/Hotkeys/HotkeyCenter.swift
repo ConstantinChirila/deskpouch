@@ -65,10 +65,11 @@ public final class HotkeyCenter {
         hotkeyLog.info("start: accessibility=\(trusted) inputMonitoring=\(Permissions.inputMonitoringGranted)")
         guard trusted else { return false }
         // Global monitors see other apps' events; the local one covers events while Deskpouch itself is active.
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+        // Key downs are watched too, so a modifier used in a chord (Option + e) does not count as a hold.
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
             MainActor.assumeIsolated { self?.handle(event) }
         }
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
             MainActor.assumeIsolated { self?.handle(event) }
             return event
         }
@@ -89,6 +90,15 @@ public final class HotkeyCenter {
     }
 
     private func handle(_ event: NSEvent) {
+        if event.type == .keyDown {
+            for registration in holds {
+                if let phase = registration.detector.handleKeyDown() {
+                    hotkeyLog.info("\(registration.detector.key.displayName, privacy: .public) \(String(describing: phase), privacy: .public) by a key press")
+                    registration.handler(phase)
+                }
+            }
+            return
+        }
         let keyCode = event.keyCode
         let flags = event.cgEvent?.flags ?? CGEventFlags(rawValue: UInt64(event.modifierFlags.rawValue))
         hotkeyLog.debug("flagsChanged keyCode=\(keyCode) flags=0x\(String(flags.rawValue, radix: 16), privacy: .public)")

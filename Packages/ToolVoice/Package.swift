@@ -9,7 +9,8 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../DeskpouchCore"),
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
+        // Pre-1.0: minor releases may break the API, so only patch updates are taken automatically.
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", .upToNextMinor(from: "0.15.7")),
     ],
     targets: [
         .target(
@@ -18,6 +19,10 @@ let package = Package(
                 .product(name: "DeskpouchCore", package: "DeskpouchCore"),
                 .product(name: "FluidAudio", package: "FluidAudio"),
             ]
+        ),
+        .testTarget(
+            name: "ToolVoiceTests",
+            dependencies: ["ToolVoice"]
         ),
     ],
     swiftLanguageModes: [.v6]

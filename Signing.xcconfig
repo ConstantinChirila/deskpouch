@@ -1,2 +1,5 @@
-// Local signing identity. "-" is ad-hoc. scripts/make-dev-cert.sh switches this to a stable self-signed certificate.
-CODE_SIGN_IDENTITY = Deskpouch Dev
+// Signing identity. "-" is ad-hoc, which works on any machine.
+// scripts/make-dev-cert.sh writes Signing.local.xcconfig (git-ignored) to switch this machine to a stable
+// self-signed certificate, so macOS keeps the Accessibility and Microphone grants across rebuilds.
+CODE_SIGN_IDENTITY = -
+#include? "Signing.local.xcconfig"
