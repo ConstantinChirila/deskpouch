@@ -225,6 +225,107 @@ public struct FolderIcon: Shape {
     }
 }
 
+/// Pencil: body on the diagonal, tip bottom-left.
+public struct PencilIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 10.5, y: 3)); p.addLine(to: CGPoint(x: 13, y: 5.5))
+        p.addLine(to: CGPoint(x: 5.5, y: 13)); p.addLine(to: CGPoint(x: 2.5, y: 13.5))
+        p.addLine(to: CGPoint(x: 3, y: 10.5)); p.closeSubpath()
+        p.move(to: CGPoint(x: 9, y: 4.5)); p.addLine(to: CGPoint(x: 11.5, y: 7))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Arrow pointing up-right.
+public struct ArrowIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 3, y: 13)); p.addLine(to: CGPoint(x: 13, y: 3))
+        p.move(to: CGPoint(x: 6.5, y: 3)); p.addLine(to: CGPoint(x: 13, y: 3)); p.addLine(to: CGPoint(x: 13, y: 9.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Rounded rectangle outline.
+public struct BoxIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: 2.5, y: 3.5, width: 11, height: 9), cornerSize: CGSize(width: 1.5, height: 1.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Capital T.
+public struct TextIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 3, y: 4.5)); p.addLine(to: CGPoint(x: 3, y: 3)); p.addLine(to: CGPoint(x: 13, y: 3))
+        p.addLine(to: CGPoint(x: 13, y: 4.5))
+        p.move(to: CGPoint(x: 8, y: 3)); p.addLine(to: CGPoint(x: 8, y: 13))
+        p.move(to: CGPoint(x: 6, y: 13)); p.addLine(to: CGPoint(x: 10, y: 13))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Pixel grid: a square split into four cells.
+public struct BlurIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: 2.5, y: 2.5, width: 11, height: 11), cornerSize: CGSize(width: 1.5, height: 1.5))
+        p.move(to: CGPoint(x: 8, y: 2.5)); p.addLine(to: CGPoint(x: 8, y: 13.5))
+        p.move(to: CGPoint(x: 2.5, y: 8)); p.addLine(to: CGPoint(x: 13.5, y: 8))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Circle; the number is drawn as text on top.
+public struct BadgeIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addEllipse(in: CGRect(x: 2, y: 2, width: 12, height: 12))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Counter-clockwise hook. `RedoIcon` is its mirror.
+public struct UndoIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 5.5, y: 3)); p.addLine(to: CGPoint(x: 2.5, y: 6)); p.addLine(to: CGPoint(x: 5.5, y: 9))
+        p.move(to: CGPoint(x: 2.5, y: 6)); p.addLine(to: CGPoint(x: 9.5, y: 6))
+        p.addArc(center: CGPoint(x: 9.5, y: 9.5), radius: 3.5, startAngle: .degrees(270), endAngle: .degrees(90), clockwise: false)
+        p.addLine(to: CGPoint(x: 6, y: 13))
+        return p.scaled(toFit: rect)
+    }
+}
+
+public struct RedoIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        UndoIcon().path(in: rect)
+            .applying(CGAffineTransform(translationX: rect.midX, y: 0).scaledBy(x: -1, y: 1).translatedBy(x: -rect.midX, y: 0))
+    }
+}
+
+/// X.
+public struct CloseIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 4, y: 4)); p.addLine(to: CGPoint(x: 12, y: 12))
+        p.move(to: CGPoint(x: 12, y: 4)); p.addLine(to: CGPoint(x: 4, y: 12))
+        return p.scaled(toFit: rect)
+    }
+}
+
 extension Path {
     /// Scales a path authored in a 16 unit box into `rect`, preserving aspect.
     fileprivate func scaled(toFit rect: CGRect) -> Path {

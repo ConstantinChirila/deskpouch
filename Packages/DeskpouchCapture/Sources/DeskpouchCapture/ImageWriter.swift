@@ -28,11 +28,21 @@ public enum ImageFormat: Sendable {
 /// and the 1x scale option, so neither package has to depend on the other for a few lines of ImageIO.
 public enum ImageWriter {
     /// Writes `image` to `url` in `format`. The file's UTI comes from `format`, not from `url`'s extension.
-    public static func write(_ image: CGImage, to url: URL, format: ImageFormat) throws {
+    /// `pixelsPerPoint` is stored as DPI (72 per point), so Preview shows a 2x capture at its on-screen size and
+    /// the editor can size annotations for it.
+    public static func write(_ image: CGImage, to url: URL, format: ImageFormat, pixelsPerPoint: CGFloat = 1) throws {
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, format.type.identifier as CFString, 1, nil) else {
             throw ImageWriterError(message: "Could not create an image destination for \(url.lastPathComponent)")
         }
-        try add(image, format: format, to: destination)
+        try add(image, format: format, dpi: 72 * max(1, pixelsPerPoint), to: destination)
+    }
+
+    /// Pixels per point recorded in a file's DPI, or nil when it has none (or the file is unreadable).
+    public static func pixelsPerPoint(of url: URL) -> CGFloat? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let dpi = (properties[kCGImagePropertyDPIWidth] as? NSNumber)?.doubleValue, dpi > 0 else { return nil }
+        return CGFloat(dpi) / 72
     }
 
     /// Resizes `image` to `size` (in pixels) with `CILanczosScaleTransform`. Used for the 1x scale option
@@ -59,8 +69,8 @@ public enum ImageWriter {
         return scaled
     }
 
-    private static func add(_ image: CGImage, format: ImageFormat, to destination: CGImageDestination) throws {
-        var options: [CFString: Any] = [:]
+    private static func add(_ image: CGImage, format: ImageFormat, dpi: CGFloat, to destination: CGImageDestination) throws {
+        var options: [CFString: Any] = [kCGImagePropertyDPIWidth: dpi, kCGImagePropertyDPIHeight: dpi]
         if case .jpeg(let quality) = format {
             options[kCGImageDestinationLossyCompressionQuality] = quality
         }

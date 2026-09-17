@@ -47,6 +47,11 @@ public final class OverlayController {
     @ObservationIgnored private var levelProvider: LevelProvider?
     @ObservationIgnored private var autoHide: Task<Void, Never>?
     @ObservationIgnored private var stopHandler: (@MainActor () -> Void)?
+    @ObservationIgnored private var followUpHandler: (@MainActor () -> Void)?
+    /// Frame shown by the captured pill.
+    public private(set) var thumbnail: CGImage?
+    /// How long the captured pill stays after the pointer leaves it.
+    @ObservationIgnored private var followUpLinger: Duration = .seconds(3)
 
     /// Canvas around the pill so shadows have room. The pill sits at the top of the canvas; the shadow falls below it.
     static let defaultCanvasSize = CGSize(width: 560, height: 140)
@@ -90,13 +95,69 @@ public final class OverlayController {
         stopHandler?()
     }
 
+    /// Captured state: thumbnail, title, hint and a button that runs `onAction`. Hides after `duration`; the
+    /// pointer over the pill holds it, and leaving restarts a shorter timer. The pill takes clicks meanwhile.
+    public func showCaptured(
+        thumbnail: CGImage?, title: String, hint: String, action: String,
+        for duration: Duration = .seconds(6), onAction: @escaping @MainActor () -> Void
+    ) {
+        self.thumbnail = thumbnail.flatMap(Self.pillThumbnail)
+        flash(.captured(title: title, hint: hint, action: action), for: duration)
+        followUpHandler = onAction
+    }
+
+    /// Longest edge of the pill's tile image, in pixels: the tile is 52x34 pt, so 2x with room to crop.
+    static let thumbnailMaxPixels = 160
+
+    /// A small copy of a capture for the tile, so the pill neither holds nor rescales the full image.
+    static func pillThumbnail(_ image: CGImage) -> CGImage? {
+        let longEdge = max(image.width, image.height)
+        guard longEdge > thumbnailMaxPixels else { return image }
+        let scale = CGFloat(thumbnailMaxPixels) / CGFloat(longEdge)
+        let width = max(1, Int((CGFloat(image.width) * scale).rounded()))
+        let height = max(1, Int((CGFloat(image.height) * scale).rounded()))
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
+    }
+
+    func followUpRequested() {
+        let handler = followUpHandler
+        hide()
+        handler?()
+    }
+
+    #if DEBUG
+    /// Presses the captured pill's button. Verification only.
+    public func debugTapFollowUp() {
+        guard state.isCaptured else { return }
+        followUpRequested()
+    }
+    #endif
+
+    func captureHoverChanged(_ hovering: Bool) {
+        guard state.isCaptured else { return }
+        autoHide?.cancel()
+        autoHide = nil
+        guard !hovering else { return }
+        scheduleHide(after: followUpLinger)
+    }
+
     /// Any state. Cancels a pending auto-hide; stops the ticker unless the state is timed.
     public func show(_ newState: PillState) {
         autoHide?.cancel()
         autoHide = nil
         if !newState.isTimed { stopTicker() }
         if !newState.isRecording { stopHandler = nil }
-        panel.ignoresMouseEvents = !newState.isRecording
+        if !newState.isCaptured {
+            followUpHandler = nil
+            thumbnail = nil
+        }
+        panel.ignoresMouseEvents = !newState.isInteractive
         canvasSize = Self.canvasSize(for: newState)
         panel.setContentSize(canvasSize)
         place()
@@ -113,6 +174,10 @@ public final class OverlayController {
     /// Shows a state, then hides after `delay`. Used for "pasted" and errors.
     public func flash(_ newState: PillState, for delay: Duration = .seconds(1.2)) {
         show(newState)
+        scheduleHide(after: delay)
+    }
+
+    private func scheduleHide(after delay: Duration) {
         autoHide = Task { [weak self] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
@@ -124,6 +189,8 @@ public final class OverlayController {
         autoHide?.cancel()
         autoHide = nil
         stopTicker()
+        followUpHandler = nil
+        panel.ignoresMouseEvents = true
         overlayLog.info("hide")
         withAnimation(.easeOut(duration: 0.16)) {
             state = .hidden
@@ -131,6 +198,7 @@ public final class OverlayController {
         // Let the SwiftUI exit transition play, then take the window off screen.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self, self.state == .hidden else { return }
+            self.thumbnail = nil
             self.panel.orderOut(nil)
         }
     }

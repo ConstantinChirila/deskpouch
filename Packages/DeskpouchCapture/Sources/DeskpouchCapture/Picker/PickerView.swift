@@ -1,3 +1,4 @@
+import AppKit
 import DeskpouchCore
 import SwiftUI
 
@@ -35,7 +36,9 @@ struct PickerScreenView: View {
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .local)
                 .onChanged { value in model.dragChanged(screenID: screen.id, location: value.location) }
-                .onEnded { value in model.dragEnded(screenID: screen.id, location: value.location) }
+                .onEnded { value in
+                    model.dragEnded(screenID: screen.id, location: value.location, clickCount: NSApp.currentEvent?.clickCount ?? 1)
+                }
         )
         .onContinuousHover(coordinateSpace: .local) { phase in
             switch phase {

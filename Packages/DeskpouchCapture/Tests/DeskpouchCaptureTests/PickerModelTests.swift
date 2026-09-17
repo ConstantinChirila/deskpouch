@@ -51,6 +51,35 @@ struct PickerModelTests {
         #expect(m.regionRect(on: 0) == CGRect(x: 120, y: 130, width: 200, height: 100))
     }
 
+    @Test func doubleClickInsideTheRegionConfirmsIt() {
+        let m = model()
+        var finished: PickerSelection??
+        m.onFinish = { finished = .some($0) }
+        m.dragChanged(screenID: 0, location: CGPoint(x: 100, y: 100))
+        m.dragChanged(screenID: 0, location: CGPoint(x: 300, y: 200))
+        m.dragEnded(screenID: 0, location: CGPoint(x: 300, y: 200))
+        // First click of the pair: nothing yet.
+        m.dragChanged(screenID: 0, location: CGPoint(x: 150, y: 150))
+        m.dragEnded(screenID: 0, location: CGPoint(x: 150, y: 150), clickCount: 1)
+        #expect(finished == nil)
+        m.dragChanged(screenID: 0, location: CGPoint(x: 150, y: 150))
+        m.dragEnded(screenID: 0, location: CGPoint(x: 150, y: 150), clickCount: 2)
+        #expect(finished == .some(.region(screen: Self.primary, rect: CGRect(x: 100, y: 100, width: 200, height: 100))))
+    }
+
+    @Test func doubleClickOutsideTheRegionDoesNotConfirm() {
+        let m = model()
+        var finished: PickerSelection??
+        m.onFinish = { finished = .some($0) }
+        m.dragChanged(screenID: 0, location: CGPoint(x: 100, y: 100))
+        m.dragChanged(screenID: 0, location: CGPoint(x: 300, y: 200))
+        m.dragEnded(screenID: 0, location: CGPoint(x: 300, y: 200))
+        m.dragChanged(screenID: 0, location: CGPoint(x: 600, y: 600))
+        m.dragEnded(screenID: 0, location: CGPoint(x: 600, y: 600), clickCount: 2)
+        #expect(finished == nil)
+        #expect(m.regionRect(on: 0) == nil)
+    }
+
     @Test func regionStaysInsideTheScreen() {
         let m = model()
         m.dragChanged(screenID: 0, location: CGPoint(x: 900, y: 700))

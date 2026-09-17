@@ -133,6 +133,15 @@ DESKPOUCH_DEMO=shot DESKPOUCH_DEMO_SHOT=window open build/DerivedData/Build/Prod
 # capture and whether the pasteboard has an image; with DESKPOUCH_DEMO_OUT also dumps a mid-selection snapshot.
 DESKPOUCH_DEMO=shot-picker DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
+# Screenshot, captured pill (Annotate), then the editor opened from the newest screenshot row with sample marks and
+# exported through the pipeline. Logs whether `… annotated.png` sits beside the original, the original is kept and
+# the pasteboard has a PNG; with DESKPOUCH_DEMO_OUT writes app-pill-captured.png and app-editor.png.
+DESKPOUCH_DEMO=annotate DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
+# Presses the captured pill's Annotate 5 s after launch; bring another app to the front first (e.g. `open -a Finder`
+# at 3 s) to check the editor still opens in front and takes the keyboard (logs `editor active=… key=…`)
+DESKPOUCH_DEMO=annotate-pill open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
 # Real Parakeet transcription of a file, no mic, no paste (writes demo-transcript.txt and .png)
 say -o /tmp/speech.wav --data-format=LEF32@16000 "Can we move standup to ten"
 DESKPOUCH_DEMO=transcribe DESKPOUCH_DEMO_WAV=/tmp/speech.wav DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app

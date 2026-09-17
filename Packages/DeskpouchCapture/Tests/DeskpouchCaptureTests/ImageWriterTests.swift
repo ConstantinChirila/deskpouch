@@ -30,6 +30,13 @@ struct ImageWriterTests {
         #expect(read?.height == 8)
     }
 
+    @Test func pixelsPerPointRoundTripsAsDPI() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try ImageWriter.write(makeImage(width: 4, height: 4), to: url, format: .png, pixelsPerPoint: 2)
+        #expect(ImageWriter.pixelsPerPoint(of: url) == 2)
+    }
+
     @Test func downscaleHitsTheExactTargetSize() throws {
         let image = makeImage(width: 200, height: 100)
         let scaled = try ImageWriter.downscale(image, to: CGSize(width: 100, height: 50))

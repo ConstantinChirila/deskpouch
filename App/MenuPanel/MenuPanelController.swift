@@ -9,6 +9,8 @@ struct MenuPanelActions {
     var toggleOutput: @MainActor (_ toolID: String, _ action: OutputAction) -> Void
     var copyRecent: @MainActor (HistoryItem) -> Void
     var revealRecent: @MainActor (HistoryItem) -> Void
+    /// Opens the editor on a screenshot row.
+    var annotate: @MainActor (HistoryItem) -> Void
     var setHoldKey: @MainActor (ModifierKey) -> Void
     var setPressKey: @MainActor (KeyCombo) -> Void
     var setToolEnabled: @MainActor (_ toolID: String, _ enabled: Bool) -> Void

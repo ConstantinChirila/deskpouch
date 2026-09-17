@@ -31,6 +31,13 @@ struct PillRoot: View {
             case .recording(let detail):
                 RecordingPill(elapsed: controller.elapsed, detail: detail, stop: { controller.stopRequested() })
                     .transition(.opacity.combined(with: .offset(y: -8)))
+            case .captured(let title, let hint, let action):
+                CapturedPill(
+                    thumbnail: controller.thumbnail, title: title, hint: hint, action: action,
+                    perform: { controller.followUpRequested() },
+                    hover: { controller.captureHoverChanged($0) }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             case .failed(let message):
                 FailedPill(message: message)
                     .transition(.opacity.combined(with: .offset(y: -8)))
@@ -181,6 +188,80 @@ struct RecordingPill: View {
             try? await Task.sleep(for: .seconds(4))
             dimmed = true
         }
+    }
+}
+
+/// Captured: mint ring, thumbnail, title and file name, a follow-up button (Annotate). Hover holds it on screen.
+struct CapturedPill: View {
+    let thumbnail: CGImage?
+    let title: String
+    let hint: String
+    let action: String
+    let perform: @MainActor () -> Void
+    let hover: @MainActor (Bool) -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            tile
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.dp(13, .medium))
+                    .foregroundStyle(Theme.Colors.text)
+                    .lineLimit(1)
+                Text(hint)
+                    .font(.dp(11))
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: 200, alignment: .leading)
+            Rectangle().fill(Theme.Colors.tint(0.15)).frame(width: 1, height: 18)
+            Button(action: perform) {
+                HStack(spacing: 7) {
+                    PencilIcon()
+                        .stroke(style: .icon(1.8))
+                        .frame(width: 12, height: 12)
+                    Text(action).font(.dp(13, .semibold))
+                }
+                .foregroundStyle(Theme.Colors.bg)
+                .padding(.horizontal, 14)
+                .frame(height: 34)
+                .background(Capsule().fill(Theme.Colors.text))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help(action)
+        }
+        .padding(.leading, 9)
+        .padding(.trailing, 9)
+        .frame(height: 52)
+        .modifier(PillChrome(ring: Theme.Colors.ok))
+        .onHover { hover($0) }
+    }
+
+    /// 52x34 frame of the capture with a mint check in the corner.
+    private var tile: some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        return ZStack(alignment: .bottomTrailing) {
+            shape.fill(LinearGradient(colors: [Color(hex: 0x3B42_52), Color(hex: 0x2226_2F)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            if let thumbnail {
+                Image(decorative: thumbnail, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 52, height: 34)
+                    .clipShape(shape)
+            }
+            CheckIcon()
+                .stroke(style: .icon(2.6))
+                .foregroundStyle(Theme.Colors.bg)
+                .frame(width: 8, height: 8)
+                .frame(width: 14, height: 14)
+                .background(Circle().fill(Theme.Colors.ok))
+                .shadow(color: Theme.Colors.ok(0.5), radius: 4)
+                .offset(x: 4, y: 4)
+        }
+        .frame(width: 52, height: 34)
+        .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
     }
 }
 

@@ -180,11 +180,16 @@ public final class PickerModel {
         }
     }
 
-    /// Mouse up. In window and screen mode a click confirms the hovered target.
-    public func dragEnded(screenID: Int, location: CGPoint) {
+    /// Mouse up. In window and screen mode a click confirms the hovered target; in region mode a double-click
+    /// inside the region confirms it, like the Capture button. `clickCount` is the event's, 2 for the second click.
+    public func dragEnded(screenID: Int, location: CGPoint, clickCount: Int = 1) {
         defer { drag = nil }
         switch mode {
         case .region:
+            if let drag, !drag.moved, drag.moveOffset != nil, clickCount >= 2 {
+                confirm()
+                return
+            }
             if let drag, !drag.moved, drag.moveOffset == nil { region = nil }
             if let region, region.rect.width < Self.minimumRegion || region.rect.height < Self.minimumRegion {
                 self.region = nil

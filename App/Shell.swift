@@ -14,6 +14,7 @@ final class Shell {
     let state = ShellState()
     private let hotkeys = HotkeyCenter()
     private let overlay = OverlayController()
+    private let editor = EditorWindowController()
     private let history: HistoryStore?
     private let effects = SystemOutputEffects()
     private let pipeline: OutputPipeline
@@ -43,8 +44,10 @@ final class Shell {
     }
 
     func start() {
+        editor.deliver = { [weak self] result in self?.deliver(result) }
         let context = ToolContext(
             overlay: overlay,
+            editor: editor,
             emit: { [weak self] result in self?.deliver(result) },
             activity: { [weak self] _, activity in self?.activityChanged(activity) }
         )
@@ -366,7 +369,19 @@ final class Shell {
             }
             // A new hold started while this result was on its way: leave its listening pill alone.
             if state.isListening { return }
-            if let target = delivery.pastedInto {
+            if let followUp = result.followUp, let file = delivery.savedTo ?? result.fileURL {
+                let title = switch (delivery.savedTo != nil, delivery.copied) {
+                case (true, true): "Saved and copied"
+                case (true, false): "Saved"
+                case (false, true): "Copied"
+                case (false, false): "Captured"
+                }
+                overlay.showCaptured(
+                    thumbnail: result.image, title: title, hint: file.lastPathComponent, action: followUp.label
+                ) {
+                    followUp.perform(file)
+                }
+            } else if let target = delivery.pastedInto {
                 overlay.flash(.pasted(target: target))
             } else if let saved = delivery.savedTo {
                 overlay.flash(.saved(name: saved.lastPathComponent, copied: delivery.copied), for: .seconds(2))
@@ -449,6 +464,11 @@ final class Shell {
             revealRecent: { item in
                 guard let file = item.fileURL else { return }
                 NSWorkspace.shared.activateFileViewerSelecting([file])
+            },
+            annotate: { [weak self] item in
+                guard let self, let file = item.fileURL else { return }
+                panel.close()
+                screenshot.annotate(fileURL: file)
             },
             setHoldKey: { [weak self] key in self?.setHoldKey(key) },
             setPressKey: { [weak self] combo in self?.setPressKey(combo) },
@@ -552,6 +572,22 @@ final class Shell {
             runShotPickerDemo(out: out)
             return
         }
+        if env["DESKPOUCH_DEMO"] == "annotate-pill" {
+            // Capture, then press the pill's Annotate at 5 s. Activate another app before that to check the
+            // editor still comes to the front.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                self?.screenshot.debugCapture(region: CGRect(x: 160, y: 140, width: 1040, height: 760))
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                log.info("demo(annotate-pill): tapping, frontmost=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil", privacy: .public)")
+                self?.overlay.debugTapFollowUp()
+            }
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "annotate" {
+            runAnnotateDemo(out: out)
+            return
+        }
         if env["DESKPOUCH_DEMO"] == "shot" {
             // Real screenshot, no picker, delivered through the real pipeline (saves to Pictures, logs history
             // with a thumbnail). Annotate does not exist yet, so this stops at capture. `DESKPOUCH_DEMO_SHOT=window`
@@ -630,6 +666,7 @@ final class Shell {
             ("pasted", .pasted(target: "Slack")),
             ("copied", .copied),
             ("saved", .saved(name: "Recording 2026-09-15 10.32.05.mp4", copied: true)),
+            ("captured", .captured(title: "Saved and copied", hint: "Screenshot 2026-09-16 14.05.02.png", action: "Annotate")),
             ("recording", .recording(detail: "1040 × 760 · 60 fps")),
             ("failed", .failed("Nothing heard")),
         ]
@@ -800,6 +837,62 @@ final class Shell {
             (info[kCGWindowOwnerName as String] as? String) == "Deskpouch"
                 && (info[kCGWindowLayer as String] as? Int ?? 0) >= Int(NSWindow.Level.screenSaver.rawValue)
         }.count
+    }
+
+    /// `DESKPOUCH_DEMO=annotate`: a real capture through the pipeline, the captured pill, then the editor opened
+    /// from the newest screenshot row (the hover button's path) with sample marks, exported through the pipeline.
+    /// Logs whether the annotated file sits beside the original and the pasteboard holds a PNG. With
+    /// `DESKPOUCH_DEMO_OUT=<dir>` writes the pill and the editor window.
+    private func runAnnotateDemo(out: URL?) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            self?.screenshot.debugCapture(region: CGRect(x: 160, y: 140, width: 1040, height: 760))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { [weak self] in
+            guard let self else { return }
+            log.info("demo(annotate): pill = \(String(describing: self.overlay.state), privacy: .public)")
+            if let out { Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill-captured.png")) }
+            guard let item = state.recent.first(where: { $0.kind == .screenshot }), item.canAnnotate else {
+                log.error("demo(annotate): no screenshot row to annotate")
+                return
+            }
+            log.info("demo(annotate): annotating \(item.fileURL?.path ?? "nil", privacy: .public)")
+            overlay.hide()
+            panelActions.annotate(item)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.annotateDemoMark(out: out, original: item.fileURL) }
+        }
+    }
+
+    private func annotateDemoMark(out: URL?, original: URL?) {
+        guard screenshot.debugAnnotateOpenDocument() else {
+            log.error("demo(annotate): editor did not open")
+            return
+        }
+        log.info("demo(annotate): editor open = \(self.editor.isOpen)")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self else { return }
+            Task { [weak self] in
+                guard let self else { return }
+                if let out, let number = editor.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-editor.png"))
+                }
+                editor.debugRequestClose()
+                try? await Task.sleep(for: .milliseconds(400))
+                log.info("demo(annotate): close with marks -> prompt=\(self.editor.debugConfirmingDiscard) open=\(self.editor.isOpen)")
+                if let out, let number = editor.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-editor-discard.png"))
+                }
+                editor.debugKeepEditing()
+                editor.debugExport()
+                try? await Task.sleep(for: .seconds(2.5))
+                let annotated = state.recent.first
+                let besideOriginal = annotated?.fileURL?.deletingLastPathComponent().path == original?.deletingLastPathComponent().path
+                let exists = annotated?.fileURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+                let hasPNG = NSPasteboard.general.types?.contains(.png) == true
+                let originalKept = original.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+                log.info("demo(annotate): newest row = \(annotated?.fileURL?.lastPathComponent ?? "nil", privacy: .public) exists=\(exists) besideOriginal=\(besideOriginal) originalKept=\(originalKept) pasteboardPNG=\(hasPNG) editorOpen=\(self.editor.isOpen) pill=\(String(describing: self.overlay.state), privacy: .public)")
+                if let out { Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill-after-export.png")) }
+            }
+        }
     }
 
     /// `DESKPOUCH_DEMO=picker` opens the region picker with a region drawn, dumps it, and cancels.

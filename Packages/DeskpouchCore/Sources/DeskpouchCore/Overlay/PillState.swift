@@ -17,6 +17,9 @@ public enum PillState: Sendable, Equatable {
     case saved(name: String, copied: Bool)
     /// Record ring, pulsing dot, timer, Stop button. `detail` is e.g. "1040 × 760 · 60 fps".
     case recording(detail: String)
+    /// Mint ring, capture thumbnail, title, hint, and a button (e.g. "Annotate"). The thumbnail and the button's
+    /// handler live on the controller.
+    case captured(title: String, hint: String, action: String)
     /// Record ring, message.
     case failed(String)
 
@@ -29,6 +32,14 @@ public enum PillState: Sendable, Equatable {
         if case .recording = self { return true }
         return false
     }
+
+    var isCaptured: Bool {
+        if case .captured = self { return true }
+        return false
+    }
+
+    /// States with a button, so the pill has to take clicks.
+    var isInteractive: Bool { isRecording || isCaptured }
 
     /// States that run the elapsed-time ticker.
     var isTimed: Bool { isListening || isRecording }

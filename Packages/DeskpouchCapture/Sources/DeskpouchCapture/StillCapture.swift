@@ -16,7 +16,13 @@ public struct StillCaptureError: LocalizedError {
 /// in the file.
 @MainActor
 public enum StillCapture {
-    public static func capture(_ selection: PickerSelection, scale: CaptureScale, windowShadow: Bool) async throws -> CGImage {
+    /// A capture and the pixels per point it was taken at (1 after `.x1` downsampling).
+    public struct Still: Sendable {
+        public let image: CGImage
+        public let pixelsPerPoint: CGFloat
+    }
+
+    public static func capture(_ selection: PickerSelection, scale: CaptureScale, windowShadow: Bool) async throws -> Still {
         let content = try await ShareableContentLoader.load()
         let config = SCStreamConfiguration()
         config.showsCursor = false
@@ -85,11 +91,11 @@ public enum StillCapture {
             let captured = image
             image = await Task.detached(priority: .utility) { Self.croppedToContent(captured) }.value
         }
-        guard scale == .x1 else { return image }
+        guard scale == .x1 else { return Still(image: image, pixelsPerPoint: pixelScale) }
         // Downscale off the image's own pixel dimensions, not `selection.pointSize`: a window capture's real
         // pixels (contentRect, shadow margins included) can differ from the picker's own frame.
         let oneXSize = CGSize(width: CGFloat(image.width) / pixelScale, height: CGFloat(image.height) / pixelScale)
-        return try ImageWriter.downscale(image, to: oneXSize)
+        return Still(image: try ImageWriter.downscale(image, to: oneXSize), pixelsPerPoint: 1)
     }
 
     /// Crops `image` to the bounding box of its non-transparent pixels (window plus shadow on an oversized

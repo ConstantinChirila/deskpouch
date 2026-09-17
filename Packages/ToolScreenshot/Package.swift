@@ -21,7 +21,8 @@ let package = Package(
         ),
         .testTarget(
             name: "ToolScreenshotTests",
-            dependencies: ["ToolScreenshot"]
+            dependencies: ["ToolScreenshot"],
+            resources: [.copy("Golden")]
         ),
     ],
     swiftLanguageModes: [.v6]

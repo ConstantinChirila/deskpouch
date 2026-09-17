@@ -95,7 +95,7 @@ struct MainPanelView: View {
             }
             if !state.recent.isEmpty {
                 RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
-                              copy: actions.copyRecent, reveal: actions.revealRecent) {
+                              copy: actions.copyRecent, reveal: actions.revealRecent, annotate: actions.annotate) {
                     state.popups.close()
                     state.historyQuery = ""
                     state.historyFilter = .all
@@ -945,6 +945,7 @@ struct RecentSection: View {
     let thumbnails: ThumbnailCache
     let copy: @MainActor (HistoryItem) -> Void
     let reveal: @MainActor (HistoryItem) -> Void
+    let annotate: @MainActor (HistoryItem) -> Void
     let openHistory: @MainActor () -> Void
 
     var body: some View {
@@ -974,10 +975,25 @@ struct RecentSection: View {
             .padding(.horizontal, 4)
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 ForEach(items) { item in
-                    RecentRow(item: item, now: context.date, thumbnails: thumbnails, copy: { copy(item) }, reveal: { reveal(item) })
+                    RecentRow(item: item, now: context.date, thumbnails: thumbnails, copy: { copy(item) }, reveal: { reveal(item) },
+                              annotate: annotateAction(item))
                 }
             }
         }
+    }
+}
+
+extension RecentSection {
+    func annotateAction(_ item: HistoryItem) -> (@MainActor () -> Void)? {
+        guard item.canAnnotate else { return nil }
+        return { annotate(item) }
+    }
+}
+
+extension HistoryView {
+    func annotateAction(_ item: HistoryItem) -> (@MainActor () -> Void)? {
+        guard item.canAnnotate else { return nil }
+        return { actions.annotate(item) }
     }
 }
 
@@ -1025,6 +1041,7 @@ struct HistoryView: View {
                             ForEach(section.items) { item in
                                 HistoryRow(item: item, thumbnails: state.thumbnails,
                                            copy: { actions.copyRecent(item) }, reveal: { actions.revealRecent(item) },
+                                           annotate: annotateAction(item),
                                            delete: { actions.deleteHistory(item) })
                             }
                         }
@@ -1100,6 +1117,7 @@ struct HistoryRow: View {
     let thumbnails: ThumbnailCache
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
+    let annotate: (@MainActor () -> Void)?
     let delete: @MainActor () -> Void
     @State private var hovering = false
 
@@ -1118,6 +1136,9 @@ struct HistoryRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            if hovering, let annotate {
+                AnnotateRowButton(action: annotate)
+            }
             if item.text != nil {
                 RowActionButton("Copy transcript", icon: CopyIcon(), action: copy)
             } else {
@@ -1155,6 +1176,9 @@ struct HistoryRow: View {
         .accessibilityActions {
             if item.fileURL != nil {
                 Button("Show in Finder") { reveal() }
+            }
+            if let annotate {
+                Button("Annotate") { annotate() }
             }
         }
     }
@@ -1238,10 +1262,12 @@ struct RecentRow: View {
     let thumbnails: ThumbnailCache
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
+    let annotate: (@MainActor () -> Void)?
+    @State private var hovering = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-        HStack(spacing: 12) {
+        HStack(spacing: hovering && annotate != nil ? 8 : 12) {
             tile
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -1254,13 +1280,18 @@ struct RecentRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            RowActionButton(item.text != nil ? "Copy transcript" : "Copy file", icon: CopyIcon(), action: copy)
+            if hovering, let annotate {
+                AnnotateRowButton(action: annotate)
+            }
+            RowActionButton(item.text != nil ? "Copy transcript" : item.kind == .screenshot ? "Copy image" : "Copy file", icon: CopyIcon(), action: copy)
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 10)
-        .background(shape.fill(Theme.Colors.tint(0.03)))
-        .overlay(shape.strokeBorder(Theme.Colors.tint(0.07), lineWidth: 1))
+        .background(shape.fill(Theme.Colors.tint(hovering && annotate != nil ? 0.06 : 0.03)))
+        .overlay(shape.strokeBorder(Theme.Colors.tint(hovering && annotate != nil ? 0.12 : 0.07), lineWidth: 1))
         .contentShape(shape)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
         .onTapGesture(count: 2) {
             if item.fileURL != nil { reveal() }
         }
@@ -1269,6 +1300,9 @@ struct RecentRow: View {
         .accessibilityActions {
             if item.fileURL != nil {
                 Button("Show in Finder") { reveal() }
+            }
+            if let annotate {
+                Button("Annotate") { annotate() }
             }
         }
     }
@@ -1290,6 +1324,36 @@ struct RecentRow: View {
 
     private var tile: some View {
         HistoryTile(item: item, thumbnails: thumbnails)
+    }
+}
+
+/// Hover action on screenshot rows: amber pencil, opens the editor.
+struct AnnotateRowButton: View {
+    let action: @MainActor () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            PencilIcon()
+                .stroke(style: .icon(1.5))
+                .foregroundStyle(Theme.Colors.accentHigh)
+                .frame(width: 14, height: 14)
+                .frame(width: 28, height: 28)
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous).fill(Theme.Colors.accent(0.14)))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous).strokeBorder(Theme.Colors.accent(0.30), lineWidth: 1))
+                .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help("Annotate")
+        .accessibilityLabel("Annotate")
+        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+    }
+}
+
+extension HistoryItem {
+    /// A screenshot whose file is still there.
+    var canAnnotate: Bool {
+        guard kind == .screenshot, let fileURL else { return false }
+        return FileManager.default.fileExists(atPath: fileURL.path)
     }
 }
 

@@ -1,5 +1,7 @@
 # 01 Screenshot + annotate
 
+Done 2026-09-17 (steps 1 to 3). What changed while building it is in PLAN.md under Status.
+
 Package `ToolScreenshot`, tool id `screenshot`, row "Screenshot", hotkey ⌘⇧2. Depends on 00.
 
 ## Decisions
@@ -29,7 +31,7 @@ ToolScreenshot/
 4. Annotate opens `EditorWindowController.present(AnnotateDocument)`; Export emits a second `ToolResult` (kind screenshot, file `… annotated.png`), pipeline again.
 
 ## Blur
-Pixelate the region (CIPixellate, scale 12 at 2x) rather than gaussian; survives re-compression and cannot be un-blurred by sharpening.
+Pixelate the region rather than gaussian: area-averaged 16 pt blocks (larger than UI text is tall) with per-block noise seeded from the mark's id. Changed after review on 2026-09-17: the planned 6 pt CIPixellate blocks kept text shapes that de-pixelation tools can match.
 
 ## Tests (Core/Capture only, no SCK)
 - AnnotationModel: add, move, undo/redo, hit test order (last drawn on top).
@@ -37,7 +39,7 @@ Pixelate the region (CIPixellate, scale 12 at 2x) rather than gaussian; survives
 - Filename and unique-suffix rules.
 
 ## Verify on machine
-`DESKPOUCH_DEMO=shot` opens the picker on a preset rect, captures, opens the editor with two annotations and exports; check clipboard has PNG and the file pair exists in `~/Pictures/Deskpouch`.
+`DESKPOUCH_DEMO=annotate` captures a preset rect, opens the editor from the newest row with sample annotations and exports; check clipboard has PNG and the file pair exists in `~/Pictures/Deskpouch`.
 
 ## Panel
 Row status: "2x · Pictures/Deskpouch". Tool view: card (tile, description, ⌘⇧2 keycaps), chips Copy / Save / Reveal / History, option rows Scale, Folder, Window shadow, Shortcut.

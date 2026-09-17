@@ -85,11 +85,11 @@ Design direction settled 2026-09-14: "Mint ground, amber accent", custom chrome.
 
 The `Tool` protocol starts as a stub for voice and gets reshaped by the second tool. Do not design it upfront.
 
-## Status (2026-09-16)
+## Status (2026-09-17)
 
 Milestones 1 to 5 (v1) are implemented. Milestones 1 to 3 are verified on the dev machine (milestone 3 with a real dictation landing in Recent). Milestone 5 (options rows and General) is checked against the mocks through `DESKPOUCH_DEMO=options`; its controls still want a hands-on pass (shortcut recording, folder chooser, launch at login). Milestone 4 (screen recorder) is verified on the dev machine: a 4 s region recording through `DESKPOUCH_DEMO=record` produced a 1006x734 H.264 mp4 with a system audio track in `~/Movies/Deskpouch`, put the file on the pasteboard and logged it in history; the pill, panel and picker were checked against the mocks through the demo modes. macOS 15 shows its own "bypass the system private window picker" alert on the first recording (and periodically after); click Allow. `README.md` has build, permissions, and verification instructions.
 
-v2 (see "v2 tools" below): foundation steps 1, 2 and 4 are done (`DeskpouchCapture` package, per-tool switches, image results and history kinds). Step 3 (`EditorWindowController`) lands with screenshot step 3. `OutputAction.appendToFile` and `Tool.offeredActions` are deferred to plan 08.
+v2 (see "v2 tools" below): foundation steps 1 to 4 are done (`DeskpouchCapture` package, per-tool switches, `EditorWindowController`, image results and history kinds). `OutputAction.appendToFile` and `Tool.offeredActions` are deferred to plan 08; `OverlayWindow` to plan 03.
 
 Screenshot step 1 (quick capture, package `ToolScreenshot`, ⌘⇧2) is done. Verified on the dev machine through `DESKPOUCH_DEMO=shot` (region 1040x760 pt -> 2080x1520 px), `shot` with `DESKPOUCH_DEMO_SHOT=window` (Calculator: 460x816 px with the shadow off, 684x1040 px with it on (shadow only, cropped on all sides), window body at native size), and `shot-picker` (real picker path: overlay gone after confirm, PNG on the pasteboard byte-identical to the saved file, history row with thumbnail). A real mouse drag was not driven programmatically. `scripts/test.sh` passes (108 tests).
 
@@ -101,7 +101,20 @@ Decisions from the screenshot work:
 - Copy puts the staged PNG bytes on the pasteboard plus a lazily provided TIFF (lost if the app is killed; Quit resolves it).
 - Staging files live in a UUID subfolder of Application Support; with Save off they stay there, like recordings.
 
-Next: screenshot step 2 (pill Annotate button, hover Annotate on screenshot rows), then step 3 (editor).
+Screenshot steps 2 and 3 (pill Annotate button, hover Annotate on screenshot rows, the editor) are done 2026-09-17. Verified through `DESKPOUCH_DEMO=annotate`: captured pill with thumbnail, editor opened from the newest row with an arrow, box, badge, blur and text, export wrote `… annotated.png` beside the original (original kept), PNG on the pasteboard, new history row, editor closed. Renderer checked against a golden PNG; `scripts/test.sh` passes. Not yet driven by hand: real mouse drags, handles, typing text, keyboard shortcuts in the editor.
+
+Decisions from the editor work:
+- `ToolResult.followUp` (label plus an action on the delivered file) drives the pill's button, so Trim (05) reuses it. The pill's captured state takes clicks; hovering holds it, leaving restarts a 3 s timer.
+- `EditorWindowController` lives in Core and reaches tools through `ToolContext.editor`; exports go back through the shell's `deliver`, so the tool's chips decide copy/save/history. Export writes beside the source and never overwrites (`CaptureNaming.unique`); re-annotating `… annotated.png` numbers the file instead of stacking the suffix. With Save on and the folder unchanged, the pipeline's Save leaves it in place.
+- Annotations are stored in image pixels; `AnnotationRenderer` draws both the canvas and the export. Sizes scale with the capture's pixels per point, now written into the PNG as DPI (`ImageWriter.write(pixelsPerPoint:)`); files without DPI assume the main screen's scale.
+- Blur averages the whole image into 16 pt blocks once and shows it through a clip per mark, with per-block noise seeded from the mark's id (review 2026-09-17: 6 pt pixelation was reversible for text).
+- Review fixes 2026-09-17: an export in flight always delivers its file, and close requests wait for it; the discard prompt takes the keyboard from a text field; the canvas tracks the press explicitly; decode, pixelation and export rendering run off the main actor (`AnnotationRenderer` is `Sendable`, text measured through CoreText by font name); the pill keeps a 160 px thumbnail and drops it once hidden.
+- Text is a filled plate in the chosen colour with contrasting ink. Double-click a text mark to retype it; empty deletes it.
+- Keys: A arrow, R box, T text, B blur, N number, Delete removes, arrows nudge (Shift 10 pt), Shift while drawing snaps arrows to 45° and boxes to squares, ⌘Z / ⇧⌘Z, ⌘C copies without saving, ⌘S exports and closes, Esc ends text, then clears the selection, then closes. Closing with marks (Esc, ⌘W, close button) asks first: Discard (D), Keep editing (Esc), Export (Return); the prompt says the original is already saved and where. The header reads "original saved" or "marks not exported".
+- Picker: a double-click inside the drawn region captures (or starts a recording), same as Return.
+- Closing the editor hands focus back to the app that was in front. Switching Screenshot off closes an open Annotate editor.
+
+Next: text grab (02).
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -165,8 +178,8 @@ The Model row offers two engines behind the `Transcriber` protocol: Parakeet v3 
 
 Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Build order, foundation first:
 
-0. [Foundation](docs/plans/00-foundation.md) (steps 1, 2 and 4 done 2026-09-16: the Capture package move, tool switches, and pipeline image results; step 3's `EditorWindowController` is pending, `OverlayWindow` for the loupe in 03): `DeskpouchCapture` package (picker and still capture move out of the recorder), image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory (⌘⇧6 and ⌘⇧2 have named `KeyCombo` statics so far).
-1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧2: quick capture (step 1, done 2026-09-16, package `ToolScreenshot`), pill Annotate button (step 2, next), editor with arrow/box/text/blur/badge (step 3).
+0. [Foundation](docs/plans/00-foundation.md) (done: steps 1, 2 and 4 on 2026-09-16, step 3's `EditorWindowController` with screenshot on 2026-09-17; `OverlayWindow` for the loupe moves to 03): `DeskpouchCapture` package (picker and still capture move out of the recorder), image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory (⌘⇧6 and ⌘⇧2 have named `KeyCombo` statics so far).
+1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧2: quick capture (step 1, done 2026-09-16, package `ToolScreenshot`), pill Annotate button (step 2), editor with arrow/box/text/blur/badge (step 3); both done 2026-09-17.
 2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted.
 3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint.
 4. [Screenshot diff](docs/plans/04-diff.md): two history rows → Compare; Recapture same region; slider / onion / pixels.
