@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// A capture tool hosted by the shell. Voice acts on a modifier hold, the recorder on a key combo press;
@@ -71,22 +72,35 @@ public final class ToolContext {
     }
 }
 
-/// Output of one capture. Text, a file, or both.
+/// Output of one capture. Text, a file, an in-memory image, or a mix.
 public struct ToolResult: Sendable, Identifiable {
     public let id: UUID
     public let toolID: String
     public let text: String?
     public let fileURL: URL?
+    /// In-memory image for `copy` (PNG + TIFF on the pasteboard) and history thumbnails. CGImage is Swift
+    /// Sendable in this SDK (see CGImage.h). A tool that also wants a file on disk supplies both this and
+    /// `fileURL`, e.g. a screenshot: the pasteboard gets the pixels immediately, the file is saved separately.
+    public let image: CGImage?
     public let createdAt: Date
     /// Length of the captured audio or video, when known.
     public let duration: TimeInterval?
+    /// History bucket. Defaults to an inference from the result's shape: an image means screenshot, a file with
+    /// no image means recording, otherwise text. A tool whose kind Core cannot guess this way (meeting, convert)
+    /// passes it explicitly.
+    public let kind: HistoryKind
 
-    public init(toolID: String, text: String? = nil, fileURL: URL? = nil, duration: TimeInterval? = nil) {
+    public init(
+        toolID: String, text: String? = nil, fileURL: URL? = nil, image: CGImage? = nil,
+        duration: TimeInterval? = nil, kind: HistoryKind? = nil
+    ) {
         id = UUID()
         self.toolID = toolID
         self.text = text
         self.fileURL = fileURL
+        self.image = image
         createdAt = Date()
         self.duration = duration
+        self.kind = kind ?? (image != nil ? .screenshot : (fileURL != nil ? .recording : .text))
     }
 }

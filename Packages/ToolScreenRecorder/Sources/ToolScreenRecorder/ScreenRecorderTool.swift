@@ -161,11 +161,16 @@ public final class ScreenRecorderTool: Tool {
         settings.systemAudio = picker.model.systemAudio
         settings.microphone = picker.model.microphone
         picker.dismiss()
-        phase = .idle
         guard let selection else {
+            phase = .idle
             content = nil
             return
         }
+        // Claim `.starting` synchronously, before the Task even starts: a ⌘⇧6 press landing in the gap between
+        // this call and the Task's first suspension would otherwise still see `.idle` (set here previously) and
+        // open a second picker, silently dropping this selection. `keyPressed()` ignores `.starting`, so a press
+        // now just does nothing until this recording has started.
+        phase = .starting
         Task { [weak self] in
             await self?.start(selection, screens: picker.model.screens)
         }
@@ -180,8 +185,17 @@ public final class ScreenRecorderTool: Tool {
     // MARK: Recording
 
     private func start(_ selection: PickerSelection, screens: [PickerScreen]) async {
-        guard let context, let content, case .idle = phase else { return }
-        phase = .starting
+        // `.starting` was already set by `pickerFinished`, before the Task even started; deactivate() never
+        // resets it while starting, so this only bails if something unexpected changed the phase.
+        guard case .starting = phase else { return }
+        guard let context, let content else {
+            // Should not happen (`content` is set right before this phase and `context` at launch), but leaving
+            // the phase at `.starting` would wedge the tool: no picker can reopen and no recording ever starts.
+            log.error("start() reached with context=\(self.context != nil) content=\(self.content != nil), resetting")
+            phase = .idle
+            self.content = nil
+            return
+        }
         defer { self.content = nil }
 
         let target: CaptureTarget
@@ -288,24 +302,20 @@ public final class ScreenRecorderTool: Tool {
     }
 
     /// Recordings are written to Application Support; the output pipeline's Save moves them to the user's folder.
-    /// Not the temp folder: with Save off the file stays here, and macOS purges old files from $TMPDIR.
+    /// Not the temp folder: with Save off the file stays here, and macOS purges old files from $TMPDIR. Each
+    /// recording gets its own UUID subfolder so two recordings starting in the same second (the timestamp is
+    /// only second-precision) never target the same staging file.
     static func stagingURL(for date: Date) -> URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "Deskpouch/Recordings", directoryHint: .isDirectory)
-            .appending(path: "Recording \(fileStamp.string(from: date)).mp4")
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+            .appending(path: CaptureNaming.stamped(prefix: "Recording", extension: "mp4", date: date))
     }
 
     /// "1040 × 760 · 60 fps" for the recording pill.
     static func pillDetail(points: CGSize, frameRate: Int) -> String {
         "\(CaptureGeometry.dimensionLabel(points)) · \(frameRate) fps"
     }
-
-    private static let fileStamp: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        return f
-    }()
 
     // MARK: Demo
 
@@ -335,7 +345,7 @@ public final class ScreenRecorderTool: Tool {
                 guard let content else { return }
                 let model = makeModel(from: content)
                 guard let screen = model.screen(model.toolbarScreenID) else { return }
-                phase = .idle
+                phase = .starting
                 await start(region.map { .region(screen: screen, rect: $0) } ?? .screen(screen), screens: model.screens)
                 try? await Task.sleep(for: .seconds(seconds))
                 stopRecording()

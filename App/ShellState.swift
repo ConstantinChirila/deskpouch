@@ -2,6 +2,7 @@ import DeskpouchCore
 import Foundation
 import Observation
 import ToolScreenRecorder
+import ToolScreenshot
 
 /// What the menubar panel shows. Written by `Shell`, read by SwiftUI. Pure UI state (which view, which card is
 /// expanded) is written by the views themselves.
@@ -18,13 +19,14 @@ final class ShellState {
     }
 
     enum HistoryFilter: String, CaseIterable {
-        case all, voice, recordings
+        case all, voice, recordings, screenshots
 
         var label: String {
             switch self {
             case .all: "All"
             case .voice: "Voice"
             case .recordings: "Recordings"
+            case .screenshots: "Screenshots"
             }
         }
 
@@ -33,6 +35,7 @@ final class ShellState {
             case .all: nil
             case .voice: "voice"
             case .recordings: "screen"
+            case .screenshots: "screenshot"
             }
         }
     }
@@ -100,6 +103,17 @@ final class ShellState {
     var recorderSettings = RecorderSettings()
     /// nil means the pipeline's default folder.
     var screenFolder: URL?
+
+    // Screenshot options.
+    var shotKey: KeyCombo = .commandShift2
+    /// The screenshot combo could not be registered (another app owns it, another app's ⌘⇧2).
+    var shotKeyTaken = false
+    var shotSettings = ScreenshotSettings()
+    /// nil means the tool's own default folder (`ScreenshotTool.defaultFolder`, `~/Pictures/Deskpouch`).
+    var shotFolder: URL?
+    /// Main screen's backing scale factor, for `CaptureScale.native`'s label ("2x" on Retina, "1x" otherwise
+    /// instead of a hard-coded "2x").
+    var mainScreenScale: CGFloat = 2
 
     // General.
     let general: GeneralSettings

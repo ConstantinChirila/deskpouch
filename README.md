@@ -22,7 +22,7 @@ If `xcodebuild` fails with "A required plugin failed to load", run `xcodebuild -
 
 ## Permissions
 
-The hold-to-talk key uses AppKit global event monitors, which need Accessibility access; pasting posts ⌘V through the same grant. Dictation needs Microphone access. The screen recorder needs Screen Recording access (the ⌘⇧6 combo itself is a Carbon hotkey and needs nothing). All are prompted on first use; macOS usually wants the app relaunched after the Screen Recording grant.
+The hold-to-talk key uses AppKit global event monitors, which need Accessibility access; pasting posts ⌘V through the same grant. Dictation needs Microphone access. The screen recorder and the screenshot tool both need Screen Recording access (the ⌘⇧6 and ⌘⇧2 combos themselves are Carbon hotkeys and need nothing). All are prompted on first use; macOS usually wants the app relaunched after the Screen Recording grant.
 
 Builds are ad-hoc signed by default, so macOS treats every rebuild as a new app and forgets both grants. Run this once to create a stable local signing certificate (approve the Keychain dialogs it triggers):
 
@@ -79,6 +79,23 @@ swift test --package-path Packages/DeskpouchCapture
 swift test --package-path Packages/ToolScreenRecorder
 ```
 
+## Screenshot
+
+⌘⇧2 opens the same picker in its mint "still" look: drag a region, or switch to Window or Screen and click the target. A selection captures immediately, no separate start button. Annotate (arrow, box, text, blur, badge) is not built yet, so the capture goes straight through the pipeline: copied to the pasteboard as an image, saved to `~/Pictures/Deskpouch`, and logged with a thumbnail. The default is ⌘⇧2, not ⌘⇧2: macOS's own screenshot shortcut still fires when another app registers ⌘⇧2, so both would capture.
+
+Options live in the tool's view: scale (2x native, the default, or 1x downsampled), save folder, whether a window capture keeps the macOS drop shadow, shortcut.
+
+```sh
+defaults write com.constantinchirila.deskpouch shot.scale x1            # native (default, 2x on Retina) or x1
+defaults write com.constantinchirila.deskpouch shot.windowShadow -bool false
+```
+
+Screenshot tests run without Xcode:
+
+```sh
+swift test --package-path Packages/ToolScreenshot
+```
+
 ## Design review
 
 Two helpers render the custom UI to PNG so it can be compared against the mocks without clicking through the app:
@@ -103,6 +120,19 @@ DESKPOUCH_DEMO=picker DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/
 # A real 4 s recording of a fixed region, delivered through the real pipeline (writes to ~/Movies/Deskpouch and history)
 DESKPOUCH_DEMO=record open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
+# A real screenshot of a fixed region, no picker, delivered through the real pipeline (writes to ~/Pictures/Deskpouch and history)
+DESKPOUCH_DEMO=shot open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
+# Same, but captures the frontmost normal window of another app instead (open one first, e.g. `open ~` for Finder)
+open ~
+DESKPOUCH_DEMO=shot DESKPOUCH_DEMO_SHOT=window open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
+# The real ⌘⇧2 flow, not the shortcut above: keyPressed() opens the picker, a region is drawn through the same
+# PickerModel calls a drag uses, and confirm() is the call the Return key and the toolbar's Capture button make
+# (so pickerFinished, dismiss and capture all run for real). Logs whether the picker's windows are gone after
+# capture and whether the pasteboard has an image; with DESKPOUCH_DEMO_OUT also dumps a mid-selection snapshot.
+DESKPOUCH_DEMO=shot-picker DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
 # Real Parakeet transcription of a file, no mic, no paste (writes demo-transcript.txt and .png)
 say -o /tmp/speech.wav --data-format=LEF32@16000 "Can we move standup to ten"
 DESKPOUCH_DEMO=transcribe DESKPOUCH_DEMO_WAV=/tmp/speech.wav DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
@@ -122,8 +152,9 @@ The app icon is `App/Resources/AppIcon.icns`. Rebuild it from the asset pack wit
 App/                      thin app target: entry point, shell, status item, menubar panel
 Packages/DeskpouchCore/   Tool protocol, theme, components, hotkeys, overlay pill, mic capture, output pipeline, history
 Packages/ToolVoice/       VoiceTool and the Parakeet transcriber (FluidAudio)
-Packages/DeskpouchCapture/    region/window/screen picker, capture geometry, shareable content lookup
+Packages/DeskpouchCapture/    region/window/screen picker, capture geometry, still capture, shareable content lookup
 Packages/ToolScreenRecorder/  ScreenRecorderTool, ScreenCaptureKit recorder
+Packages/ToolScreenshot/      ScreenshotTool, quick region/window/screen capture
 design/                   spec and mocks
 ```
 
@@ -134,4 +165,4 @@ design/                   spec and mocks
 - Milestone 3 done: SQLite history, per-tool after-capture actions (chips on the Voice card), Recent list with re-copy.
 - Milestone 4 done: ⌘⇧6 picker (region, window, screen), ScreenCaptureKit recording to mp4 with system audio and optional mic, recording pill and menubar timer, screen card with its chips.
 - Milestone 5 done: per-tool views with options (model, language, microphone, folder, quality, frame rate, audio, shortcuts), General view (launch at login, sounds, menubar timer, history switches and clear, permissions, version). Panel layout v2: a list of tools that opens into each tool's view.
-- Next: signing, Sparkle, and whatever v1 use turns up.
+- v1 done; v2 tools (see `PLAN.md`) in progress. Foundation (Capture package, tool switches, image results and history kinds) done. Screenshot step 1 (⌘⇧2 quick capture) done; Annotate (pill button, editor) is next.

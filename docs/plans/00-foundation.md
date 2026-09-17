@@ -53,7 +53,7 @@ public final class EditorWindowController { public func present(_ doc: EditorDoc
 |---|---|---|
 | Right Option (hold) | Voice | existing |
 | Right Command (hold) | Voice note | plan 08 |
-| ⌘⇧4 | Screenshot | macOS default must be turned off in System Settings › Keyboard › Shortcuts › Screenshots; if `RegisterEventHotKey` fails the row shows "taken" like the recorder already does |
+| ⌘⇧2 | Screenshot | not ⌘⇧4: macOS's screenshot shortcut fires alongside a Carbon hotkey on the same combo (changed 2026-09-16) |
 | ⌘⇧6 | Record screen | existing |
 | ⌘⇧8 | Text grab | plan 02 |
 | ⌘⇧9 | Color | plan 03 |

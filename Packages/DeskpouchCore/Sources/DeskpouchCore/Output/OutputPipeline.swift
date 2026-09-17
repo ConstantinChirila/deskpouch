@@ -22,10 +22,12 @@ public final class OutputPipeline {
 
     private let effects: any OutputEffects
     private let history: HistoryStore?
+    private let thumbsDirectory: URL
 
-    public init(effects: any OutputEffects, history: HistoryStore?) {
+    public init(effects: any OutputEffects, history: HistoryStore?, thumbsDirectory: URL = HistoryThumbnails.defaultDirectory) {
         self.effects = effects
         self.history = history
+        self.thumbsDirectory = thumbsDirectory
     }
 
     /// Folder used when a config has none.
@@ -38,8 +40,10 @@ public final class OutputPipeline {
         var delivery = Delivery()
         let text = result.text.flatMap { $0.isEmpty ? nil : $0 }
         var pasteboardSnapshot: (any Sendable)?
-        // A file that is about to be moved by Save is copied afterwards, so the pasteboard points at its final home.
-        let copyFileAfterSave = result.fileURL != nil && text == nil
+        // A file that is about to be moved by Save is copied afterwards, so the pasteboard points at its final
+        // home. An image result is copied as pixel data straight away instead: it does not reference the file
+        // path, so it does not need to wait for Save to finish moving it.
+        let copyFileAfterSave = result.fileURL != nil && text == nil && result.image == nil
             && config.actions.contains(.copy) && config.actions.contains(.saveToFolder)
 
         for action in OutputAction.executionOrder where config.actions.contains(action) {
@@ -47,6 +51,13 @@ public final class OutputPipeline {
             case .copy:
                 if let text {
                     effects.copyText(text)
+                } else if let image = result.image {
+                    // When the result also has a file (a screenshot: the tool already wrote these exact pixels
+                    // to its staging file before emitting), reuse those bytes instead of re-encoding the PNG a
+                    // second time; `.copy` always runs before `.saveToFolder` (`executionOrder`), so the file is
+                    // still at `result.fileURL`, not yet moved.
+                    let pngData = result.fileURL.flatMap { try? Data(contentsOf: $0) }
+                    effects.copyImage(image, pngData: pngData)
                 } else if let file = result.fileURL, !copyFileAfterSave {
                     effects.copyFile(file)
                 } else {
@@ -98,6 +109,7 @@ public final class OutputPipeline {
 
             case .history:
                 guard let history else { continue }
+                let thumbURL = result.image.flatMap { HistoryThumbnails.write($0, id: result.id, to: thumbsDirectory) }
                 do {
                     try history.record(HistoryItem(
                         id: result.id,
@@ -106,11 +118,16 @@ public final class OutputPipeline {
                         text: text,
                         fileURL: delivery.savedTo ?? result.fileURL,
                         duration: result.duration,
-                        pastedInto: delivery.pastedInto
+                        pastedInto: delivery.pastedInto,
+                        kind: result.kind,
+                        thumbURL: thumbURL
                     ))
                     delivery.recorded = true
                 } catch {
                     log.error("history record failed: \(String(describing: error), privacy: .public)")
+                    if let thumbURL {
+                        HistoryThumbnails.remove(thumbURL)
+                    }
                     continue
                 }
             }

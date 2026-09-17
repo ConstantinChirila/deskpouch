@@ -21,7 +21,7 @@ public enum ShareableContentLoader {
 
     /// Screens from AppKit, windows from ScreenCaptureKit in front-to-back order, toolbar on the mouse's screen.
     public static func makeModel(
-        from content: SCShareableContent, systemAudio: Bool, microphone: Bool, frameRate: Int
+        from content: SCShareableContent, systemAudio: Bool, microphone: Bool, frameRate: Int, style: PickerStyle = .record
     ) -> PickerModel {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         let mouse = NSEvent.mouseLocation
@@ -57,7 +57,7 @@ public enum ShareableContentLoader {
 
         return PickerModel(
             screens: screens, windows: windows, toolbarScreenID: toolbarScreenID,
-            systemAudio: systemAudio, microphone: microphone, frameRate: frameRate
+            systemAudio: systemAudio, microphone: microphone, frameRate: frameRate, style: style
         )
     }
 

@@ -15,9 +15,9 @@ struct PickerScreenView: View {
                 .fill(Self.dim, style: FillStyle(eoFill: true))
                 .ignoresSafeArea()
             if let highlight {
-                SelectionChrome(rect: highlight, brackets: model.mode == .region)
+                SelectionChrome(rect: highlight, brackets: model.mode == .region, tint: model.style.tint)
                 if let label = model.dimensionLabel {
-                    DimensionChip(label: label, snapping: model.mode == .region && model.snapToAspect)
+                    DimensionChip(label: label, snapping: model.mode == .region && model.snapToAspect, tint: model.style.tint)
                         .offset(chipOffset(for: highlight))
                 }
             }
@@ -76,18 +76,30 @@ private struct Cutout: Shape {
     }
 }
 
-/// Amber 2px border, 4px ring, glow, and cream corner brackets.
+/// 2px border, 4px ring, glow, and cream corner brackets, tinted per `PickerStyle`.
 private struct SelectionChrome: View {
     let rect: CGRect
     let brackets: Bool
+    let tint: Color
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        let bleed: CGFloat = 48
         ZStack(alignment: .topLeading) {
+            // Ring and glow are masked to the outside so the selection shows the screen untouched.
             shape
-                .strokeBorder(Theme.Colors.accent, lineWidth: 2)
-                .background(shape.stroke(Theme.Colors.accent(0.18), lineWidth: 8).padding(-2))
-                .shadow(color: Theme.Colors.accent(0.25), radius: 20)
+                .stroke(tint.opacity(0.18), lineWidth: 8)
+                .padding(-2)
+                .shadow(color: tint.opacity(0.25), radius: 20)
+                .frame(width: rect.width, height: rect.height)
+                .mask(
+                    Cutout(hole: CGRect(x: bleed, y: bleed, width: rect.width, height: rect.height))
+                        .fill(style: FillStyle(eoFill: true))
+                        .padding(-bleed)
+                )
+                .offset(x: rect.minX, y: rect.minY)
+            shape
+                .strokeBorder(tint, lineWidth: 2)
                 .frame(width: rect.width, height: rect.height)
                 .offset(x: rect.minX, y: rect.minY)
             if brackets {
@@ -126,10 +138,11 @@ private struct CornerBracket: Shape {
     }
 }
 
-/// Amber capsule with the selection size and, while shift is held, the snap hint.
+/// Tinted capsule with the selection size and, while shift is held, the snap hint.
 private struct DimensionChip: View {
     let label: String
     let snapping: Bool
+    let tint: Color
 
     var body: some View {
         HStack(spacing: 8) {
@@ -142,8 +155,8 @@ private struct DimensionChip: View {
         .foregroundStyle(Theme.Colors.bg)
         .padding(.horizontal, 10)
         .frame(height: 26)
-        .background(Capsule().fill(Theme.Colors.accent))
-        .shadow(color: Theme.Colors.accent(0.35), radius: 8, y: 6)
+        .background(Capsule().fill(tint))
+        .shadow(color: tint.opacity(0.35), radius: 8, y: 6)
         .fixedSize()
         .allowsHitTesting(false)
     }
@@ -156,19 +169,21 @@ struct PickerToolbar: View {
     var body: some View {
         HStack(spacing: 14) {
             segments
-            HStack(spacing: 4) {
-                AudioToggle(isOn: model.systemAudio, help: "System audio") { model.systemAudio.toggle() } icon: {
-                    SpeakerIcon().stroke(style: .icon(1.6))
+            if model.style.showsAudioToggles {
+                HStack(spacing: 4) {
+                    AudioToggle(isOn: model.systemAudio, help: "System audio") { model.systemAudio.toggle() } icon: {
+                        SpeakerIcon().stroke(style: .icon(1.6))
+                    }
+                    AudioToggle(isOn: model.microphone, help: "Microphone") { model.microphone.toggle() } icon: {
+                        MicIcon().stroke(style: .icon(1.6))
+                    }
                 }
-                AudioToggle(isOn: model.microphone, help: "Microphone") { model.microphone.toggle() } icon: {
-                    MicIcon().stroke(style: .icon(1.6))
-                }
+                Rectangle().fill(Theme.Colors.tint(0.12)).frame(width: 1, height: 26)
             }
-            Rectangle().fill(Theme.Colors.tint(0.12)).frame(width: 1, height: 26)
             Button(action: { model.confirm() }) {
                 HStack(spacing: 10) {
-                    Circle().fill(Theme.Colors.record).frame(width: 12, height: 12)
-                    Text("Record").font(.dp(14, .semibold))
+                    Circle().fill(model.style.tint).frame(width: 12, height: 12)
+                    Text(model.style.toolbarLabel).font(.dp(14, .semibold))
                     Text("↩")
                         .font(.dp(11, .medium))
                         .padding(.horizontal, 7)
@@ -186,7 +201,7 @@ struct PickerToolbar: View {
             .buttonStyle(.plain)
             .disabled(!model.canRecord)
             .opacity(model.canRecord ? 1 : 0.45)
-            .help(model.mode == .region ? "Drag a region, then Record" : "Click a target, or Record")
+            .help(model.mode == .region ? "Drag a region, then \(model.style.toolbarLabel)" : "Click a target, or \(model.style.toolbarLabel)")
             Text("esc")
                 .font(.dp(11))
                 .foregroundStyle(Theme.Colors.textSecondary)
@@ -223,11 +238,11 @@ struct PickerToolbar: View {
                     .background {
                         if on {
                             Capsule()
-                                .fill(LinearGradient(colors: [Theme.Colors.accentHigh, Theme.Colors.accentLow], startPoint: .top, endPoint: .bottom))
+                                .fill(LinearGradient(colors: model.style.tintGradient, startPoint: .top, endPoint: .bottom))
                                 .overlay(alignment: .top) {
                                     Capsule().fill(Color.white.opacity(0.35)).frame(height: 1).padding(.horizontal, 12).padding(.top, 1)
                                 }
-                                .shadow(color: Theme.Colors.accent(0.35), radius: 6, y: 4)
+                                .shadow(color: model.style.tint.opacity(0.35), radius: 6, y: 4)
                         }
                     }
                     .contentShape(Capsule())

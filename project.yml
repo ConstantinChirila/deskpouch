@@ -32,6 +32,8 @@ packages:
     path: Packages/ToolVoice
   ToolScreenRecorder:
     path: Packages/ToolScreenRecorder
+  ToolScreenshot:
+    path: Packages/ToolScreenshot
 
 configFiles:
   Debug: Signing.xcconfig
@@ -49,8 +51,10 @@ targets:
       - path: App/Resources/AppIcon.icns
     dependencies:
       - package: DeskpouchCore
+      - package: DeskpouchCapture
       - package: ToolVoice
       - package: ToolScreenRecorder
+      - package: ToolScreenshot
     info:
       path: App/Info.plist
       properties:
@@ -96,4 +100,5 @@ schemes:
       targets:
         - package: DeskpouchCore/DeskpouchCoreTests
         - package: ToolScreenRecorder/ToolScreenRecorderTests
+        - package: ToolScreenshot/ToolScreenshotTests
         - package: ToolVoice/ToolVoiceTests

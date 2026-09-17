@@ -1,10 +1,12 @@
 import AVFoundation
 import CoreGraphics
 import Foundation
+import ImageIO
 import Observation
 
-/// First-second frames of recorded files for the Recent tiles. Generated on demand off the main actor, kept in
-/// memory for the app's lifetime. Missing or unreadable files stay nil, so the row shows the dark placeholder.
+/// First-second frames of recorded files, or the decoded thumbnail JPEG for image results, for the Recent tiles.
+/// Generated on demand off the main actor, kept in memory for the app's lifetime. Missing or unreadable files
+/// stay nil, so the row shows the dark placeholder.
 @MainActor
 @Observable
 final class ThumbnailCache {
@@ -35,8 +37,16 @@ final class ThumbnailCache {
         failed.remove(url)
     }
 
+    /// Extensions decoded directly through ImageIO instead of `AVAssetImageGenerator`: `HistoryThumbnails.write`
+    /// always writes a screenshot's cached thumbnail as one of these, and a plain image file has no video track
+    /// for the generator to seek into anyway.
+    nonisolated private static let imageExtensions: Set<String> = ["jpg", "jpeg", "png"]
+
     nonisolated private static func generate(_ url: URL) async -> CGImage? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        if imageExtensions.contains(url.pathExtension.lowercased()) {
+            return loadImage(url)
+        }
         let asset = AVURLAsset(url: url)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
@@ -49,5 +59,18 @@ final class ThumbnailCache {
         } catch {
             return nil
         }
+    }
+
+    /// Thumbnail-only decode: a full-size screenshot can be tens of megapixels, and this tile only ever shows
+    /// `maximumSize` of it. `kCGImageSourceCreateThumbnailFromImageAlways` builds one even when the file has no
+    /// embedded thumbnail (a PNG never does); ImageIO downsamples during decode instead of after, so the full
+    /// resolution is never materialised in memory.
+    nonisolated private static func loadImage(_ url: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(max(maximumSize.width, maximumSize.height)),
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 }

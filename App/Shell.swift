@@ -1,6 +1,8 @@
 import AppKit
 import DeskpouchCore
+import ImageIO
 import ToolScreenRecorder
+import ToolScreenshot
 import ToolVoice
 import os
 
@@ -13,13 +15,15 @@ final class Shell {
     private let hotkeys = HotkeyCenter()
     private let overlay = OverlayController()
     private let history: HistoryStore?
+    private let effects = SystemOutputEffects()
     private let pipeline: OutputPipeline
     private let statusItem = StatusItemController()
     private lazy var panel = MenuPanelController(state: state, actions: panelActions)
 
     private let voice = VoiceTool()
     private let screen = ScreenRecorderTool()
-    private var tools: [Tool] { [voice, screen] }
+    private let screenshot = ScreenshotTool()
+    private var tools: [Tool] { [voice, screen, screenshot] }
 
     private var permissionPoll: Timer?
     private var recordingTimer: Timer?
@@ -35,7 +39,7 @@ final class Shell {
             log.error("history unavailable: \(String(describing: error), privacy: .public)")
             history = nil
         }
-        pipeline = OutputPipeline(effects: SystemOutputEffects(), history: history)
+        pipeline = OutputPipeline(effects: effects, history: history)
     }
 
     func start() {
@@ -67,6 +71,10 @@ final class Shell {
         state.screenStatus = screen.settings.summary
         state.recorderSettings = screen.settings
         state.screenFolder = state.output.config(for: screen.id).folder
+        state.shotKey = screenshot.pressKey ?? .commandShift2
+        state.shotSettings = screenshot.settings
+        state.shotFolder = state.output.config(for: screenshot.id).folder
+        state.mainScreenScale = NSScreen.main?.backingScaleFactor ?? 2
         refreshVoiceEngine()
         state.voiceMicrophoneUID = voice.microphoneUID
         state.voiceSkipFillers = voice.skipFillers
@@ -74,6 +82,10 @@ final class Shell {
             guard let self else { return }
             state.screenStatus = text
             state.recorderSettings = screen.settings
+        }
+        screenshot.onStatus = { [weak self] _ in
+            guard let self else { return }
+            state.shotSettings = screenshot.settings
         }
         statusItem.onClick = { [weak self] button in
             guard let self else { return }
@@ -130,15 +142,22 @@ final class Shell {
     /// Registers the tool's key combo, replacing an earlier one. A switched-off tool only loses its registration.
     private func registerPress(_ tool: Tool) {
         if let old = pressRegistrations.removeValue(forKey: tool.id) { hotkeys.unregister(old) }
-        if tool.id == screen.id { state.screenKeyTaken = false }
+        setKeyTaken(tool.id, false)
         guard state.switches.isEnabled(tool.id), let combo = tool.pressKey else { return }
         if let registration = hotkeys.registerPress(combo, handler: { [weak tool] in tool?.keyPressed() }) {
             pressRegistrations[tool.id] = registration
-            if tool.id == screen.id { state.screenKeyTaken = false }
+            setKeyTaken(tool.id, false)
         } else {
             log.error("\(combo.display, privacy: .public) is taken by another app")
-            if tool.id == screen.id { state.screenKeyTaken = true }
+            setKeyTaken(tool.id, true)
         }
+    }
+
+    /// Mirrors the "taken" flag into the row for whichever press-key tool this is; a hold-key tool (voice) has
+    /// no such flag.
+    private func setKeyTaken(_ toolID: String, _ taken: Bool) {
+        if toolID == screen.id { state.screenKeyTaken = taken }
+        if toolID == screenshot.id { state.shotKeyTaken = taken }
     }
 
     /// General's per-tool switch. Off frees the hotkeys first, so nothing new starts while the tool winds down.
@@ -169,6 +188,12 @@ final class Shell {
         screen.pressKey = combo
         state.screenKey = combo
         registerPress(screen)
+    }
+
+    private func setShotPressKey(_ combo: KeyCombo) {
+        screenshot.pressKey = combo
+        state.shotKey = combo
+        registerPress(screenshot)
     }
 
     // MARK: Activity
@@ -246,6 +271,27 @@ final class Shell {
                 guard response == .OK, let url = open.url else { return }
                 self.state.output.update(self.screen.id) { $0.folder = url }
                 self.state.screenFolder = url
+            }
+        }
+    }
+
+    private func chooseScreenshotFolder() {
+        let open = NSOpenPanel()
+        open.canChooseDirectories = true
+        open.canChooseFiles = false
+        open.canCreateDirectories = true
+        open.directoryURL = state.shotFolder ?? ScreenshotTool.defaultFolder
+        open.prompt = "Use folder"
+        open.message = "Screenshots are saved here"
+        panel.holdsOpen = true
+        NSApp.activate()
+        open.begin { [weak self] response in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.panel.holdsOpen = false
+                guard response == .OK, let url = open.url else { return }
+                self.state.output.update(self.screenshot.id) { $0.folder = url }
+                self.state.shotFolder = url
             }
         }
     }
@@ -349,6 +395,11 @@ final class Shell {
     private func copyRecent(_ item: HistoryItem) {
         if let text = item.text, !text.isEmpty {
             Paster.copy(text)
+        } else if item.kind == .screenshot, let file = item.fileURL, let image = Self.loadImage(file) {
+            // Matches the first copy: PNG + lazy TIFF on the pasteboard, not a file reference. The file's own
+            // bytes are already PNG, so they go straight on the pasteboard instead of round-tripping the image
+            // through another encode; `image` is still needed to build the lazy TIFF representation.
+            effects.copyImage(image, pngData: try? Data(contentsOf: file))
         } else if let file = item.fileURL {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects([file as NSURL])
@@ -356,6 +407,11 @@ final class Shell {
             return
         }
         overlay.flash(.copied)
+    }
+
+    private static func loadImage(_ url: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
     // MARK: Hotkey permission
@@ -434,6 +490,15 @@ final class Shell {
                 state.recorderSettings = settings
             },
             chooseFolder: { [weak self] in self?.chooseFolder() },
+            setShotPressKey: { [weak self] combo in self?.setShotPressKey(combo) },
+            updateScreenshot: { [weak self] change in
+                guard let self else { return }
+                var settings = screenshot.settings
+                change(&settings)
+                screenshot.settings = settings
+                state.shotSettings = settings
+            },
+            chooseScreenshotFolder: { [weak self] in self?.chooseScreenshotFolder() },
             setLaunchAtLogin: { [weak self] on in self?.state.general.setLaunchAtLogin(on) },
             setPillPosition: { [weak self] position in
                 guard let self else { return }
@@ -476,6 +541,29 @@ final class Shell {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
                 let full = ProcessInfo.processInfo.environment["DESKPOUCH_DEMO_FULL"] != nil
                 self?.screen.debugRecord(region: full ? nil : CGRect(x: 160, y: 140, width: 1040, height: 760), seconds: 4)
+            }
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "shot-picker" {
+            // The real interactive flow, not the `shot` demo's shortcut: `keyPressed()` opens the picker exactly
+            // as ⌘⇧2 does, a region is drawn through the same `PickerModel` calls a drag uses, and `confirm()` is
+            // the same call the Return key monitor and the toolbar's Capture button make. Exercises
+            // pickerFinished -> dismiss -> capture for real, so it catches bugs `shot` (no picker) cannot.
+            runShotPickerDemo(out: out)
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "shot" {
+            // Real screenshot, no picker, delivered through the real pipeline (saves to Pictures, logs history
+            // with a thumbnail). Annotate does not exist yet, so this stops at capture. `DESKPOUCH_DEMO_SHOT=window`
+            // captures the frontmost normal window of another app instead of the default fixed region, to check
+            // window-mode sizing and the shadow option (open a target window first, e.g. `open ~` for Finder).
+            let window = env["DESKPOUCH_DEMO_SHOT"] == "window"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                if window {
+                    self?.screenshot.debugCaptureWindow()
+                } else {
+                    self?.screenshot.debugCapture(region: CGRect(x: 160, y: 140, width: 1040, height: 760))
+                }
             }
             return
         }
@@ -612,21 +700,106 @@ final class Shell {
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.2) { [weak self] in
             guard let self else { return }
             state.popups.close()
+            state.panelView = .tool(ScreenshotToolView.toolID)
+        }
+        snap("app-shot-options", at: 6.4)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self] in
+            guard let self else { return }
             state.panelView = .general
         }
-        snap("app-general", at: 6.4)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self] in
+        snap("app-general", at: 8.2)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8.8) { [weak self] in
             guard let self else { return }
             state.historyQuery = ""
             state.historyFilter = .all
             loadHistory(.first)
             state.panelView = .history
         }
-        snap("app-history", at: 8.2)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 9.5) { [weak self] in
+        snap("app-history", at: 10)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 11.3) { [weak self] in
             self?.panel.holdsOpen = false
             self?.panel.close()
         }
+    }
+
+    /// `DESKPOUCH_DEMO=shot-picker` drives the real ⌘⇧2 flow end to end: `keyPressed()` opens the picker,
+    /// `PickerModel.dragChanged`/`dragEnded` draw a region the same way a real drag does, and `confirm()` is the
+    /// same call the Return key monitor and the toolbar's Capture button make. Verification only: logs whether
+    /// the picker's overlay windows are gone after capture, whether the pasteboard has an image, and the most
+    /// recent history row, all at `os.Logger` info/error level (`log stream --predicate 'subsystem ==
+    /// "com.constantinchirila.deskpouch"'`). With `DESKPOUCH_DEMO_OUT=<dir>` also dumps a mid-selection picker
+    /// snapshot so the selection's interior can be checked for a clear (non-dimmed) cutout.
+    private func runShotPickerDemo(out: URL?) {
+        // Each step schedules the next one relative to when IT runs, not to the demo's start: a slow first
+        // render (Metal/shader warm-up on the picker's blurred, shadowed overlay, seen to cost several seconds
+        // on a cold launch) must not eat into the gap the later steps rely on, or their checks fire before the
+        // async capture pipeline they are supposed to be timing has had a chance to finish.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self else { return }
+            log.info("demo(shot-picker): keyPressed() -> opening the real picker")
+            screenshot.keyPressed()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.shotPickerDemoDrawRegion(out: out) }
+        }
+    }
+
+    private func shotPickerDemoDrawRegion(out: URL?) {
+        guard let model = screenshot.debugPickerModel, let screen = model.screen(model.toolbarScreenID) else {
+            log.error("demo(shot-picker): picker never opened (debugPickerModel is nil) -- bug 2/3 territory")
+            return
+        }
+        let rect = CGRect(x: 160, y: 140, width: 1040, height: 760)
+        model.dragChanged(screenID: screen.id, location: rect.origin)
+        model.dragChanged(screenID: screen.id, location: CGPoint(x: rect.maxX, y: rect.maxY))
+        model.dragEnded(screenID: screen.id, location: CGPoint(x: rect.maxX, y: rect.maxY))
+        log.info("demo(shot-picker): region drawn (\(Int(rect.width)) x \(Int(rect.height)))")
+        if let out {
+            let snapshotStart = Date()
+            Self.writePNG(screenshot.debugSnapshotPicker(), to: out.appending(path: "app-shot-picker.png"))
+            log.info("demo(shot-picker): mid-selection snapshot written in \(Date().timeIntervalSince(snapshotStart))s")
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.shotPickerDemoConfirm() }
+    }
+
+    private func shotPickerDemoConfirm() {
+        let before = Self.deskpouchOverlayWindowCount()
+        log.info("demo(shot-picker): overlay windows before confirm = \(before)")
+        guard let model = screenshot.debugPickerModel else {
+            log.error("demo(shot-picker): model gone before confirm")
+            return
+        }
+        // Same call the Return key monitor and the toolbar's Capture button make: this exercises
+        // PickerModel.confirm -> onFinish -> ScreenshotTool.pickerFinished -> dismiss -> capture for real.
+        model.confirm()
+        // `dismiss()` orders every picker window out synchronously as part of this very call (confirm ->
+        // onFinish -> pickerFinished -> dismiss, no `await` in between), so this should already read 0.
+        let immediatelyAfter = Self.deskpouchOverlayWindowCount()
+        log.info("demo(shot-picker): overlay windows immediately after confirm() returns = \(immediatelyAfter) (dismiss() is synchronous, so this should already be 0)")
+        // The capture itself is async (ShareableContentLoader.load, SCScreenshotManager.captureImage, a
+        // detached PNG write, then the output pipeline): give it real time before checking the pasteboard and
+        // history, instead of the fixed-offset schedule that made the first version of this demo check within
+        // 9 ms of calling confirm(), long before the capture could possibly have finished.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.shotPickerDemoVerify() }
+    }
+
+    private func shotPickerDemoVerify() {
+        let after = Self.deskpouchOverlayWindowCount()
+        log.info("demo(shot-picker): overlay windows 3s after confirm = \(after) (must be 0 for bug 2 to be fixed)")
+        let types = (NSPasteboard.general.types ?? []).map(\.rawValue).joined(separator: ", ")
+        let hasImage = NSPasteboard.general.types?.contains(.png) == true
+        log.info("demo(shot-picker): pasteboard types = [\(types, privacy: .public)], has PNG = \(hasImage) (must be true for bug 3 to be fixed)")
+        let recent = state.recent.first
+        let ageSeconds = recent.map { Date().timeIntervalSince($0.createdAt) } ?? -1
+        log.info("demo(shot-picker): most recent history row: tool=\(recent?.toolID ?? "nil", privacy: .public) age=\(ageSeconds)s file=\(recent?.fileURL?.path ?? "nil", privacy: .public) (age should be a few seconds, not stale, for bug 2/3 to be fixed)")
+    }
+
+    /// Deskpouch's own overlay-level windows (the picker's borderless panels are `.screenSaver` level, one per
+    /// screen): should be zero once a picker has been dismissed. Verification only.
+    private static func deskpouchOverlayWindowCount() -> Int {
+        guard let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else { return -1 }
+        return list.filter { info in
+            (info[kCGWindowOwnerName as String] as? String) == "Deskpouch"
+                && (info[kCGWindowLayer as String] as? Int ?? 0) >= Int(NSWindow.Level.screenSaver.rawValue)
+        }.count
     }
 
     /// `DESKPOUCH_DEMO=picker` opens the region picker with a region drawn, dumps it, and cancels.

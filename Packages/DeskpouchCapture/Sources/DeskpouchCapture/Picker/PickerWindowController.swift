@@ -10,6 +10,8 @@ public final class PickerWindowController {
     private var keyMonitor: Any?
     private var flagsMonitor: Any?
     private var cursorPushed = false
+    /// The app that was frontmost before the picker took focus; it gets focus back on dismiss so ⌘V lands there.
+    private var previousApp: NSRunningApplication?
 
     public init(model: PickerModel) {
         self.model = model
@@ -24,6 +26,8 @@ public final class PickerWindowController {
             window.contentView = NSHostingView(rootView: PickerScreenView(model: model, screen: screen))
             windows.append(window)
         }
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        previousApp = frontmost == NSRunningApplication.current ? nil : frontmost
         NSApp.activate()
         for (index, window) in windows.enumerated() {
             if model.screens[index].id == model.toolbarScreenID {
@@ -62,6 +66,10 @@ public final class PickerWindowController {
         cursorPushed = false
         for window in windows { window.orderOut(nil) }
         windows.removeAll()
+        if let previousApp, !previousApp.isTerminated {
+            previousApp.activate(from: .current, options: [])
+        }
+        previousApp = nil
     }
 
     /// Renders the toolbar screen's picker content. Design review only.

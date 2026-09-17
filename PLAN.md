@@ -85,9 +85,23 @@ Design direction settled 2026-09-14: "Mint ground, amber accent", custom chrome.
 
 The `Tool` protocol starts as a stub for voice and gets reshaped by the second tool. Do not design it upfront.
 
-## Status (2026-09-15)
+## Status (2026-09-16)
 
-Milestones 1 to 5 are implemented. Milestones 1 to 3 are verified on the dev machine (milestone 3 with a real dictation landing in Recent). Milestone 5 (options rows and General) is checked against the mocks through `DESKPOUCH_DEMO=options`; its controls still want a hands-on pass (shortcut recording, folder chooser, launch at login). Milestone 4 (screen recorder) is verified on the dev machine: a 4 s region recording through `DESKPOUCH_DEMO=record` produced a 1006x734 H.264 mp4 with a system audio track in `~/Movies/Deskpouch`, put the file on the pasteboard and logged it in history; the pill, panel and picker were checked against the mocks through the demo modes. macOS 15 shows its own "bypass the system private window picker" alert on the first recording (and periodically after); click Allow. Next: whatever comes after v1 (see "Open items"). `README.md` has build, permissions, and verification instructions.
+Milestones 1 to 5 (v1) are implemented. Milestones 1 to 3 are verified on the dev machine (milestone 3 with a real dictation landing in Recent). Milestone 5 (options rows and General) is checked against the mocks through `DESKPOUCH_DEMO=options`; its controls still want a hands-on pass (shortcut recording, folder chooser, launch at login). Milestone 4 (screen recorder) is verified on the dev machine: a 4 s region recording through `DESKPOUCH_DEMO=record` produced a 1006x734 H.264 mp4 with a system audio track in `~/Movies/Deskpouch`, put the file on the pasteboard and logged it in history; the pill, panel and picker were checked against the mocks through the demo modes. macOS 15 shows its own "bypass the system private window picker" alert on the first recording (and periodically after); click Allow. `README.md` has build, permissions, and verification instructions.
+
+v2 (see "v2 tools" below): foundation steps 1, 2 and 4 are done (`DeskpouchCapture` package, per-tool switches, image results and history kinds). Step 3 (`EditorWindowController`) lands with screenshot step 3. `OutputAction.appendToFile` and `Tool.offeredActions` are deferred to plan 08.
+
+Screenshot step 1 (quick capture, package `ToolScreenshot`, ⌘⇧2) is done. Verified on the dev machine through `DESKPOUCH_DEMO=shot` (region 1040x760 pt -> 2080x1520 px), `shot` with `DESKPOUCH_DEMO_SHOT=window` (Calculator: 460x816 px with the shadow off, 684x1040 px with it on (shadow only, cropped on all sides), window body at native size), and `shot-picker` (real picker path: overlay gone after confirm, PNG on the pasteboard byte-identical to the saved file, history row with thumbnail). A real mouse drag was not driven programmatically. `scripts/test.sh` passes (108 tests).
+
+Decisions from the screenshot work:
+- Default hotkey ⌘⇧2, not ⌘⇧4: macOS's screenshot shortcut still fires when another app registers ⌘⇧4 (registration succeeds), so both captured.
+- The picker returns focus to the previously frontmost app on dismiss, so ⌘V after a capture pastes there instead of into Deskpouch.
+- The selection's ring and glow are masked to the outside; the selection shows the screen untouched.
+- `StillCapture` sets the output size explicitly (`contentRect`/`rect` times `pointPixelScale`); unset, SCK uses its 1920x1080 default. `contentRect` of a `desktopIndependentWindow` filter is the bare frame, so with the shadow on it requests a 128 pt larger canvas with `scalesToFit` off and crops to the non-transparent bounds (all four sides; the bitmap buffer is top-row first, no flip).
+- Copy puts the staged PNG bytes on the pasteboard plus a lazily provided TIFF (lost if the app is killed; Quit resolves it).
+- Staging files live in a UUID subfolder of Application Support; with Save off they stay there, like recordings.
+
+Next: screenshot step 2 (pill Annotate button, hover Annotate on screenshot rows), then step 3 (editor).
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -151,8 +165,8 @@ The Model row offers two engines behind the `Transcriber` protocol: Parakeet v3 
 
 Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Build order, foundation first:
 
-0. [Foundation](docs/plans/00-foundation.md) (steps 1 and 2, the Capture package move and tool switches, done 2026-09-16; `PickerStyle`, `StillCapture`, `ImageWriter`, `OverlayWindow` land with their first tool): `DeskpouchCapture` package (picker and still capture move out of the recorder), `EditorWindowController` in Core, image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory.
-1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧4: quick capture, pill Annotate button, editor with arrow/box/text/blur/badge.
+0. [Foundation](docs/plans/00-foundation.md) (steps 1, 2 and 4 done 2026-09-16: the Capture package move, tool switches, and pipeline image results; step 3's `EditorWindowController` is pending, `OverlayWindow` for the loupe in 03): `DeskpouchCapture` package (picker and still capture move out of the recorder), image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory (⌘⇧6 and ⌘⇧2 have named `KeyCombo` statics so far).
+1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧2: quick capture (step 1, done 2026-09-16, package `ToolScreenshot`), pill Annotate button (step 2, next), editor with arrow/box/text/blur/badge (step 3).
 2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted.
 3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint.
 4. [Screenshot diff](docs/plans/04-diff.md): two history rows → Compare; Recapture same region; slider / onion / pixels.

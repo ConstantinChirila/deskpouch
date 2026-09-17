@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import Testing
 @testable import DeskpouchCore
 
@@ -62,6 +63,108 @@ struct HistoryStoreTests {
         }
         let reopened = try HistoryStore(url: url)
         #expect(try reopened.recent(limit: 1) == [saved])
+    }
+
+    @Test func kindAndThumbRoundTrip() throws {
+        let store = try HistoryStore.inMemory()
+        let thumb = URL(fileURLWithPath: "/tmp/thumb-\(UUID().uuidString).jpg")
+        let saved = HistoryItem(
+            id: UUID(), toolID: "screenshot", createdAt: Date(timeIntervalSince1970: 10),
+            text: nil, fileURL: URL(fileURLWithPath: "/tmp/shot.png"), duration: nil,
+            pastedInto: nil, kind: .screenshot, thumbURL: thumb
+        )
+        try store.record(saved)
+        let loaded = try store.recent(limit: 1)
+        #expect(loaded == [saved])
+        #expect(loaded.first?.kind == .screenshot)
+        #expect(loaded.first?.thumbURL == thumb)
+    }
+
+    @Test func kindDefaultsInferFromWhetherThereIsAFile() throws {
+        let store = try HistoryStore.inMemory()
+        try store.record(item("a text row", at: 1))
+        try store.record(item(nil, at: 2, file: URL(fileURLWithPath: "/tmp/a.mp4")))
+        let rows = try store.recent(limit: 10)
+        #expect(rows.first { $0.text != nil }?.kind == .text)
+        #expect(rows.first { $0.fileURL != nil }?.kind == .recording)
+    }
+
+    @Test func deletingARowRemovesItsThumbFile() throws {
+        let store = try HistoryStore.inMemory()
+        let dir = FileManager.default.temporaryDirectory.appending(path: "deskpouch-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let thumb = dir.appending(path: "thumb.jpg")
+        try Data([0x1]).write(to: thumb)
+        let saved = HistoryItem(
+            id: UUID(), toolID: "screenshot", createdAt: Date(), text: nil, fileURL: nil,
+            duration: nil, pastedInto: nil, kind: .screenshot, thumbURL: thumb
+        )
+        try store.record(saved)
+        #expect(FileManager.default.fileExists(atPath: thumb.path))
+        try store.delete(id: saved.id)
+        #expect(!FileManager.default.fileExists(atPath: thumb.path))
+    }
+
+    @Test func clearRemovesEveryThumbFile() throws {
+        let store = try HistoryStore.inMemory()
+        let dir = FileManager.default.temporaryDirectory.appending(path: "deskpouch-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let thumbs = (0..<3).map { dir.appending(path: "thumb\($0).jpg") }
+        for (i, thumb) in thumbs.enumerated() {
+            try Data([UInt8(i)]).write(to: thumb)
+            try store.record(HistoryItem(
+                id: UUID(), toolID: "screenshot", createdAt: Date(timeIntervalSince1970: Double(i)),
+                text: nil, fileURL: nil, duration: nil, pastedInto: nil, kind: .screenshot, thumbURL: thumb
+            ))
+        }
+        try store.clear()
+        for thumb in thumbs {
+            #expect(!FileManager.default.fileExists(atPath: thumb.path))
+        }
+    }
+
+    @Test func migratesAnOldSchemaDatabaseAndInfersKind() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "deskpouch-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appending(path: "history.sqlite")
+
+        // Build a database with the schema from before `kind` and `thumb_path` existed.
+        var handle: OpaquePointer?
+        #expect(sqlite3_open(url.path, &handle) == SQLITE_OK)
+        let create = """
+            CREATE TABLE results (
+                id TEXT PRIMARY KEY, tool_id TEXT NOT NULL, created_at REAL NOT NULL,
+                text TEXT, file_path TEXT, duration REAL, pasted_into TEXT
+            )
+            """
+        #expect(sqlite3_exec(handle, create, nil, nil, nil) == SQLITE_OK)
+        let textID = UUID().uuidString
+        let fileID = UUID().uuidString
+        let insertText = "INSERT INTO results (id, tool_id, created_at, text, file_path, duration, pasted_into) " +
+            "VALUES ('\(textID)', 'voice', 1000, 'hello there', NULL, NULL, NULL)"
+        let insertFile = "INSERT INTO results (id, tool_id, created_at, text, file_path, duration, pasted_into) " +
+            "VALUES ('\(fileID)', 'screen', 2000, NULL, '/tmp/a.mp4', 42, NULL)"
+        #expect(sqlite3_exec(handle, insertText, nil, nil, nil) == SQLITE_OK)
+        #expect(sqlite3_exec(handle, insertFile, nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(handle)
+
+        // Opening through HistoryStore should add the missing columns and backfill kind for both existing rows.
+        let store = try HistoryStore(url: url)
+        let items = try store.recent(limit: 10)
+        #expect(items.count == 2)
+        let textRow = try #require(items.first { $0.id.uuidString.lowercased() == textID.lowercased() })
+        let fileRow = try #require(items.first { $0.id.uuidString.lowercased() == fileID.lowercased() })
+        #expect(textRow.kind == .text)
+        #expect(textRow.thumbURL == nil)
+        #expect(fileRow.kind == .recording)
+        #expect(fileRow.thumbURL == nil)
+
+        // Reopening (columns already present) must not fail or reset anything.
+        let reopened = try HistoryStore(url: url)
+        #expect(try reopened.count() == 2)
     }
 
     @Test func searchFilterAndPaging() throws {

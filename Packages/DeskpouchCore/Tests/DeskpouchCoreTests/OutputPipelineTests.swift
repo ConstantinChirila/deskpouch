@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Testing
 @testable import DeskpouchCore
@@ -19,6 +20,7 @@ final class RecordingEffects: OutputEffects {
     }
     func copyText(_ text: String) { calls.append("copyText") }
     func copyFile(_ url: URL) { calls.append("copyFile") }
+    func copyImage(_ image: CGImage, pngData: Data?) { calls.append("copyImage") }
     func pasteIntoFrontmostApp() async -> String? {
         calls.append("paste")
         return pasteTarget
@@ -32,6 +34,17 @@ final class RecordingEffects: OutputEffects {
         calls.append("shell(\(command))")
     }
     func notify(title: String, body: String) { calls.append("notify(\(body))") }
+}
+
+/// A tiny solid-colour CGImage, enough to exercise copy and thumbnail writing without a real capture.
+private func testImage(width: Int = 4, height: Int = 4) -> CGImage {
+    let context = CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    return context.makeImage()!
 }
 
 @MainActor
@@ -140,6 +153,36 @@ struct OutputPipelineTests {
         let delivery = await pipeline.deliver(ToolResult(toolID: "voice", text: ""), config: ToolOutputConfig(actions: [.copy, .paste]))
         #expect(effects.calls.isEmpty)
         #expect(delivery.ran.isEmpty)
+    }
+
+    @Test func imageResultsCopyThroughCopyImageWithoutWaitingForSave() async throws {
+        let effects = RecordingEffects()
+        let pipeline = OutputPipeline(effects: effects, history: nil)
+        let result = ToolResult(toolID: "screenshot", fileURL: URL(fileURLWithPath: "/tmp/shot.png"), image: testImage())
+
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.copy, .saveToFolder, .notify]))
+
+        // Unlike a plain file, the image is copied in the copy step itself, not deferred until after save moves it.
+        #expect(effects.calls == ["copyImage", "save(Deskpouch)", "notify(Saved saved.txt)"])
+        #expect(delivery.ran == [.copy, .saveToFolder, .notify])
+        #expect(delivery.copied)
+    }
+
+    @Test func imageResultsWriteAThumbnailIntoHistory() async throws {
+        let effects = RecordingEffects()
+        let history = try HistoryStore.inMemory()
+        let dir = FileManager.default.temporaryDirectory.appending(path: "deskpouch-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pipeline = OutputPipeline(effects: effects, history: history, thumbsDirectory: dir)
+        let result = ToolResult(toolID: "screenshot", fileURL: URL(fileURLWithPath: "/tmp/shot.png"), image: testImage())
+
+        _ = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.copy, .history]))
+
+        let logged = try history.recent(limit: 1)
+        #expect(logged.first?.kind == .screenshot)
+        let thumbURL = try #require(logged.first?.thumbURL)
+        #expect(FileManager.default.fileExists(atPath: thumbURL.path))
+        #expect(thumbURL.deletingLastPathComponent().standardizedFileURL == dir.standardizedFileURL)
     }
 
     @Test func settingsPersistAndToggle() {

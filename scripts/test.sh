@@ -2,7 +2,7 @@
 # Runs every package's tests. Exits non-zero on the first failure.
 set -euo pipefail
 cd "$(dirname "$0")/../Packages"
-for package in DeskpouchCore DeskpouchCapture ToolScreenRecorder ToolVoice; do
+for package in DeskpouchCore DeskpouchCapture ToolScreenRecorder ToolScreenshot ToolVoice; do
   echo "== $package"
   swift test --package-path "$package"
 done

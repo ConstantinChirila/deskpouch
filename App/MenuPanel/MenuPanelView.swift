@@ -1,6 +1,8 @@
+import DeskpouchCapture
 import DeskpouchCore
 import SwiftUI
 import ToolScreenRecorder
+import ToolScreenshot
 import ToolVoice
 
 /// The panel: main view (header, voice card, screen card, Recent, footer) or the General view behind a back
@@ -328,6 +330,30 @@ struct ScreenRow: View {
     }
 }
 
+struct ScreenshotRow: View {
+    let state: ShellState
+
+    var body: some View {
+        ToolRow(name: "Screenshot", live: .none, open: { state.panelView = .tool(ScreenshotToolView.toolID) }) {
+            ScreenshotTile()
+        } status: {
+            Text("\(state.shotSettings.scale.label(nativeScale: state.mainScreenScale)) · \(shotFolderName)")
+                .foregroundStyle(Theme.Colors.textTertiary)
+        } keys: {
+            ForEach(Array(state.shotKey.symbols.enumerated()), id: \.offset) { _, symbol in
+                Keycap(symbol)
+            }
+        }
+        .opacity(state.shotKeyTaken ? 0.7 : 1)
+    }
+
+    /// "Pictures/Deskpouch" for the row status, home-relative with no leading tilde.
+    private var shotFolderName: String {
+        let url = state.shotFolder ?? ScreenshotTool.defaultFolder
+        return url.path.replacingOccurrences(of: NSHomeDirectory() + "/", with: "")
+    }
+}
+
 /// Amber gradient tile with the mic. 36 in the Tools list, smaller in General's switches.
 struct VoiceTile: View {
     var size: CGFloat = 36
@@ -366,6 +392,26 @@ struct ScreenTile: View {
             .frame(width: size, height: size)
             .background(tile.fill(Theme.Colors.tint(0.06)))
             .overlay(tile.strokeBorder(Theme.Colors.tint(0.14), lineWidth: 1))
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+                    .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
+            }
+    }
+}
+
+/// Mint tile with the region brackets glyph. 36 in the Tools list, smaller in General's switches.
+struct ScreenshotTile: View {
+    var size: CGFloat = 36
+
+    var body: some View {
+        let tile = RoundedRectangle(cornerRadius: Theme.Radius.tile * size / 36, style: .continuous)
+        RegionIcon()
+            .stroke(style: .icon(1.6))
+            .foregroundStyle(Theme.Colors.ok)
+            .frame(width: size / 2, height: size / 2)
+            .frame(width: size, height: size)
+            .background(tile.fill(Theme.Colors.ok(0.12)))
+            .overlay(tile.strokeBorder(Theme.Colors.ok(0.22), lineWidth: 1))
             .overlay(alignment: .top) {
                 Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
                     .padding(.horizontal, Theme.Radius.tile).padding(.top, 1)
@@ -667,6 +713,94 @@ struct ScreenToolView: View {
                 OptionRow("Shortcut") {
                     ShortcutRecorder(.press(state.screenKey)) { kind in
                         if case .press(let combo) = kind { actions.setPressKey(combo) }
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+}
+
+/// Screenshot: description and combo, chips, then scale, folder, window shadow and shortcut rows. Annotate
+/// (plan 01 step 2) is not wired up yet, so the card stops at the quick-capture chips.
+struct ScreenshotToolView: View {
+    let state: ShellState
+    let actions: MenuPanelActions
+
+    static let toolID = "screenshot"
+    static let chips: [OutputAction] = [.copy, .saveToFolder, .revealInFinder, .history]
+
+    /// "Copy" reads as "Copy image" here; the other labels are shared.
+    static func label(_ action: OutputAction) -> String {
+        action == .copy ? "Copy image" : action.label
+    }
+
+    var body: some View {
+        ToolCard(live: false, liveColor: Theme.Colors.ok) {
+            HStack(spacing: 12) {
+                ScreenshotTile()
+                Text("Region, window or screen")
+                    .font(.dp(12))
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                Spacer(minLength: 8)
+                HStack(spacing: 4) {
+                    ForEach(Array(state.shotKey.symbols.enumerated()), id: \.offset) { _, symbol in
+                        Keycap(symbol)
+                    }
+                }
+                .opacity(state.shotKeyTaken ? 0.4 : 1)
+                .help(state.shotKeyTaken ? "Another app owns this shortcut" : "Opens the picker")
+            }
+            chipRow
+            options
+        }
+    }
+
+    private var chipRow: some View {
+        let enabled = state.output.config(for: Self.toolID).actions
+        return FlowLayout(spacing: 6) {
+            ForEach(Self.chips, id: \.self) { action in
+                Chip(Self.label(action), isOn: enabled.contains(action)) {
+                    actions.toggleOutput(Self.toolID, action)
+                }
+            }
+        }
+    }
+
+    private var folderLabel: String {
+        let url = state.shotFolder ?? ScreenshotTool.defaultFolder
+        return url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    private var options: some View {
+        VStack(spacing: 0) {
+            RowDivider()
+            OptionRows {
+                OptionRow("Scale") {
+                    PopupPicker(
+                        id: "shot.scale",
+                        selection: Binding(get: { state.shotSettings.scale }, set: { value in actions.updateScreenshot { $0.scale = value } }),
+                        options: CaptureScale.allCases,
+                        title: { $0.label(nativeScale: state.mainScreenScale) }
+                    )
+                }
+                OptionRow("Save to") {
+                    HStack(spacing: 8) {
+                        Text(folderLabel)
+                            .font(.dp(11))
+                            .foregroundStyle(Theme.Colors.textTertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: 170, alignment: .trailing)
+                        RowButton("Choose…") { actions.chooseScreenshotFolder() }
+                    }
+                }
+                OptionRow("Window shadow") {
+                    ToggleSwitch("Window shadow", isOn: Binding(get: { state.shotSettings.windowShadow }, set: { value in actions.updateScreenshot { $0.windowShadow = value } }))
+                }
+                OptionRow("Shortcut") {
+                    ShortcutRecorder(.press(state.shotKey)) { kind in
+                        if case .press(let combo) = kind { actions.setShotPressKey(combo) }
                     }
                 }
             }
@@ -1062,10 +1196,11 @@ struct HistoryTile: View {
                 .background(shape.fill(Theme.Colors.accent(0.14)))
                 .overlay(shape.strokeBorder(Theme.Colors.accent(0.25), lineWidth: 1))
         } else {
-            // File capture: a frame from the file, dark placeholder until it loads or when the file is gone.
+            // File capture: a frame from a recording, or a screenshot's cached JPEG thumbnail; dark placeholder
+            // until it loads or when the source is gone.
             ZStack(alignment: .bottomTrailing) {
                 shape.fill(LinearGradient(colors: [Color(hex: 0x3B42_52), Color(hex: 0x2226_2F)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                if let file = item.fileURL, let frame = thumbnails.image(for: file) {
+                if let url = thumbnailURL, let frame = thumbnails.image(for: url) {
                     Image(decorative: frame, scale: 2)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -1085,8 +1220,15 @@ struct HistoryTile: View {
             }
             .frame(width: 44, height: 30)
             .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
-            .animation(.easeOut(duration: 0.2), value: item.fileURL.flatMap { thumbnails.image(for: $0) } != nil)
+            .animation(.easeOut(duration: 0.2), value: thumbnailURL.flatMap { thumbnails.image(for: $0) } != nil)
         }
+    }
+
+    /// The thumbnail JPEG for an image result (kept small, decoded straight away), or the file itself for a
+    /// recording (a frame is generated from the video on demand). Screenshots without one yet (an older row from
+    /// before thumbnails existed) fall back to the PNG itself.
+    private var thumbnailURL: URL? {
+        item.kind == .screenshot ? (item.thumbURL ?? item.fileURL) : item.fileURL
     }
 }
 

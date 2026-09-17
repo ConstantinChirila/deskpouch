@@ -70,6 +70,8 @@ public final class PickerModel {
     var windows: [PickerWindow]
     /// Screen that shows the toolbar: the one under the mouse when the picker opened.
     public let toolbarScreenID: Int
+    /// Tint and toolbar label for the tool that opened the picker. Defaults to the recorder's look.
+    public let style: PickerStyle
     public var systemAudio: Bool
     public var microphone: Bool
     var frameRate: Int
@@ -94,7 +96,7 @@ public final class PickerModel {
 
     public init(
         mode: PickerMode = .region, screens: [PickerScreen], windows: [PickerWindow] = [],
-        toolbarScreenID: Int, systemAudio: Bool, microphone: Bool, frameRate: Int
+        toolbarScreenID: Int, systemAudio: Bool, microphone: Bool, frameRate: Int, style: PickerStyle = .record
     ) {
         self.mode = mode
         self.screens = screens
@@ -103,9 +105,14 @@ public final class PickerModel {
         self.systemAudio = systemAudio
         self.microphone = microphone
         self.frameRate = frameRate
+        self.style = style
     }
 
     public func screen(_ id: Int) -> PickerScreen? { screens.first { $0.id == id } }
+
+    /// Front-most normal window of another app, or nil with nothing else on screen. `windows` is already
+    /// front-to-back and excludes Deskpouch's own windows (`ShareableContentLoader.makeModel`). Verification only.
+    public var frontmostWindow: PickerWindow? { windows.first }
 
     // MARK: Selection
 

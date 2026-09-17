@@ -2,6 +2,7 @@ import AppKit
 import DeskpouchCore
 import SwiftUI
 import ToolScreenRecorder
+import ToolScreenshot
 
 struct MenuPanelActions {
     var requestPermission: @MainActor () -> Void
@@ -18,6 +19,9 @@ struct MenuPanelActions {
     var setVoiceSkipFillers: @MainActor (Bool) -> Void
     var updateRecorder: @MainActor ((inout RecorderSettings) -> Void) -> Void
     var chooseFolder: @MainActor () -> Void
+    var setShotPressKey: @MainActor (KeyCombo) -> Void
+    var updateScreenshot: @MainActor ((inout ScreenshotSettings) -> Void) -> Void
+    var chooseScreenshotFolder: @MainActor () -> Void
     var setLaunchAtLogin: @MainActor (Bool) -> Void
     var setPillPosition: @MainActor (PillPosition) -> Void
     var clearHistory: @MainActor () -> Void

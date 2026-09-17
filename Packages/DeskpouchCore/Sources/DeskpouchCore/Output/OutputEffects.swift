@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import Foundation
 import UserNotifications
 import os
@@ -14,6 +15,11 @@ public protocol OutputEffects: AnyObject {
     func restorePasteboard(_ snapshot: any Sendable) async
     func copyText(_ text: String)
     func copyFile(_ url: URL)
+    /// Puts PNG and TIFF representations of `image` on the pasteboard, so pasting into apps that prefer either
+    /// format (Slack, Figma) works. When the caller already has `image` encoded as PNG (e.g. the bytes a
+    /// screenshot tool just wrote to its staging file), it passes them as `pngData` so this does not encode the
+    /// same pixels a second time; nil falls back to encoding `image` here.
+    func copyImage(_ image: CGImage, pngData: Data?)
     /// Posts ⌘V. Returns the target app's name, or nil when nothing could be pasted into.
     func pasteIntoFrontmostApp() async -> String?
     /// Writes `result` into `folder`; returns the saved file's URL.
@@ -80,6 +86,20 @@ public final class SystemOutputEffects: OutputEffects {
         pasteboard.writeObjects([url as NSURL])
     }
 
+    public func copyImage(_ image: CGImage, pngData: Data?) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        let item = NSPasteboardItem()
+        if let png = pngData ?? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+            item.setData(png, forType: .png)
+        }
+        // TIFF is offered too (some apps, e.g. older Office, only read that), but built lazily: AppKit only
+        // calls back into the provider if a reader actually asks for `.tiff`, instead of encoding it on every
+        // copy for apps that never look at it.
+        item.setDataProvider(LazyTIFFProvider(image: image), forTypes: [.tiff])
+        pasteboard.writeObjects([item])
+    }
+
     public func pasteIntoFrontmostApp() async -> String? {
         // Give the pasteboard server a moment before the target app reads it.
         try? await Task.sleep(for: .milliseconds(40))
@@ -89,15 +109,15 @@ public final class SystemOutputEffects: OutputEffects {
     public func save(_ result: ToolResult, to folder: URL) throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         if let source = result.fileURL {
-            let destination = Self.uniqueURL(folder.appending(path: source.lastPathComponent))
+            let destination = CaptureNaming.unique(folder.appending(path: source.lastPathComponent))
             if source.deletingLastPathComponent().standardizedFileURL == folder.standardizedFileURL {
                 return source
             }
             try FileManager.default.moveItem(at: source, to: destination)
             return destination
         }
-        let stamp = Self.fileStamp.string(from: result.createdAt)
-        let destination = Self.uniqueURL(folder.appending(path: "\(result.toolID) \(stamp).txt"))
+        let name = CaptureNaming.stamped(prefix: result.toolID, extension: "txt", date: result.createdAt)
+        let destination = CaptureNaming.unique(folder.appending(path: name))
         try (result.text ?? "").write(to: destination, atomically: true, encoding: .utf8)
         return destination
     }
@@ -190,23 +210,20 @@ public final class SystemOutputEffects: OutputEffects {
             if let error { log.error("notification failed: \(String(describing: error), privacy: .public)") }
         }
     }
+}
 
-    private static let fileStamp: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        return f
-    }()
+/// Encodes `image` as TIFF only when a pasteboard reader actually asks for it, not on every `copyImage`.
+/// `NSPasteboardItemDataProvider`'s callback is declared `NS_SWIFT_NONISOLATED` (can run off the main actor),
+/// so this holds nothing but the `Sendable` `CGImage` it was built with.
+private final class LazyTIFFProvider: NSObject, NSPasteboardItemDataProvider, @unchecked Sendable {
+    private let image: CGImage
 
-    private static func uniqueURL(_ url: URL) -> URL {
-        var candidate = url
-        var n = 2
-        let base = url.deletingPathExtension().lastPathComponent
-        let ext = url.pathExtension
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = url.deletingLastPathComponent().appending(path: "\(base) \(n)").appendingPathExtension(ext)
-            n += 1
-        }
-        return candidate
+    init(image: CGImage) {
+        self.image = image
+    }
+
+    func pasteboard(_ pasteboard: NSPasteboard?, item: NSPasteboardItem, provideDataForType type: NSPasteboard.PasteboardType) {
+        guard type == .tiff, let data = NSBitmapImageRep(cgImage: image).representation(using: .tiff, properties: [:]) else { return }
+        item.setData(data, forType: .tiff)
     }
 }

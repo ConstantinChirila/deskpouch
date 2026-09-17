@@ -30,6 +30,10 @@ public struct KeyCombo: Hashable, Codable, Sendable {
     /// ⌘⇧6: the screen recorder's default.
     public static let commandShift6 = KeyCombo(keyCode: UInt16(kVK_ANSI_6), modifiers: [.command, .shift])
 
+    /// ⌘⇧2: the screenshot tool's default. Not ⌘⇧4: macOS's own screenshot shortcut still fires alongside a
+    /// Carbon hotkey registered on it (registration succeeds), so both tools would capture.
+    public static let commandShift2 = KeyCombo(keyCode: UInt16(kVK_ANSI_2), modifiers: [.command, .shift])
+
     /// One entry per keycap, modifiers first: ["⌘", "⇧", "6"].
     public var symbols: [String] {
         Modifiers.displayOrder.compactMap { modifiers.contains($0.0) ? $0.1 : nil } + [keyLabel]
