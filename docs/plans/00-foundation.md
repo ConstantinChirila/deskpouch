@@ -24,13 +24,25 @@ Tests: existing `PickerModel` and `CaptureGeometry` tests move with the files. `
 
 ## 2. `EditorWindowController` in Core
 
-One window chrome for Annotate (01), Diff (04) and Trim (05). AppKit `NSWindow` (titled, full-size content view, custom toolbar hidden), SwiftUI content. Layout per DESIGN.md: panel gradient ground, 18 padding, header row (title 15/600, close), content area, bottom bar with tool-supplied chips left and `Copy` / `Export` buttons right (amber primary). Escape closes, ⌘W closes, ⌘C copies, ⌘S exports. Remembers frame per tool id. Never more than one editor open; opening a second replaces the content.
+One window chrome for Annotate (01), Diff (04) and Trim (05). AppKit `NSWindow` (titled, full-size content view, custom toolbar hidden), SwiftUI content. Layout per DESIGN.md: panel gradient ground, 18 padding, header row (title 15/600, close), content area, bottom bar with tool-supplied chips left and `Copy` / `Export` buttons right (amber primary). Escape closes, ⌘W closes, ⌘C copies, ⌘S exports. Remembers frame per tool id. One window per document (changed 2026-09-17): new windows cascade from the newest, and a document whose `documentKey` matches an open one brings that window forward instead. Closing with unsaved work asks first (`unsavedChanges`).
 
 API:
 ```swift
-public protocol EditorDocument: AnyObject { var title: String { get }; func makeView() -> AnyView; func copy(); func export() async throws -> ToolResult? }
-public final class EditorWindowController { public func present(_ doc: EditorDocument, for toolID: String) }
+@MainActor public protocol EditorDocument: AnyObject {
+    var title: String { get }; var subtitle: String { get }; var idealContentSize: CGSize { get }
+    var documentKey: String? { get }            // default nil
+    func makeContent() -> AnyView; func makeToolbar() -> AnyView
+    func copy(); func export() async throws -> ToolResult?
+    func handleKey(_ event: NSEvent) -> Bool     // default false
+    func cancel() -> Bool                        // Escape; default false
+    func close()                                 // default no-op
+    var unsavedChanges: UnsavedChanges? { get }  // default nil
+}
+public final class EditorWindowController {
+    var deliver; func present(_ doc: any EditorDocument, for toolID: String); func close(where:)
+}
 ```
+(As built 2026-09-17; the first draft had a single `makeView()`.)
 `export()` returns a `ToolResult` the shell feeds to the pipeline like any capture, so chips on the tool card decide what happens.
 
 ## 3. Pipeline: image results and new actions

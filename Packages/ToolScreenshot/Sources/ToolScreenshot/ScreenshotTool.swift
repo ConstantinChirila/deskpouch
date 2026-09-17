@@ -82,9 +82,7 @@ public final class ScreenshotTool: Tool {
         case .idle, .capturing:
             break
         }
-        if let context, context.editor.document is AnnotateDocument {
-            context.editor.close()
-        }
+        context?.editor.close { $0 is AnnotateDocument }
     }
 
     public var isPicking: Bool {

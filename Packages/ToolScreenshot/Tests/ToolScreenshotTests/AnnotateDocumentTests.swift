@@ -136,6 +136,14 @@ struct AnnotateDocumentTests {
         #expect(doc.unsavedChanges != nil)
     }
 
+    @Test func documentKeyIsTheFile() {
+        let a = document(source: URL(fileURLWithPath: "/tmp/x/../a.png"))
+        let b = document(source: URL(fileURLWithPath: "/tmp/a.png"))
+        let c = document(source: URL(fileURLWithPath: "/tmp/c.png"))
+        #expect(a.documentKey == b.documentKey)
+        #expect(a.documentKey != c.documentKey)
+    }
+
     @Test func colourChangeAppliesToTheSelection() {
         let doc = document()
         doc.select(.box)

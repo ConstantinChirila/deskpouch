@@ -10,6 +10,7 @@ final class StubDocument: EditorDocument {
     var subtitle = ""
     var idealContentSize = CGSize(width: 100, height: 100)
     var unsavedChanges: UnsavedChanges?
+    var documentKey: String?
     var exportResult: ToolResult? = ToolResult(toolID: "stub", text: "done")
     private(set) var closed = 0
     private var gate: CheckedContinuation<Void, Never>?
@@ -47,77 +48,111 @@ struct EditorWindowControllerTests {
 
     @Test func closeWithoutChangesDoesNotAsk() {
         let (editor, _) = controller()
-        editor.load(StubDocument(), toolID: "stub")
-        editor.requestClose()
-        #expect(!editor.confirmingDiscard)
+        let session = editor.open(StubDocument(), toolID: "stub")
+        session.requestClose()
+        #expect(!session.confirmingDiscard)
+        #expect(!editor.isOpen)
     }
 
     @Test func closeWithChangesAsksAndKeepEditingDismisses() {
         let (editor, _) = controller()
         let doc = StubDocument()
         doc.unsavedChanges = Self.changes
-        editor.load(doc, toolID: "stub")
-        editor.requestClose()
-        #expect(editor.confirmingDiscard)
-        editor.cancel()
-        #expect(!editor.confirmingDiscard)
-        editor.requestClose()
-        editor.discard()
-        #expect(!editor.confirmingDiscard)
+        let session = editor.open(doc, toolID: "stub")
+        session.requestClose()
+        #expect(session.confirmingDiscard)
+        session.cancel()
+        #expect(!session.confirmingDiscard)
+        #expect(editor.isOpen)
+        session.requestClose()
+        session.discard()
+        #expect(!editor.isOpen)
+        #expect(doc.closed == 1)
     }
 
     @Test func promptSwallowsOtherKeys() throws {
         let (editor, _) = controller()
         let doc = StubDocument()
         doc.unsavedChanges = Self.changes
-        editor.load(doc, toolID: "stub")
-        editor.requestClose()
+        let session = editor.open(doc, toolID: "stub")
+        session.requestClose()
         let key = try #require(NSEvent.keyEvent(
             with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
             characters: "x", charactersIgnoringModifiers: "x", isARepeat: false, keyCode: 7
         ))
-        #expect(editor.handleKey(key))
-        #expect(editor.confirmingDiscard)
+        #expect(session.handleKey(key))
+        #expect(session.confirmingDiscard)
     }
 
-    @Test func exportDeliversOnce() async {
+    @Test func exportDeliversOnceAndCloses() async {
         let (editor, delivered) = controller()
         let doc = StubDocument()
-        editor.load(doc, toolID: "stub")
-        editor.performExport()
-        editor.performExport()
-        #expect(editor.exporting)
+        let session = editor.open(doc, toolID: "stub")
+        session.performExport()
+        session.performExport()
+        #expect(session.exporting)
         doc.finishExport()
-        await editor.exportTask?.value
+        await session.exportTask?.value
         #expect(delivered().count == 1)
-        #expect(!editor.exporting)
+        #expect(!session.exporting)
+        #expect(!editor.isOpen)
     }
 
     @Test func closeRequestsWaitForAnExport() async {
         let (editor, delivered) = controller()
         let doc = StubDocument()
         doc.unsavedChanges = Self.changes
-        editor.load(doc, toolID: "stub")
-        editor.performExport()
-        editor.requestClose()
-        #expect(!editor.confirmingDiscard)
+        let session = editor.open(doc, toolID: "stub")
+        session.performExport()
+        session.requestClose()
+        session.discard()
+        #expect(!session.confirmingDiscard)
+        #expect(editor.isOpen)
         doc.finishExport()
-        await editor.exportTask?.value
+        await session.exportTask?.value
         #expect(delivered().count == 1)
     }
 
-    @Test func exportStillDeliversWhenAnotherDocumentReplacedIt() async {
-        let (editor, delivered) = controller()
+    @Test func documentsOpenSideBySide() {
+        let (editor, _) = controller()
         let first = StubDocument()
-        editor.load(first, toolID: "stub")
-        editor.performExport()
-        let task = editor.exportTask
-        editor.load(StubDocument(), toolID: "stub")
-        #expect(first.closed == 1)
-        #expect(!editor.exporting)
-        first.finishExport()
-        await task?.value
-        #expect(delivered().count == 1)
+        first.unsavedChanges = Self.changes
+        let second = StubDocument()
+        editor.open(first, toolID: "stub")
+        let secondSession = editor.open(second, toolID: "stub")
+        #expect(editor.documents.count == 2)
+        #expect(first.closed == 0)
+        secondSession.requestClose()
+        #expect(editor.documents.count == 1)
+        #expect(editor.documents.first === first)
+    }
+
+    @Test func sameKeyFindsTheOpenWindow() {
+        let (editor, _) = controller()
+        let open = StubDocument()
+        open.documentKey = "/a.png"
+        let session = editor.open(open, toolID: "stub")
+        let again = StubDocument()
+        again.documentKey = "/a.png"
+        let other = StubDocument()
+        other.documentKey = "/b.png"
+        #expect(editor.session(showing: again) === session)
+        #expect(editor.session(showing: other) == nil)
+        #expect(editor.session(showing: StubDocument()) == nil)
+    }
+
+    @Test func closeWhereClosesMatchingDocumentsOnly() {
+        let (editor, _) = controller()
+        let keep = StubDocument()
+        keep.title = "Keep"
+        let drop = StubDocument()
+        drop.title = "Drop"
+        drop.unsavedChanges = Self.changes
+        editor.open(keep, toolID: "stub")
+        editor.open(drop, toolID: "stub")
+        editor.close { $0.title == "Drop" }
+        #expect(editor.documents.map(\.title) == ["Keep"])
+        #expect(drop.closed == 1)
     }
 
     @Test func fittedFrameClampsAndCentres() {

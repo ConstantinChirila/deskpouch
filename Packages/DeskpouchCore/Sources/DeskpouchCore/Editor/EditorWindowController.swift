@@ -5,7 +5,7 @@ import os
 
 private let editorLog = Logger(subsystem: "com.constantinchirila.deskpouch", category: "editor")
 
-/// What a tool shows in the shared editor window: Annotate (01), Diff (04), Trim (05).
+/// What a tool shows in an editor window: Annotate (01), Diff (04), Trim (05).
 @MainActor
 public protocol EditorDocument: AnyObject {
     var title: String { get }
@@ -13,7 +13,10 @@ public protocol EditorDocument: AnyObject {
     var subtitle: String { get }
     /// Content size the document would like at 1:1, in points. The window fits it to the screen.
     var idealContentSize: CGSize { get }
-    /// The main area. Built once per `present`.
+    /// Two documents with the same key are the same thing (e.g. one file): opening the second brings the first
+    /// one's window forward instead. Nil means always open a new window.
+    var documentKey: String? { get }
+    /// The main area. Built once per window.
     func makeContent() -> AnyView
     /// Controls on the left of the bottom bar.
     func makeToolbar() -> AnyView
@@ -44,22 +47,127 @@ public struct UnsavedChanges: Equatable, Sendable {
 }
 
 public extension EditorDocument {
+    var documentKey: String? { nil }
     func handleKey(_ event: NSEvent) -> Bool { false }
     func cancel() -> Bool { false }
     func close() {}
     var unsavedChanges: UnsavedChanges? { nil }
 }
 
-/// One editor window for every tool (00-foundation.md, step 3). Custom chrome on the panel gradient: header
-/// with title and close, the document's content, bottom bar with the document's controls left and Copy /
-/// Export right. Escape and ⌘W close, ⌘C copies, ⌘S exports. Opening a second document replaces the first.
+/// Editor windows for every tool (00-foundation.md, step 3). One window per document, so several screenshots
+/// can be open at once (changed 2026-09-17 from "one editor, a second replaces the first"). Custom chrome on the
+/// panel gradient: header with title and close, the document's content, bottom bar with the document's controls
+/// left and Copy / Export right. Escape and ⌘W close (asking first with unsaved work), ⌘C copies, ⌘S exports.
+@MainActor
+public final class EditorWindowController {
+    /// Where exported results go; the shell feeds them to the output pipeline.
+    public var deliver: (@MainActor (ToolResult) -> Void)?
+
+    /// Open windows, oldest first.
+    private(set) var sessions: [EditorSession] = []
+    /// The app in front before the first editor opened; it gets focus back when the last one closes.
+    private var previousApp: NSRunningApplication?
+
+    static let minimumSize = CGSize(width: 720, height: 480)
+    /// Header, bottom bar, gaps and padding around the content.
+    static let chrome = CGSize(width: 36, height: 36 + 14 + 14 + 34 + 32)
+
+    public init() {}
+
+    public var isOpen: Bool { !sessions.isEmpty }
+
+    /// Documents in open windows, oldest first.
+    public var documents: [any EditorDocument] { sessions.compactMap(\.document) }
+
+    /// Opens `document` in a new window, or brings forward the window already showing the same thing.
+    public func present(_ document: any EditorDocument, for toolID: String) {
+        if let existing = session(showing: document) {
+            document.close()
+            existing.show()
+            editorLog.info("present \(toolID, privacy: .public): already open, focusing")
+            return
+        }
+        if sessions.isEmpty {
+            let frontmost = NSWorkspace.shared.frontmostApplication
+            previousApp = frontmost?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
+        }
+        let previous = sessions.last?.window
+        let session = open(document, toolID: toolID)
+        session.show(after: previous)
+        editorLog.info("present \(toolID, privacy: .public) \(document.title, privacy: .public), \(self.sessions.count) open")
+    }
+
+    /// The open window for the same thing as `document` (same `documentKey`), if any.
+    func session(showing document: any EditorDocument) -> EditorSession? {
+        guard let key = document.documentKey else { return nil }
+        return sessions.first { $0.document?.documentKey == key }
+    }
+
+    /// Adds a session without showing a window. The model half of `present`, split out for tests.
+    @discardableResult
+    func open(_ document: any EditorDocument, toolID: String) -> EditorSession {
+        let session = EditorSession(document: document, toolID: toolID, owner: self)
+        sessions.append(session)
+        return session
+    }
+
+    /// Closes, without asking, every window whose document matches (e.g. a tool being switched off).
+    public func close(where matches: (any EditorDocument) -> Bool) {
+        for session in sessions where session.document.map(matches) == true {
+            session.close()
+        }
+    }
+
+    func sessionClosed(_ session: EditorSession) {
+        sessions.removeAll { $0 === session }
+        guard sessions.isEmpty else { return }
+        // Hand focus back to whatever was in front before the editors, so ⌘V lands there.
+        if let previousApp, !previousApp.isTerminated {
+            previousApp.activate()
+        }
+        previousApp = nil
+    }
+
+    /// The document's size plus chrome, no larger than 85% of `visible`, no smaller than the minimum, centred.
+    static func fittedFrame(for ideal: CGSize, in visible: CGRect) -> CGRect {
+        let maxSize = CGSize(width: visible.width * 0.85, height: visible.height * 0.85)
+        var size = CGSize(width: ideal.width + Self.chrome.width, height: ideal.height + Self.chrome.height)
+        if size.width > maxSize.width || size.height > maxSize.height {
+            let scale = min(maxSize.width / size.width, maxSize.height / size.height)
+            size = CGSize(width: size.width * scale, height: size.height * scale)
+        }
+        size.width = max(Self.minimumSize.width, size.width.rounded())
+        size.height = max(Self.minimumSize.height, size.height.rounded())
+        return CGRect(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2, width: size.width, height: size.height)
+    }
+
+    #if DEBUG
+    // Verification hooks; they act on the newest window.
+
+    /// For a ScreenCaptureKit snapshot of the newest window. Design review only.
+    public var debugWindowNumber: Int? {
+        sessions.last?.window.flatMap { $0.isVisible ? $0.windowNumber : nil }
+    }
+
+    /// Same path as Escape with nothing else to dismiss, then the prompt's Keep editing.
+    public func debugRequestClose() { sessions.last?.requestClose() }
+    public func debugKeepEditing() { sessions.last?.keepEditing() }
+    public var debugConfirmingDiscard: Bool { sessions.last?.confirmingDiscard ?? false }
+
+    /// Same path as the Export button.
+    public func debugExport() {
+        sessions.last?.performExport()
+    }
+    #endif
+}
+
+/// One editor window and its document.
 @MainActor
 @Observable
-public final class EditorWindowController: NSObject {
-    /// Where exported results go; the shell feeds them to the output pipeline.
-    @ObservationIgnored public var deliver: (@MainActor (ToolResult) -> Void)?
-
-    public private(set) var document: (any EditorDocument)?
+final class EditorSession: NSObject {
+    /// Cleared on close, which releases the document's image.
+    private(set) var document: (any EditorDocument)?
+    let toolID: String
     private(set) var content: AnyView?
     private(set) var toolbar: AnyView?
     private(set) var exporting = false
@@ -68,68 +176,46 @@ public final class EditorWindowController: NSObject {
     /// The discard prompt is up.
     private(set) var confirmingDiscard = false
 
-    @ObservationIgnored private var window: EditorWindow?
-    @ObservationIgnored private var toolID: String?
-    @ObservationIgnored private var previousApp: NSRunningApplication?
+    @ObservationIgnored private(set) var window: EditorWindow?
+    @ObservationIgnored private weak var owner: EditorWindowController?
     @ObservationIgnored private var copiedReset: Task<Void, Never>?
+    @ObservationIgnored private var closed = false
     /// The running export, for tests.
     @ObservationIgnored private(set) var exportTask: Task<Void, Never>?
 
-    static let minimumSize = CGSize(width: 720, height: 480)
-    /// Header, bottom bar, gaps and padding around the content.
-    static let chrome = CGSize(width: 36, height: 36 + 14 + 14 + 34 + 32)
-
-    override public init() {
+    init(document: any EditorDocument, toolID: String, owner: EditorWindowController) {
+        self.document = document
+        self.toolID = toolID
+        self.owner = owner
+        content = document.makeContent()
+        toolbar = document.makeToolbar()
         super.init()
     }
 
-    public var isOpen: Bool { window?.isVisible == true }
-
-    public func present(_ document: any EditorDocument, for toolID: String) {
-        let window = self.window ?? makeWindow()
-        self.window = window
-        if let current = self.toolID, current != toolID, window.isVisible {
-            window.saveFrame(usingName: Self.frameName(current))
+    /// Shows the window (creating it the first time), cascaded from `previous` when another editor is open.
+    func show(after previous: NSWindow? = nil) {
+        if window == nil {
+            let window = makeWindow()
+            self.window = window
+            if let previous {
+                // Same size as the newest editor, shifted down-right so both title rows stay visible.
+                window.setFrame(previous.frame.offsetBy(dx: 28, dy: -28), display: false)
+            } else if !window.setFrameUsingName(Self.frameName(toolID)), let document {
+                window.setFrame(EditorWindowController.fittedFrame(for: document.idealContentSize, in: targetScreen().visibleFrame), display: false)
+            }
         }
-        load(document, toolID: toolID)
-
-        if !window.setFrameUsingName(Self.frameName(toolID)) {
-            window.setFrame(Self.fittedFrame(for: document.idealContentSize, in: targetScreen().visibleFrame), display: false)
-        }
-        if !window.isVisible {
-            let frontmost = NSWorkspace.shared.frontmostApplication
-            previousApp = frontmost?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
-        }
+        guard let window else { return }
         // Opened from the pill (a non-activating panel) Deskpouch is not the active app, and `NSApp.activate()`
         // is refused under cooperative activation: the window opened behind the frontmost app. The older call
         // still forces it, and `orderFrontRegardless` keeps the window on top even if activation fails.
         NSApp.activate(ignoringOtherApps: true)
         window.orderFrontRegardless()
         window.makeKey()
-        editorLog.info("present \(toolID, privacy: .public) \(document.title, privacy: .public)")
-        Task { [weak window] in
-            try? await Task.sleep(for: .milliseconds(300))
-            editorLog.info("editor active=\(NSApp.isActive) key=\(window?.isKeyWindow ?? false)")
-        }
-    }
-
-    /// Swaps in `document` and resets the chrome state. The window part of `present`, split out for tests.
-    func load(_ document: any EditorDocument, toolID: String) {
-        if let old = self.document, old !== document { old.close() }
-        self.document = document
-        self.toolID = toolID
-        content = document.makeContent()
-        toolbar = document.makeToolbar()
-        // An export still running for the old document keeps its own reference and delivers on its own.
-        exporting = false
-        copied = false
-        failure = nil
-        confirmingDiscard = false
     }
 
     /// Close button, ⌘W and Escape: asks first when the document has unsaved work. Ignored while exporting:
     /// the export closes the window itself.
-    public func requestClose() {
+    func requestClose() {
         guard !exporting else { return }
         if document?.unsavedChanges != nil {
             // Take the keyboard from a text field being typed in, so the prompt's keys reach `handleKey`.
@@ -151,10 +237,26 @@ public final class EditorWindowController: NSObject {
     }
 
     /// Closes without asking.
-    public func close() {
-        // `close()`, not `performClose`: the standard close button is hidden, and `windowWillClose` still runs.
-        guard let window, window.isVisible else { return }
-        window.close()
+    func close() {
+        // `close()`, not `performClose`: the standard close button is hidden. `windowWillClose` does the cleanup.
+        if let window, window.isVisible {
+            window.close()
+        } else {
+            finish()
+        }
+    }
+
+    private func finish() {
+        guard !closed else { return }
+        closed = true
+        if let window { window.saveFrame(usingName: Self.frameName(toolID)) }
+        document?.close()
+        document = nil
+        confirmingDiscard = false
+        content = nil
+        toolbar = nil
+        copiedReset?.cancel()
+        owner?.sessionClosed(self)
     }
 
     // MARK: Actions
@@ -176,18 +278,19 @@ public final class EditorWindowController: NSObject {
         confirmingDiscard = false
         exporting = true
         failure = nil
+        let deliver = owner?.deliver
         exportTask = Task { [weak self] in
             do {
                 let result = try await document.export()
-                // The file is written by now: deliver it even if the editor moved on, or it would sit in the
-                // folder without being copied or logged.
-                if let result { self?.deliver?(result) }
-                guard let self, self.document === document else { return }
+                // The file is written by now: deliver it even if the window went away meanwhile, or it would
+                // sit in the folder without being copied or logged.
+                if let result { deliver?(result) }
+                guard let self else { return }
                 exporting = false
                 close()
             } catch {
                 editorLog.error("export failed: \(String(describing: error), privacy: .public)")
-                guard let self, self.document === document else { return }
+                guard let self else { return }
                 exporting = false
                 failure = "Export failed"
             }
@@ -221,7 +324,7 @@ public final class EditorWindowController: NSObject {
 
     private func makeWindow() -> EditorWindow {
         let window = EditorWindow(
-            contentRect: CGRect(origin: .zero, size: Self.minimumSize),
+            contentRect: CGRect(origin: .zero, size: EditorWindowController.minimumSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -234,7 +337,7 @@ public final class EditorWindowController: NSObject {
         }
         window.isReleasedWhenClosed = false
         window.backgroundColor = NSColor(hex: 0x121A_17)
-        window.minSize = Self.minimumSize
+        window.minSize = EditorWindowController.minimumSize
         window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
         window.delegate = self
         window.appearance = NSAppearance(named: .darkAqua)
@@ -249,61 +352,20 @@ public final class EditorWindowController: NSObject {
         return NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main ?? NSScreen.screens[0]
     }
 
-    /// The document's size plus chrome, no larger than 85% of `visible`, no smaller than the minimum, centred.
-    static func fittedFrame(for ideal: CGSize, in visible: CGRect) -> CGRect {
-        let maxSize = CGSize(width: visible.width * 0.85, height: visible.height * 0.85)
-        var size = CGSize(width: ideal.width + Self.chrome.width, height: ideal.height + Self.chrome.height)
-        if size.width > maxSize.width || size.height > maxSize.height {
-            let scale = min(maxSize.width / size.width, maxSize.height / size.height)
-            size = CGSize(width: size.width * scale, height: size.height * scale)
-        }
-        size.width = max(Self.minimumSize.width, size.width.rounded())
-        size.height = max(Self.minimumSize.height, size.height.rounded())
-        return CGRect(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2, width: size.width, height: size.height)
-    }
-
     private static func frameName(_ toolID: String) -> String {
         "editor.\(toolID)"
     }
-
-    #if DEBUG
-    /// For a ScreenCaptureKit snapshot of the open window. Design review only.
-    public var debugWindowNumber: Int? {
-        window.flatMap { $0.isVisible ? $0.windowNumber : nil }
-    }
-
-    /// Same path as Escape with nothing else to dismiss, then the prompt's Keep editing. Verification only.
-    public func debugRequestClose() { requestClose() }
-    public func debugKeepEditing() { keepEditing() }
-    public var debugConfirmingDiscard: Bool { confirmingDiscard }
-
-    /// Same path as the Export button. Verification only.
-    public func debugExport() {
-        performExport()
-    }
-    #endif
 }
 
-extension EditorWindowController: NSWindowDelegate {
-    public func windowWillClose(_ notification: Notification) {
-        if let toolID { window?.saveFrame(usingName: Self.frameName(toolID)) }
-        document?.close()
-        document = nil
-        confirmingDiscard = false
-        content = nil
-        toolbar = nil
-        copiedReset?.cancel()
-        // Hand focus back to whatever was in front before the editor, so ⌘V lands there.
-        if let previousApp, !previousApp.isTerminated {
-            previousApp.activate()
-        }
-        previousApp = nil
+extension EditorSession: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        finish()
     }
 }
 
 /// Routes the editor's keys: ⌘ shortcuts, Escape, then the document.
 final class EditorWindow: NSWindow {
-    weak var controller: EditorWindowController?
+    weak var controller: EditorSession?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -345,7 +407,7 @@ final class EditorWindow: NSWindow {
 
 /// Header, content, bottom bar.
 struct EditorChrome: View {
-    let controller: EditorWindowController
+    let controller: EditorSession
 
     var body: some View {
         VStack(spacing: 14) {
@@ -437,7 +499,7 @@ struct EditorChrome: View {
 /// Asked before closing with unsaved work. Sits over the dimmed content, in the panel's card style.
 private struct DiscardPrompt: View {
     let changes: UnsavedChanges
-    let controller: EditorWindowController
+    let controller: EditorSession
 
     var body: some View {
         ZStack {

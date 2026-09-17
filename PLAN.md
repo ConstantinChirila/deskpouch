@@ -112,9 +112,10 @@ Decisions from the editor work:
 - Text is a filled plate in the chosen colour with contrasting ink. Double-click a text mark to retype it; empty deletes it.
 - Keys: A arrow, R box, T text, B blur, N number, Delete removes, arrows nudge (Shift 10 pt), Shift while drawing snaps arrows to 45° and boxes to squares, ⌘Z / ⇧⌘Z, ⌘C copies without saving, ⌘S exports and closes, Esc ends text, then clears the selection, then closes. Closing with marks (Esc, ⌘W, close button) asks first: Discard (D), Keep editing (Esc), Export (Return); the prompt says the original is already saved and where. The header reads "original saved" or "marks not exported".
 - Picker: a double-click inside the drawn region captures (or starts a recording), same as Return.
-- Closing the editor hands focus back to the app that was in front. Switching Screenshot off closes an open Annotate editor.
+- Closing the last editor hands focus back to the app that was in front. Switching Screenshot off closes open Annotate editors; the hover Annotate on screenshot rows stays (decided 2026-09-17).
+- One editor window per document (changed 2026-09-17 from "a second replaces the first"): several screenshots can be annotated at once, new windows cascade from the newest, and annotating a file that is already open brings its window forward (`EditorDocument.documentKey`). `EditorWindowController` manages the windows; each is an `EditorSession`.
 
-Next: text grab (02).
+Text grab (02) is parked (2026-09-17). Next: color (03). Also due before diff (04): store each capture's display and rect in history (`capture_rect`), which step 1 did not do.
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -180,7 +181,7 @@ Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Buil
 
 0. [Foundation](docs/plans/00-foundation.md) (done: steps 1, 2 and 4 on 2026-09-16, step 3's `EditorWindowController` with screenshot on 2026-09-17; `OverlayWindow` for the loupe moves to 03): `DeskpouchCapture` package (picker and still capture move out of the recorder), image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory (⌘⇧6 and ⌘⇧2 have named `KeyCombo` statics so far).
 1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧2: quick capture (step 1, done 2026-09-16, package `ToolScreenshot`), pill Annotate button (step 2), editor with arrow/box/text/blur/badge (step 3); both done 2026-09-17.
-2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted.
+2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted. **Parked 2026-09-17**; color goes next.
 3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint.
 4. [Screenshot diff](docs/plans/04-diff.md): two history rows → Compare; Recapture same region; slider / onion / pixels.
 5. [Trim + GIF](docs/plans/05-trim-gif.md): pill Trim button, passthrough MP4, capped GIF.

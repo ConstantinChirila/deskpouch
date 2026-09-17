@@ -65,6 +65,9 @@ public final class AnnotateDocument: EditorDocument {
 
     public var title: String { "Annotate" }
 
+    /// One window per file: annotating an open file again brings its window forward.
+    public var documentKey: String? { "annotate:" + sourceURL.standardizedFileURL.path }
+
     /// File name and what is on disk, so it is clear the capture is kept whatever happens to the marks.
     public var subtitle: String {
         let state = hasUnsavedMarks ? "marks not exported" : "original saved"

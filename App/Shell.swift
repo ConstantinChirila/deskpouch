@@ -584,6 +584,28 @@ final class Shell {
             }
             return
         }
+        if env["DESKPOUCH_DEMO"] == "annotate-two" {
+            // Opens the two newest screenshot rows side by side, then the newest again: expects 2 windows.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                guard let self else { return }
+                let rows = state.recent.filter(\.canAnnotate).prefix(2)
+                guard rows.count == 2 else {
+                    log.error("demo(annotate-two): needs two screenshot rows in Recent")
+                    return
+                }
+                rows.forEach { self.panelActions.annotate($0) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    guard let self, let first = rows.first else { return }
+                    let before = editor.documents.count
+                    panelActions.annotate(first)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                        guard let self else { return }
+                        log.info("demo(annotate-two): open after two = \(before), after reopening the first = \(self.editor.documents.count) (want 2 and 2)")
+                    }
+                }
+            }
+            return
+        }
         if env["DESKPOUCH_DEMO"] == "annotate" {
             runAnnotateDemo(out: out)
             return

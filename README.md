@@ -142,6 +142,9 @@ DESKPOUCH_DEMO=annotate DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Buil
 # at 3 s) to check the editor still opens in front and takes the keyboard (logs `editor active=… key=…`)
 DESKPOUCH_DEMO=annotate-pill open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
+# Opens the two newest screenshot rows in two editor windows, then the newest again; logs the window counts
+DESKPOUCH_DEMO=annotate-two open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
 # Real Parakeet transcription of a file, no mic, no paste (writes demo-transcript.txt and .png)
 say -o /tmp/speech.wav --data-format=LEF32@16000 "Can we move standup to ten"
 DESKPOUCH_DEMO=transcribe DESKPOUCH_DEMO_WAV=/tmp/speech.wav DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
