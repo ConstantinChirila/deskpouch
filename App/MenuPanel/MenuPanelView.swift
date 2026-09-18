@@ -95,7 +95,9 @@ struct MainPanelView: View {
             }
             if !state.recent.isEmpty {
                 RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
-                              copy: actions.copyRecent, reveal: actions.revealRecent, annotate: actions.annotate) {
+                              copy: actions.copyRecent, reveal: actions.revealRecent, annotate: actions.annotate,
+                              copyText: actions.copyText, expandedColor: state.expandedColor,
+                              toggleFormats: { state.expandedColor = state.expandedColor == $0.id ? nil : $0.id }) {
                     state.popups.close()
                     state.historyQuery = ""
                     state.historyFilter = .all
@@ -721,8 +723,8 @@ struct ScreenToolView: View {
     }
 }
 
-/// Screenshot: description and combo, chips, then scale, folder, window shadow and shortcut rows. Annotate
-/// (plan 01 step 2) is not wired up yet, so the card stops at the quick-capture chips.
+/// Screenshot: description and combo, chips, then scale, folder, window shadow and shortcut rows. Annotate is
+/// reached from the pill and from the hover button on screenshot rows, not from this card.
 struct ScreenshotToolView: View {
     let state: ShellState
     let actions: MenuPanelActions
@@ -946,6 +948,11 @@ struct RecentSection: View {
     let copy: @MainActor (HistoryItem) -> Void
     let reveal: @MainActor (HistoryItem) -> Void
     let annotate: @MainActor (HistoryItem) -> Void
+    /// Copies one of the formats under an expanded colour row.
+    let copyText: @MainActor (String) -> Void
+    /// The colour row showing its formats, and the toggle for it.
+    let expandedColor: UUID?
+    let toggleFormats: @MainActor (HistoryItem) -> Void
     let openHistory: @MainActor () -> Void
 
     var body: some View {
@@ -976,7 +983,8 @@ struct RecentSection: View {
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 ForEach(items) { item in
                     RecentRow(item: item, now: context.date, thumbnails: thumbnails, copy: { copy(item) }, reveal: { reveal(item) },
-                              annotate: annotateAction(item))
+                              annotate: annotateAction(item), copyText: copyText,
+                              showingFormats: expandedColor == item.id, toggleFormats: { toggleFormats(item) })
                 }
             }
         }
@@ -1041,7 +1049,9 @@ struct HistoryView: View {
                             ForEach(section.items) { item in
                                 HistoryRow(item: item, thumbnails: state.thumbnails,
                                            copy: { actions.copyRecent(item) }, reveal: { actions.revealRecent(item) },
-                                           annotate: annotateAction(item),
+                                           annotate: annotateAction(item), copyText: actions.copyText,
+                                           showingFormats: state.expandedColor == item.id,
+                                           toggleFormats: { state.expandedColor = state.expandedColor == item.id ? nil : item.id },
                                            delete: { actions.deleteHistory(item) })
                             }
                         }
@@ -1118,11 +1128,15 @@ struct HistoryRow: View {
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
     let annotate: (@MainActor () -> Void)?
+    let copyText: @MainActor (String) -> Void
+    let showingFormats: Bool
+    let toggleFormats: @MainActor () -> Void
     let delete: @MainActor () -> Void
     @State private var hovering = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+        VStack(spacing: 8) {
         HStack(spacing: hovering ? 8 : 12) {
             HistoryTile(item: item, thumbnails: thumbnails)
             VStack(alignment: .leading, spacing: 3) {
@@ -1140,7 +1154,7 @@ struct HistoryRow: View {
                 AnnotateRowButton(action: annotate)
             }
             if item.text != nil {
-                RowActionButton("Copy transcript", icon: CopyIcon(), action: copy)
+                RowActionButton(item.copyLabel, icon: CopyIcon(), action: copy)
             } else {
                 RowActionButton("Show in Finder", icon: FolderIcon(), action: reveal)
             }
@@ -1158,6 +1172,13 @@ struct HistoryRow: View {
                 .help("Remove from history (keeps the file)")
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
+            if item.pickedColor != nil {
+                FormatsDisclosure(isOpen: showingFormats, action: toggleFormats)
+            }
+        }
+        if showingFormats, let color = item.pickedColor {
+            ColorFormatsList(color: color, copy: copyText)
+        }
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 10)
@@ -1166,8 +1187,12 @@ struct HistoryRow: View {
         .contentShape(shape)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.easeOut(duration: 0.16), value: showingFormats)
         .onTapGesture(count: 2) {
             if item.fileURL != nil { reveal() }
+        }
+        .onTapGesture {
+            if item.pickedColor != nil { toggleFormats() }
         }
         // The trash button only appears on hover and reveal is a double-click, so both are also row actions
         // for VoiceOver and keyboard users.
@@ -1180,6 +1205,9 @@ struct HistoryRow: View {
             if let annotate {
                 Button("Annotate") { annotate() }
             }
+            if item.pickedColor != nil {
+                Button(showingFormats ? "Hide the other formats" : "Show every format", action: toggleFormats)
+            }
         }
     }
 
@@ -1190,6 +1218,7 @@ struct HistoryRow: View {
 
     private var meta: String {
         var parts = [DayGroup.clock(item.createdAt)]
+        if let hint = item.tailwindHint { parts.append(hint) }
         if let duration = item.duration, item.text == nil {
             parts.append(TimeFormat.minutesSeconds(duration))
         }
@@ -1211,7 +1240,9 @@ struct HistoryTile: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-        if item.text != nil {
+        if item.kind == .color {
+            ColorSwatchTile(color: item.pickedColor)
+        } else if item.text != nil {
             MicIcon()
                 .stroke(style: .icon(1.7))
                 .foregroundStyle(Theme.Colors.accentHigh)
@@ -1263,10 +1294,14 @@ struct RecentRow: View {
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
     let annotate: (@MainActor () -> Void)?
+    let copyText: @MainActor (String) -> Void
+    let showingFormats: Bool
+    let toggleFormats: @MainActor () -> Void
     @State private var hovering = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+        VStack(spacing: 8) {
         HStack(spacing: hovering && annotate != nil ? 8 : 12) {
             tile
             VStack(alignment: .leading, spacing: 3) {
@@ -1283,7 +1318,14 @@ struct RecentRow: View {
             if hovering, let annotate {
                 AnnotateRowButton(action: annotate)
             }
-            RowActionButton(item.text != nil ? "Copy transcript" : item.kind == .screenshot ? "Copy image" : "Copy file", icon: CopyIcon(), action: copy)
+            RowActionButton(item.copyLabel, icon: CopyIcon(), action: copy)
+            if item.pickedColor != nil {
+                FormatsDisclosure(isOpen: showingFormats, action: toggleFormats)
+            }
+        }
+        if showingFormats, let color = item.pickedColor {
+            ColorFormatsList(color: color, copy: copyText)
+        }
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 10)
@@ -1292,10 +1334,14 @@ struct RecentRow: View {
         .contentShape(shape)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.easeOut(duration: 0.16), value: showingFormats)
         .onTapGesture(count: 2) {
             if item.fileURL != nil { reveal() }
         }
-        .help(item.fileURL != nil ? "Double-click to show in Finder" : "")
+        .onTapGesture {
+            if item.pickedColor != nil { toggleFormats() }
+        }
+        .help(helpText)
         .accessibilityElement(children: .combine)
         .accessibilityActions {
             if item.fileURL != nil {
@@ -1304,7 +1350,15 @@ struct RecentRow: View {
             if let annotate {
                 Button("Annotate") { annotate() }
             }
+            if item.pickedColor != nil {
+                Button(showingFormats ? "Hide the other formats" : "Show every format", action: toggleFormats)
+            }
         }
+    }
+
+    private var helpText: String {
+        if item.pickedColor != nil { return "Click for every format" }
+        return item.fileURL != nil ? "Double-click to show in Finder" : ""
     }
 
     private var title: String {
@@ -1314,7 +1368,9 @@ struct RecentRow: View {
 
     private var meta: String {
         var parts = [RelativeTime.phrase(from: item.createdAt, now: now)]
-        if let target = item.pastedInto {
+        if let hint = item.tailwindHint {
+            parts.append(hint)
+        } else if let target = item.pastedInto {
             parts.append("pasted into \(target)")
         } else if let duration = item.duration {
             parts.append(TimeFormat.minutesSeconds(duration))
@@ -1350,6 +1406,15 @@ struct AnnotateRowButton: View {
 }
 
 extension HistoryItem {
+    /// Label on the row's copy button.
+    var copyLabel: String {
+        switch kind {
+        case .color: "Copy value"
+        case .screenshot: "Copy image"
+        default: text != nil ? "Copy transcript" : "Copy file"
+        }
+    }
+
     /// A screenshot whose file is still there.
     var canAnnotate: Bool {
         guard kind == .screenshot, let fileURL else { return false }

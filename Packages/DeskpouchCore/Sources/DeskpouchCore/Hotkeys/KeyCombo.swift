@@ -34,6 +34,9 @@ public struct KeyCombo: Hashable, Codable, Sendable {
     /// Carbon hotkey registered on it (registration succeeds), so both tools would capture.
     public static let commandShift2 = KeyCombo(keyCode: UInt16(kVK_ANSI_2), modifiers: [.command, .shift])
 
+    /// ⌘⇧9: the colour picker's default.
+    public static let commandShift9 = KeyCombo(keyCode: UInt16(kVK_ANSI_9), modifiers: [.command, .shift])
+
     /// One entry per keycap, modifiers first: ["⌘", "⇧", "6"].
     public var symbols: [String] {
         Modifiers.displayOrder.compactMap { modifiers.contains($0.0) ? $0.1 : nil } + [keyLabel]

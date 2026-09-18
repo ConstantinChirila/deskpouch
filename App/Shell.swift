@@ -1,6 +1,7 @@
 import AppKit
 import DeskpouchCore
 import ImageIO
+import ToolColor
 import ToolScreenRecorder
 import ToolScreenshot
 import ToolVoice
@@ -24,7 +25,8 @@ final class Shell {
     private let voice = VoiceTool()
     private let screen = ScreenRecorderTool()
     private let screenshot = ScreenshotTool()
-    private var tools: [Tool] { [voice, screen, screenshot] }
+    private let color = ColorTool()
+    private var tools: [Tool] { [voice, screen, screenshot, color] }
 
     private var permissionPoll: Timer?
     private var recordingTimer: Timer?
@@ -77,6 +79,8 @@ final class Shell {
         state.shotKey = screenshot.pressKey ?? .commandShift2
         state.shotSettings = screenshot.settings
         state.shotFolder = state.output.config(for: screenshot.id).folder
+        state.colorKey = color.pressKey ?? .commandShift9
+        state.colorSettings = color.settings
         state.mainScreenScale = NSScreen.main?.backingScaleFactor ?? 2
         refreshVoiceEngine()
         state.voiceMicrophoneUID = voice.microphoneUID
@@ -161,6 +165,7 @@ final class Shell {
     private func setKeyTaken(_ toolID: String, _ taken: Bool) {
         if toolID == screen.id { state.screenKeyTaken = taken }
         if toolID == screenshot.id { state.shotKeyTaken = taken }
+        if toolID == color.id { state.colorKeyTaken = taken }
     }
 
     /// General's per-tool switch. Off frees the hotkeys first, so nothing new starts while the tool winds down.
@@ -197,6 +202,12 @@ final class Shell {
         screenshot.pressKey = combo
         state.shotKey = combo
         registerPress(screenshot)
+    }
+
+    private func setColorPressKey(_ combo: KeyCombo) {
+        color.pressKey = combo
+        state.colorKey = combo
+        registerPress(color)
     }
 
     // MARK: Activity
@@ -461,6 +472,11 @@ final class Shell {
             copyRecent: { [weak self] item in
                 self?.copyRecent(item)
             },
+            copyText: { [weak self] text in
+                guard let self else { return }
+                Paster.copy(text)
+                overlay.flash(.copied)
+            },
             revealRecent: { item in
                 guard let file = item.fileURL else { return }
                 NSWorkspace.shared.activateFileViewerSelecting([file])
@@ -519,6 +535,14 @@ final class Shell {
                 state.shotSettings = settings
             },
             chooseScreenshotFolder: { [weak self] in self?.chooseScreenshotFolder() },
+            setColorPressKey: { [weak self] combo in self?.setColorPressKey(combo) },
+            updateColor: { [weak self] change in
+                guard let self else { return }
+                var settings = color.settings
+                change(&settings)
+                color.settings = settings
+                state.colorSettings = settings
+            },
             setLaunchAtLogin: { [weak self] on in self?.state.general.setLaunchAtLogin(on) },
             setPillPosition: { [weak self] position in
                 guard let self else { return }
@@ -608,6 +632,10 @@ final class Shell {
         }
         if env["DESKPOUCH_DEMO"] == "annotate" {
             runAnnotateDemo(out: out)
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "color" {
+            runColorDemo(point: env["DESKPOUCH_DEMO_POINT"], out: out)
             return
         }
         if env["DESKPOUCH_DEMO"] == "shot" {
@@ -740,11 +768,19 @@ final class Shell {
             panel.holdsOpen = true
             if let button = statusItem.button { panel.open(relativeTo: button) }
         }
-        snap("app-main", at: 2.0)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { [weak self] in
-            self?.state.panelView = .tool(VoiceToolView.toolID)
+        snap("app-main", at: 1.8)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self else { return }
+            // Newest colour row unfolded, so the formats list is in the snapshot.
+            state.expandedColor = state.recent.first { $0.kind == .color }?.id
         }
-        snap("app-voice-options", at: 3.0)
+        snap("app-main-color", at: 2.6)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) { [weak self] in
+            guard let self else { return }
+            state.expandedColor = nil
+            state.panelView = .tool(VoiceToolView.toolID)
+        }
+        snap("app-voice-options", at: 3.4)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) { [weak self] in
             self?.state.panelView = .tool(ScreenToolView.toolID)
         }
@@ -764,18 +800,30 @@ final class Shell {
         snap("app-shot-options", at: 6.4)
         DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self] in
             guard let self else { return }
+            state.panelView = .tool(ColorToolView.toolID)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 7.4) { [weak self] in
+            guard let self else { return }
+            state.popups.toggle("color.format", items: ColorFormat.allCases.enumerated().map { index, format in
+                PopupItem(id: index, title: format.label, detail: format.string(for: SRGBColor(hex: 0xF59E0B)), selected: format == state.colorSettings.format)
+            }) { _ in }
+        }
+        snap("app-color-options", at: 8.4)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 9) { [weak self] in
+            guard let self else { return }
+            state.popups.close()
             state.panelView = .general
         }
-        snap("app-general", at: 8.2)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8.8) { [weak self] in
+        snap("app-general", at: 10.2)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10.8) { [weak self] in
             guard let self else { return }
             state.historyQuery = ""
             state.historyFilter = .all
             loadHistory(.first)
             state.panelView = .history
         }
-        snap("app-history", at: 10)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 11.3) { [weak self] in
+        snap("app-history", at: 12)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 13.3) { [weak self] in
             self?.panel.holdsOpen = false
             self?.panel.close()
         }
@@ -948,6 +996,87 @@ final class Shell {
             try? await Task.sleep(for: .seconds(1))
             overlay.hide()
         }
+    }
+
+    /// `DESKPOUCH_DEMO=color` opens the loupe as ⌘⇧9 would, parks it on a point (AppKit global, `x,y` in
+    /// `DESKPOUCH_DEMO_POINT`, the main screen's centre otherwise), logs what it sampled and picks it through the
+    /// real pipeline. With `DESKPOUCH_DEMO_OUT` it also writes the loupe's screen as `app-loupe.png`.
+    private func runColorDemo(point: String?, out: URL?) {
+        let parts = (point ?? "").split(separator: ",").compactMap { Double($0) }
+        let target = parts.count == 2
+            ? CGPoint(x: parts[0], y: parts[1])
+            : CGPoint(x: (NSScreen.main?.frame.midX ?? 400), y: (NSScreen.main?.frame.midY ?? 400))
+        let realInput = ProcessInfo.processInfo.environment["DESKPOUCH_DEMO_CLICK"] != nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self else { return }
+            log.info("demo(color): opening the loupe at \(target.x, privacy: .public),\(target.y, privacy: .public)")
+            if realInput {
+                // The real path: park the cursor, then press ⌘⇧9 as a user would, so the Carbon hotkey opens the
+                // loupe and the app activates off a genuine key press.
+                postMouse(.mouseMoved, at: target)
+                postKey(25, flags: [.maskCommand, .maskShift])
+            } else {
+                color.debugOpen(at: target)
+            }
+            log.info("demo(color): loupe windows = \(self.color.debugWindowCount) (one per screen)")
+            // The display capture takes a moment; the loupe shows "Reading screen" until it lands.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                guard let self else { return }
+                log.info("demo(color): sampled \(self.color.debugValue ?? "nothing", privacy: .public) at pixel \(self.color.debugPixel, privacy: .public)")
+                if let out { Self.writePNG(color.debugSnapshot(), to: out.appending(path: "app-loupe.png")) }
+                guard realInput else {
+                    color.debugPick()
+                    colorDemoReport()
+                    return
+                }
+                // Real input, posted the way a mouse and keyboard deliver it: a move 40 pt right (80 px on a 2x
+                // display), then Right Arrow (one pixel), then a click on the overlay window. The click also
+                // proves the window takes mouse events on its clear pixels instead of passing them through.
+                log.info("demo(color): app active=\(NSApp.isActive) key window=\(String(describing: NSApp.keyWindow), privacy: .public) frontmost=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil", privacy: .public)")
+                postMouse(.mouseMoved, at: CGPoint(x: target.x + 40, y: target.y))
+                postKey(124)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                    guard let self else { return }
+                    log.info("demo(color): after a 40 pt move and one Right Arrow: pixel \(self.color.debugPixel, privacy: .public), value \(self.color.debugValue ?? "nothing", privacy: .public)")
+                    postMouse(.leftMouseDown, at: CGPoint(x: target.x + 40, y: target.y))
+                    postMouse(.leftMouseUp, at: CGPoint(x: target.x + 40, y: target.y))
+                    log.info("demo(color): posted a real click")
+                    colorDemoReport()
+                }
+            }
+        }
+    }
+
+    /// What the pick left behind: the pasteboard, the newest history row and the dismissed loupe.
+    private func colorDemoReport() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self else { return }
+            let pasteboard = NSPasteboard.general.string(forType: .string) ?? "nothing"
+            let recent = state.recent.first
+            log.info("demo(color): pasteboard = \(pasteboard, privacy: .public)")
+            log.info("demo(color): newest row kind=\(recent?.kind.rawValue ?? "nil", privacy: .public) text=\(recent?.text ?? "nil", privacy: .public)")
+            log.info("demo(color): loupe windows after the pick = \(self.color.debugWindowCount) (must be 0)")
+        }
+    }
+
+    /// `point` is AppKit global (bottom-left origin); CGEvent wants top-left.
+    private func postMouse(_ type: CGEventType, at point: CGPoint) {
+        let height = NSScreen.screens.first?.frame.height ?? 0
+        let source = CGEventSource(stateID: .combinedSessionState)
+        CGEvent(
+            mouseEventSource: source, mouseType: type,
+            mouseCursorPosition: CGPoint(x: point.x, y: height - point.y), mouseButton: .left
+        )?.post(tap: .cghidEventTap)
+    }
+
+    private func postKey(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let down = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true)
+        let up = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
+        down?.flags = flags
+        up?.flags = flags
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
     }
 
     private static func writePNG(_ image: NSImage?, to url: URL) {

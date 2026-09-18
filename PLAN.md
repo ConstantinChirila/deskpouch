@@ -115,7 +115,42 @@ Decisions from the editor work:
 - Closing the last editor hands focus back to the app that was in front. Switching Screenshot off closes open Annotate editors; the hover Annotate on screenshot rows stays (decided 2026-09-17).
 - One editor window per document (changed 2026-09-17 from "a second replaces the first"): several screenshots can be annotated at once, new windows cascade from the newest, and annotating a file that is already open brings its window forward (`EditorDocument.documentKey`). `EditorWindowController` manages the windows; each is an `EditorSession`.
 
-Text grab (02) is parked (2026-09-17). Next: color (03). Also due before diff (04): store each capture's display and rect in history (`capture_rect`), which step 1 did not do.
+Text grab (02) is parked (2026-09-17). Color (03) is done 2026-09-17: package `ToolColor`, ⌘⇧9, loupe on an
+interactive `OverlayWindow`, five formats, Tailwind v4 hints, colour rows in Recent and History with a swatch
+tile. Verified through `DESKPOUCH_DEMO=color DESKPOUCH_DEMO_CLICK=1`, which posts real input: ⌘⇧9 opened the
+loupe, a 40 pt mouse move and a Right Arrow moved the sample 80 px and then 1 px, a real click copied
+`#f59e0c` (an amber `#f59e0b` PNG shown in Preview; macOS's own `screencapture`, converted to sRGB the same way,
+reads `#f59e0c` too, so the one unit is the display round trip, not us) and logged a `color` row. `scripts/test.sh`
+passes (173 tests).
+
+Decisions from the colour work:
+- The loupe samples one capture per display, taken when the cursor first reaches that display, not a capture per
+  mouse move (`SCScreenshotManager` is tens of ms). The screen it shows is therefore frozen at open time.
+- Captures are redrawn into an 8-bit sRGB buffer off the main actor (`PixelBuffer`), which is what converts from
+  the display's P3 space; sampling is then an array read.
+- `OverlayWindow` (Core, from plan 00) grew an `interactive` flag: click-through for the marks in plan 06, and
+  key-taking with `ignoresMouseEvents = false` for the loupe (clear pixels pass clicks through otherwise).
+- Keyboard only reaches the loupe while the app is active, and `NSApp.activate()` only takes effect off a real
+  key press: a demo that opens the loupe programmatically gets mouse events but no keys. The real ⌘⇧9 path is fine.
+- Arrow nudges warp the hidden cursor onto the new pixel's centre, so the next mouse move carries on from there.
+- The Tailwind table is generated from tailwindcss 4.3.3's `theme.css` (26 hues now, not the 22 the plan assumed;
+  mauve, olive, mist and taupe were added), kept as its own OKLCH triples and compared unclamped in Lab: most v4
+  entries sit outside sRGB, so an exact match is rare (amber-500 is ΔE 4.8 from `#f59e0b`).
+- Conversions (OKLab/OKLCH, Lab, HSL, ΔE2000) are tested against culori 4 reference values and the Sharma ΔE2000
+  table; the `oklch` string keeps 3 decimals (the plan's 2 lose too much chroma).
+- A colour row in Recent and History unfolds on click into every format of that colour, one copyable line each
+  (the user asked for this on 2026-09-17); the open row lives in `ShellState.expandedColor`, so one is open at a
+  time and the lists' refreshes do not close it.
+- History rows gained a `meta` TEXT column (`ResultMeta`, JSON): the colour tool writes the exact sRGB there,
+  because the row's text is only the copied format. The same column carries `display` and `rect` for the
+  screenshot work due before diff (04), so that migration is already done. Older databases get the column on open
+  (tested against a hand-built old-schema file).
+- `RGBColor` had to become `SRGBColor`: SwiftUI exports a type of that name, so the app target could not resolve
+  ours.
+- Not verified by hand yet: Escape and Return in the loupe, a second display, and the loupe over a non-P3 screen.
+
+Also due before diff (04): store each capture's display and rect in history (`capture_rect`), which screenshot
+step 1 did not do.
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -182,7 +217,7 @@ Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Buil
 0. [Foundation](docs/plans/00-foundation.md) (done: steps 1, 2 and 4 on 2026-09-16, step 3's `EditorWindowController` with screenshot on 2026-09-17; `OverlayWindow` for the loupe moves to 03): `DeskpouchCapture` package (picker and still capture move out of the recorder), image results and history kinds in the pipeline, per-tool on/off switches in General (off hides the row and frees the hotkey), hotkey inventory (⌘⇧6 and ⌘⇧2 have named `KeyCombo` statics so far).
 1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧2: quick capture (step 1, done 2026-09-16, package `ToolScreenshot`), pill Annotate button (step 2), editor with arrow/box/text/blur/badge (step 3); both done 2026-09-17.
 2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted. **Parked 2026-09-17**; color goes next.
-3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint.
+3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint. **Done 2026-09-17.**
 4. [Screenshot diff](docs/plans/04-diff.md): two history rows → Compare; Recapture same region; slider / onion / pixels.
 5. [Trim + GIF](docs/plans/05-trim-gif.md): pill Trim button, passthrough MP4, capped GIF.
 6. [Demo polish](docs/plans/06-demo-polish.md): click ripple, keystroke chip, presenter mode; exclusion becomes per-window. Webcam bubble later.

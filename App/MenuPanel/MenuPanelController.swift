@@ -1,6 +1,7 @@
 import AppKit
 import DeskpouchCore
 import SwiftUI
+import ToolColor
 import ToolScreenRecorder
 import ToolScreenshot
 
@@ -8,6 +9,8 @@ struct MenuPanelActions {
     var requestPermission: @MainActor () -> Void
     var toggleOutput: @MainActor (_ toolID: String, _ action: OutputAction) -> Void
     var copyRecent: @MainActor (HistoryItem) -> Void
+    /// Copies a plain string (one of the formats under an expanded colour row).
+    var copyText: @MainActor (String) -> Void
     var revealRecent: @MainActor (HistoryItem) -> Void
     /// Opens the editor on a screenshot row.
     var annotate: @MainActor (HistoryItem) -> Void
@@ -24,6 +27,8 @@ struct MenuPanelActions {
     var setShotPressKey: @MainActor (KeyCombo) -> Void
     var updateScreenshot: @MainActor ((inout ScreenshotSettings) -> Void) -> Void
     var chooseScreenshotFolder: @MainActor () -> Void
+    var setColorPressKey: @MainActor (KeyCombo) -> Void
+    var updateColor: @MainActor ((inout ColorSettings) -> Void) -> Void
     var setLaunchAtLogin: @MainActor (Bool) -> Void
     var setPillPosition: @MainActor (PillPosition) -> Void
     var clearHistory: @MainActor () -> Void

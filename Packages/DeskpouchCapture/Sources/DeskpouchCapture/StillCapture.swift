@@ -38,11 +38,11 @@ public enum StillCapture {
         var shadowMargin: CGFloat?
         switch selection {
         case .region(let screen, let rect):
-            filter = try await displayFilter(for: screen, content: content)
+            filter = try await displayFilter(for: screen.displayID, content: content)
             config.sourceRect = rect
             pointSize = rect.size
         case .screen(let screen):
-            filter = try await displayFilter(for: screen, content: content)
+            filter = try await displayFilter(for: screen.displayID, content: content)
             pointSize = filter.contentRect.size
         case .window(let pickerWindow):
             guard let window = content.windows.first(where: { $0.windowID == pickerWindow.id }) else {
@@ -134,8 +134,22 @@ public enum StillCapture {
         return image.cropping(to: cropRect) ?? image
     }
 
-    private static func displayFilter(for screen: PickerScreen, content: SCShareableContent) async throws -> SCContentFilter {
-        guard let display = content.displays.first(where: { $0.displayID == screen.displayID }) else {
+    /// A whole display at native pixels, Deskpouch's own windows left out, no picker involved. The colour loupe
+    /// samples from this.
+    public static func display(_ displayID: CGDirectDisplayID) async throws -> Still {
+        let content = try await ShareableContentLoader.load()
+        let filter = try await displayFilter(for: displayID, content: content)
+        let config = SCStreamConfiguration()
+        config.showsCursor = false
+        let pixelScale = CGFloat(filter.pointPixelScale)
+        config.width = Int((filter.contentRect.width * pixelScale).rounded())
+        config.height = Int((filter.contentRect.height * pixelScale).rounded())
+        let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        return Still(image: image, pixelsPerPoint: pixelScale)
+    }
+
+    private static func displayFilter(for displayID: CGDirectDisplayID, content: SCShareableContent) async throws -> SCContentFilter {
+        guard let display = content.displays.first(where: { $0.displayID == displayID }) else {
             throw StillCaptureError(message: "Display not found")
         }
         if let app = await ShareableContentLoader.ownApplication(fallback: content) {

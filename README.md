@@ -22,7 +22,7 @@ If `xcodebuild` fails with "A required plugin failed to load", run `xcodebuild -
 
 ## Permissions
 
-The hold-to-talk key uses AppKit global event monitors, which need Accessibility access; pasting posts ⌘V through the same grant. Dictation needs Microphone access. The screen recorder and the screenshot tool both need Screen Recording access (the ⌘⇧6 and ⌘⇧2 combos themselves are Carbon hotkeys and need nothing). All are prompted on first use; macOS usually wants the app relaunched after the Screen Recording grant.
+The colour picker needs Screen Recording too (it reads the pixels under the loupe). The hold-to-talk key uses AppKit global event monitors, which need Accessibility access; pasting posts ⌘V through the same grant. Dictation needs Microphone access. The screen recorder and the screenshot tool both need Screen Recording access (the ⌘⇧6 and ⌘⇧2 combos themselves are Carbon hotkeys and need nothing). All are prompted on first use; macOS usually wants the app relaunched after the Screen Recording grant.
 
 Builds are ad-hoc signed by default, so macOS treats every rebuild as a new app and forgets both grants. Run this once to create a stable local signing certificate (approve the Keychain dialogs it triggers):
 
@@ -48,7 +48,7 @@ The panel's engine line shows the active code, e.g. "Parakeet v3 · EN". Takes e
 
 ## History and after-capture actions
 
-Every capture that has the History chip on is logged to `~/Library/Application Support/Deskpouch/history.sqlite` (plain SQLite, table `results`). The panel shows the last 5 under Recent with a total count; the copy button puts the transcript back on the clipboard, double-click reveals a recording in Finder. The "All N ›" link in the Recent header opens History: search, an All / Voice / Recordings filter, rows grouped by day, "Show older" for the next page, and a delete button on hover that removes the row and keeps the file. General (footer of the panel) has the global "Keep history" switch, the count and size, "Clear…", and the pill position (top under the menubar, or bottom above the Dock).
+Every capture that has the History chip on is logged to `~/Library/Application Support/Deskpouch/history.sqlite` (plain SQLite, table `results`; a `meta` column holds per-tool extras as JSON, such as a picked colour's exact sRGB, and is added to an older database on first open). The panel shows the last 5 under Recent with a total count; the copy button puts the transcript back on the clipboard, double-click reveals a recording in Finder. The "All N ›" link in the Recent header opens History: search, an All / Voice / Recordings filter, rows grouped by day, "Show older" for the next page, and a delete button on hover that removes the row and keeps the file. General (footer of the panel) has the global "Keep history" switch, the count and size, "Clear…", and the pill position (top under the menubar, or bottom above the Dock).
 
 The chips in the Voice view (Paste, Copy, History) are the after-capture actions for that tool, stored as JSON in `defaults` under `output.voice`. Paste with Copy off still uses the pasteboard for ⌘V, then restores what was there. Save to folder, reveal and shell command exist in the pipeline but have no UI yet.
 
@@ -81,7 +81,7 @@ swift test --package-path Packages/ToolScreenRecorder
 
 ## Screenshot
 
-⌘⇧2 opens the same picker in its mint "still" look: drag a region, or switch to Window or Screen and click the target. A selection captures immediately, no separate start button. Annotate (arrow, box, text, blur, badge) is not built yet, so the capture goes straight through the pipeline: copied to the pasteboard as an image, saved to `~/Pictures/Deskpouch`, and logged with a thumbnail. The default is ⌘⇧2, not ⌘⇧2: macOS's own screenshot shortcut still fires when another app registers ⌘⇧2, so both would capture.
+⌘⇧2 opens the same picker in its mint "still" look: drag a region, or switch to Window or Screen and click the target. A selection captures immediately, no separate start button. The capture goes through the pipeline: copied to the pasteboard as an image, saved to `~/Pictures/Deskpouch`, and logged with a thumbnail; the pill then offers Annotate (arrow, box, text, blur, badge), as does the hover button on screenshot rows. The default is ⌘⇧2, not ⌘⇧4: macOS's own screenshot shortcut still fires when another app registers ⌘⇧4, so both would capture.
 
 Options live in the tool's view: scale (2x native, the default, or 1x downsampled), save folder, whether a window capture keeps the macOS drop shadow, shortcut.
 
@@ -94,6 +94,43 @@ Screenshot tests run without Xcode:
 
 ```sh
 swift test --package-path Packages/ToolScreenshot
+```
+
+## Color
+
+⌘⇧9 shows a loupe that follows the cursor: 11x11 pixels magnified, the centre one ringed, and under it the value a
+click copies plus the nearest Tailwind v4 name. Click picks (copied and logged), Escape or ⌘⇧9 again cancels, a
+right click cancels, the arrow keys nudge one pixel (⇧ ten), Return picks without the mouse. The cursor is hidden
+while the loupe is up.
+
+Each display is captured once, the moment the cursor first reaches it, and every sample after that reads that
+capture: a ScreenCaptureKit call per mouse move is far too slow. So the loupe reads the screen as it was when it
+opened; reopen it after something on screen changes. Colours are converted to sRGB, whatever the display's own
+space, so a hex code means what it means in a browser. On a P3 display the round trip can differ by one unit per
+channel (macOS's own `screencapture` converts to the same value).
+
+A colour row in Recent or History opens on click (or the chevron): the swatch stays, and under it every format of
+that same colour, one per line, each copied by clicking it. The row's second line names the nearest Tailwind entry.
+One row is open at a time.
+
+The exact pixel is logged with the row (the `meta` column, `{"srgb":"#f59e0c"}`), because the row's text is only
+the format that was copied and hsl and oklch round on the way out. Rows picked before that column existed are
+parsed back from their text instead: exact for hex, rgb and SwiftUI, a unit or two off for the other two.
+
+Options live in the tool's view: format, Tailwind hints, shortcut.
+
+```sh
+defaults write com.constantinchirila.deskpouch color.format oklch      # hex (default), rgb, hsl, oklch, swiftUI
+defaults write com.constantinchirila.deskpouch color.tailwindHints -bool false
+```
+
+The Tailwind table is the default palette from tailwindcss 4.3.3 (26 hues x 11 steps, plus black and white),
+compared in CIE Lab with ΔE2000; past ΔE 6 the loupe says "custom", under ΔE 1 it drops the "≈".
+
+Color tests run without Xcode:
+
+```sh
+swift test --package-path Packages/ToolColor
 ```
 
 ## Design review
@@ -145,6 +182,15 @@ DESKPOUCH_DEMO=annotate-pill open build/DerivedData/Build/Products/Debug/Deskpou
 # Opens the two newest screenshot rows in two editor windows, then the newest again; logs the window counts
 DESKPOUCH_DEMO=annotate-two open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
+# The colour loupe: opens it, parks it in the middle of the screen, logs what it sampled, picks it through the
+# real pipeline (clipboard + history), and with DESKPOUCH_DEMO_OUT writes app-loupe.png.
+DESKPOUCH_DEMO=color DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
+# Same, but driven by real posted input: ⌘⇧9 opens the loupe, the mouse moves 40 pt, Right Arrow nudges a pixel,
+# a click picks. DESKPOUCH_DEMO_POINT=x,y aims it somewhere else (AppKit global, bottom-left origin). Opening the
+# loupe any other way leaves the app inactive, so keys never reach it: that is the demo path, not a bug.
+DESKPOUCH_DEMO=color DESKPOUCH_DEMO_CLICK=1 open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
 # Real Parakeet transcription of a file, no mic, no paste (writes demo-transcript.txt and .png)
 say -o /tmp/speech.wav --data-format=LEF32@16000 "Can we move standup to ten"
 DESKPOUCH_DEMO=transcribe DESKPOUCH_DEMO_WAV=/tmp/speech.wav DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
@@ -167,6 +213,7 @@ Packages/ToolVoice/       VoiceTool and the Parakeet transcriber (FluidAudio)
 Packages/DeskpouchCapture/    region/window/screen picker, capture geometry, still capture, shareable content lookup
 Packages/ToolScreenRecorder/  ScreenRecorderTool, ScreenCaptureKit recorder
 Packages/ToolScreenshot/      ScreenshotTool, quick region/window/screen capture
+Packages/ToolColor/           ColorTool, loupe, colour conversions, Tailwind palette
 design/                   spec and mocks
 ```
 
@@ -177,4 +224,4 @@ design/                   spec and mocks
 - Milestone 3 done: SQLite history, per-tool after-capture actions (chips on the Voice card), Recent list with re-copy.
 - Milestone 4 done: ⌘⇧6 picker (region, window, screen), ScreenCaptureKit recording to mp4 with system audio and optional mic, recording pill and menubar timer, screen card with its chips.
 - Milestone 5 done: per-tool views with options (model, language, microphone, folder, quality, frame rate, audio, shortcuts), General view (launch at login, sounds, menubar timer, history switches and clear, permissions, version). Panel layout v2: a list of tools that opens into each tool's view.
-- v1 done; v2 tools (see `PLAN.md`) in progress. Foundation (Capture package, tool switches, image results and history kinds) done. Screenshot step 1 (⌘⇧2 quick capture) done; Annotate (pill button, editor) is next.
+- v1 done; v2 tools (see `PLAN.md`) in progress. Foundation (Capture package, tool switches, image results and history kinds) done. Screenshot (⌘⇧2 quick capture plus the Annotate editor) done. Color (⌘⇧9 loupe) done.

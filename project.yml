@@ -34,6 +34,8 @@ packages:
     path: Packages/ToolScreenRecorder
   ToolScreenshot:
     path: Packages/ToolScreenshot
+  ToolColor:
+    path: Packages/ToolColor
 
 configFiles:
   Debug: Signing.xcconfig
@@ -55,6 +57,7 @@ targets:
       - package: ToolVoice
       - package: ToolScreenRecorder
       - package: ToolScreenshot
+      - package: ToolColor
     info:
       path: App/Info.plist
       properties:
@@ -101,4 +104,5 @@ schemes:
         - package: DeskpouchCore/DeskpouchCoreTests
         - package: ToolScreenRecorder/ToolScreenRecorderTests
         - package: ToolScreenshot/ToolScreenshotTests
+        - package: ToolColor/ToolColorTests
         - package: ToolVoice/ToolVoiceTests

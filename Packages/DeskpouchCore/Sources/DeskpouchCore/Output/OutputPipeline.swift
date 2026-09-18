@@ -120,7 +120,8 @@ public final class OutputPipeline {
                         duration: result.duration,
                         pastedInto: delivery.pastedInto,
                         kind: result.kind,
-                        thumbURL: thumbURL
+                        thumbURL: thumbURL,
+                        meta: result.meta
                     ))
                     delivery.recorded = true
                 } catch {

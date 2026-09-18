@@ -16,10 +16,12 @@
 		4993D897E9D41A7EBB0E4B19 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED5BC844B83DC2A399C0B05 /* GeneralSettings.swift */; };
 		518F54A7E17890E698B8128F /* ToolScreenRecorder in Frameworks */ = {isa = PBXBuildFile; productRef = A775083F6B6659C1AA9009A5 /* ToolScreenRecorder */; };
 		55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808C40D7AD0482A78A66418A /* MenuPanelView.swift */; };
+		65FF08C6163FFCA40289015F /* ToolColor in Frameworks */ = {isa = PBXBuildFile; productRef = 9923BE220F3FA7552CF88F7B /* ToolColor */; };
 		70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */; };
 		756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3031371CC2D3391D04FE0A /* StatusItemController.swift */; };
 		8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C492790EFEA746C0DA06CA /* MenuPanelController.swift */; };
 		8D7E689FCDBB23AE6A78C363 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 74171F664B916342221667E8 /* AppIcon.icns */; };
+		9FDDEFB118D7D9ABCD36F58A /* ColorToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBBC6FBF46A7EFE227EB9396 /* ColorToolView.swift */; };
 		A026F1C1A6D6E94DD05E19E1 /* WindowSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F01CE04F0A6AABF0BD257A4 /* WindowSnapshot.swift */; };
 		A9CD7C25DE2E0849A2526397 /* WavLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D081FAD61856D394B8A0F03 /* WavLoader.swift */; };
 		BC438519774B40BE0317DA8D /* DeskpouchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5C940766A0F276D2FACFCF8B /* DeskpouchCore */; };
@@ -34,6 +36,7 @@
 		3CE7D868125BD06D6B6DD988 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
 		4EE4C6D7A2F44EB9EB61D4E0 /* ToolScreenRecorder */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolScreenRecorder; path = Packages/ToolScreenRecorder; sourceTree = SOURCE_ROOT; };
 		585F824E8BD34D94C5F33FE7 /* ThumbnailCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCache.swift; sourceTree = "<group>"; };
+		5899EFA3DC3C3B3A32581DF8 /* ToolColor */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolColor; path = Packages/ToolColor; sourceTree = SOURCE_ROOT; };
 		60C492790EFEA746C0DA06CA /* MenuPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelController.swift; sourceTree = "<group>"; };
 		6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedLevelSource.swift; sourceTree = "<group>"; };
 		6D081FAD61856D394B8A0F03 /* WavLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WavLoader.swift; sourceTree = "<group>"; };
@@ -45,9 +48,10 @@
 		9F01CE04F0A6AABF0BD257A4 /* WindowSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSnapshot.swift; sourceTree = "<group>"; };
 		A9D64F0C3DDC0C8B3AA2C06F /* ToolScreenshot */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolScreenshot; path = Packages/ToolScreenshot; sourceTree = SOURCE_ROOT; };
 		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		BBBC6FBF46A7EFE227EB9396 /* ColorToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorToolView.swift; sourceTree = "<group>"; };
 		DA42675F412F933FA4794F55 /* PanelTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelTools.swift; sourceTree = "<group>"; };
 		EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCapture; path = Packages/DeskpouchCapture; sourceTree = SOURCE_ROOT; };
-		"TEMP_D3BAC08E-D6B7-4363-8E8D-8E2121816D96" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_A3614F5F-AF26-42E2-86D5-B2E9F29C108C" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +64,7 @@
 				432CA387C71FAA9131026C3B /* ToolVoice in Frameworks */,
 				518F54A7E17890E698B8128F /* ToolScreenRecorder in Frameworks */,
 				C9D6FDAE4E503A1EB517D4E3 /* ToolScreenshot in Frameworks */,
+				65FF08C6163FFCA40289015F /* ToolColor in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -94,6 +99,7 @@
 		2E898B456655F7D72E47469A /* MenuPanel */ = {
 			isa = PBXGroup;
 			children = (
+				BBBC6FBF46A7EFE227EB9396 /* ColorToolView.swift */,
 				60C492790EFEA746C0DA06CA /* MenuPanelController.swift */,
 				808C40D7AD0482A78A66418A /* MenuPanelView.swift */,
 				DA42675F412F933FA4794F55 /* PanelTools.swift */,
@@ -116,6 +122,7 @@
 			children = (
 				EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */,
 				9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */,
+				5899EFA3DC3C3B3A32581DF8 /* ToolColor */,
 				4EE4C6D7A2F44EB9EB61D4E0 /* ToolScreenRecorder */,
 				A9D64F0C3DDC0C8B3AA2C06F /* ToolScreenshot */,
 				21C511F9445B0D2F2566D16C /* ToolVoice */,
@@ -131,10 +138,10 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_A473DD47-90C5-49F2-A535-A45E4A74805F" /* deskpouch */ = {
+		"TEMP_318556E9-D54C-4AB2-A375-3D2D981C3D58" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_D3BAC08E-D6B7-4363-8E8D-8E2121816D96" /* Signing.xcconfig */,
+				"TEMP_A3614F5F-AF26-42E2-86D5-B2E9F29C108C" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -161,6 +168,7 @@
 				08AD5B64931757A74D91D445 /* ToolVoice */,
 				A775083F6B6659C1AA9009A5 /* ToolScreenRecorder */,
 				CB98BCF9E64DA7DDB13EFC4A /* ToolScreenshot */,
+				9923BE220F3FA7552CF88F7B /* ToolColor */,
 			);
 			productName = Deskpouch;
 			productReference = 19DE6D2757F545337C4910C3 /* Deskpouch.app */;
@@ -193,6 +201,7 @@
 			packageReferences = (
 				F83E15E34BEA534A43778172 /* XCLocalSwiftPackageReference "Packages/DeskpouchCapture" */,
 				0360330C54A5569B7F57133A /* XCLocalSwiftPackageReference "Packages/DeskpouchCore" */,
+				7DD191523B1151163CF790DB /* XCLocalSwiftPackageReference "Packages/ToolColor" */,
 				EDE94C1FB7BFFF29E9E1FCBA /* XCLocalSwiftPackageReference "Packages/ToolScreenRecorder" */,
 				7D1AE8E7189B4E9CB620A340 /* XCLocalSwiftPackageReference "Packages/ToolScreenshot" */,
 				92BDEAE78AC14603D825DCB4 /* XCLocalSwiftPackageReference "Packages/ToolVoice" */,
@@ -224,6 +233,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */,
+				9FDDEFB118D7D9ABCD36F58A /* ColorToolView.swift in Sources */,
 				4993D897E9D41A7EBB0E4B19 /* GeneralSettings.swift in Sources */,
 				8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */,
 				55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */,
@@ -263,7 +273,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_D3BAC08E-D6B7-4363-8E8D-8E2121816D96" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_A3614F5F-AF26-42E2-86D5-B2E9F29C108C" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -328,7 +338,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_D3BAC08E-D6B7-4363-8E8D-8E2121816D96" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_A3614F5F-AF26-42E2-86D5-B2E9F29C108C" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -449,6 +459,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/ToolScreenshot;
 		};
+		7DD191523B1151163CF790DB /* XCLocalSwiftPackageReference "Packages/ToolColor" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/ToolColor;
+		};
 		92BDEAE78AC14603D825DCB4 /* XCLocalSwiftPackageReference "Packages/ToolVoice" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/ToolVoice;
@@ -471,6 +485,10 @@
 		5C940766A0F276D2FACFCF8B /* DeskpouchCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DeskpouchCore;
+		};
+		9923BE220F3FA7552CF88F7B /* ToolColor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ToolColor;
 		};
 		A775083F6B6659C1AA9009A5 /* ToolScreenRecorder */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -95,12 +95,16 @@ public struct ToolResult: Sendable, Identifiable {
     public let kind: HistoryKind
     /// A button the pill offers once the result is delivered (Annotate, Trim).
     public let followUp: ResultFollowUp?
+    /// Extras logged with the row: the exact colour picked, the display and rect captured.
+    public let meta: ResultMeta?
 
     public init(
         toolID: String, text: String? = nil, fileURL: URL? = nil, image: CGImage? = nil,
-        duration: TimeInterval? = nil, kind: HistoryKind? = nil, followUp: ResultFollowUp? = nil
+        duration: TimeInterval? = nil, kind: HistoryKind? = nil, followUp: ResultFollowUp? = nil,
+        meta: ResultMeta? = nil
     ) {
         self.followUp = followUp
+        self.meta = meta
         id = UUID()
         self.toolID = toolID
         self.text = text

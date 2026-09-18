@@ -345,3 +345,22 @@ extension StrokeStyle {
         StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round)
     }
 }
+
+/// Eyedropper, tip at the bottom left.
+public struct DropperIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        // Bulb: a short capsule across the top right corner.
+        p.move(to: CGPoint(x: 9, y: 4.5)); p.addLine(to: CGPoint(x: 10.8, y: 2.7))
+        p.addArc(center: CGPoint(x: 12.05, y: 3.95), radius: 1.77, startAngle: .degrees(225), endAngle: .degrees(45), clockwise: false)
+        p.addLine(to: CGPoint(x: 11.5, y: 7))
+        // Collar.
+        p.move(to: CGPoint(x: 8, y: 3.5)); p.addLine(to: CGPoint(x: 12.5, y: 8))
+        // Barrel down to the tip.
+        p.move(to: CGPoint(x: 9.5, y: 5.5)); p.addLine(to: CGPoint(x: 3.5, y: 11.5))
+        p.addLine(to: CGPoint(x: 3, y: 13)); p.addLine(to: CGPoint(x: 4.5, y: 12.5))
+        p.addLine(to: CGPoint(x: 10.5, y: 6.5))
+        return p.scaled(toFit: rect)
+    }
+}

@@ -33,6 +33,12 @@ enum PanelTools {
             row: { AnyView(ScreenshotRow(state: $0)) },
             view: { AnyView(ScreenshotToolView(state: $0, actions: $1)) }
         ),
+        PanelTool(
+            id: ColorToolView.toolID, name: "Color",
+            tile: { AnyView(ColorTile(size: $0)) },
+            row: { AnyView(ColorRow(state: $0)) },
+            view: { AnyView(ColorToolView(state: $0, actions: $1)) }
+        ),
     ]
 
     static func tool(_ id: String) -> PanelTool? {

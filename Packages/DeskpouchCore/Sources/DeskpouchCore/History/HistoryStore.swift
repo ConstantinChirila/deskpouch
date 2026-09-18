@@ -7,6 +7,8 @@ private let log = Logger(subsystem: "com.constantinchirila.deskpouch", category:
 /// Which bucket a history row belongs to. Backs the History view's filter segments.
 public enum HistoryKind: String, Codable, Sendable, CaseIterable {
     case text, recording, screenshot, meeting, convert
+    /// A picked colour; `text` holds the copied value in whatever format was chosen.
+    case color
 }
 
 /// One logged capture. What the Recent list shows and what re-copy reads back.
@@ -22,13 +24,17 @@ public struct HistoryItem: Sendable, Identifiable, Equatable {
     public let kind: HistoryKind
     /// Small JPEG cached for image results, so Recent/History can show a tile without loading the original file.
     public let thumbURL: URL?
+    /// Per-tool extras: the exact colour of a `color` row, the display and rect of a capture.
+    public let meta: ResultMeta?
 
     /// `kind` defaults to an inference from the row's shape (a file means recording, no file means text) so
     /// existing callers that predate screenshots and thumbnails keep compiling unchanged.
     public init(
         id: UUID, toolID: String, createdAt: Date, text: String?, fileURL: URL?,
-        duration: TimeInterval?, pastedInto: String?, kind: HistoryKind? = nil, thumbURL: URL? = nil
+        duration: TimeInterval?, pastedInto: String?, kind: HistoryKind? = nil, thumbURL: URL? = nil,
+        meta: ResultMeta? = nil
     ) {
+        self.meta = meta
         self.id = id
         self.toolID = toolID
         self.createdAt = createdAt
@@ -107,7 +113,8 @@ public final class HistoryStore {
                 duration REAL,
                 pasted_into TEXT,
                 kind TEXT NOT NULL DEFAULT 'text',
-                thumb_path TEXT
+                thumb_path TEXT,
+                meta TEXT
             )
             """
         )
@@ -115,7 +122,7 @@ public final class HistoryStore {
         try exec("CREATE INDEX IF NOT EXISTS results_created_at ON results(created_at DESC)")
     }
 
-    /// Adds `kind` and `thumb_path` to a database opened from before this schema existed. `CREATE TABLE IF NOT
+    /// Adds `kind`, `thumb_path` and `meta` to a database opened from before this schema existed. `CREATE TABLE IF NOT
     /// EXISTS` above only applies to a table it creates, so an older on-disk file needs its own two columns
     /// added. Existing rows get the same inference `HistoryItem.init` uses for a nil `kind`: a file means
     /// recording, no file means text, the only two kinds earlier builds ever produced.
@@ -127,6 +134,9 @@ public final class HistoryStore {
         }
         if !existing.contains("thumb_path") {
             try exec("ALTER TABLE results ADD COLUMN thumb_path TEXT")
+        }
+        if !existing.contains("meta") {
+            try exec("ALTER TABLE results ADD COLUMN meta TEXT")
         }
     }
 
@@ -149,8 +159,8 @@ public final class HistoryStore {
     public func record(_ item: HistoryItem) throws {
         let statement = try prepare(
             """
-            INSERT OR REPLACE INTO results (id, tool_id, created_at, text, file_path, duration, pasted_into, kind, thumb_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO results (id, tool_id, created_at, text, file_path, duration, pasted_into, kind, thumb_path, meta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
         )
         defer { sqlite3_finalize(statement) }
@@ -167,6 +177,7 @@ public final class HistoryStore {
         bind(statement, 7, item.pastedInto)
         bind(statement, 8, item.kind.rawValue)
         bind(statement, 9, item.thumbURL?.path)
+        bind(statement, 10, item.meta?.json)
         try step(statement, expecting: SQLITE_DONE)
     }
 
@@ -219,7 +230,7 @@ public final class HistoryStore {
     public func items(matching query: String, toolID: String?, limit: Int, offset: Int) throws -> [HistoryItem] {
         let statement = try prepare(
             """
-            SELECT id, tool_id, created_at, text, file_path, duration, pasted_into, kind, thumb_path
+            SELECT id, tool_id, created_at, text, file_path, duration, pasted_into, kind, thumb_path, meta
             FROM results
             WHERE (? = '' OR text LIKE ? ESCAPE '\\' OR file_path LIKE ? ESCAPE '\\')
               AND (? IS NULL OR tool_id = ?)
@@ -251,7 +262,8 @@ public final class HistoryStore {
                 duration: sqlite3_column_type(statement, 5) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 5),
                 pastedInto: column(statement, 6),
                 kind: column(statement, 7).flatMap(HistoryKind.init(rawValue:)),
-                thumbURL: column(statement, 8).map { URL(fileURLWithPath: $0) }
+                thumbURL: column(statement, 8).map { URL(fileURLWithPath: $0) },
+                meta: ResultMeta(json: column(statement, 9))
             ))
         }
         return items

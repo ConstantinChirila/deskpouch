@@ -1,6 +1,7 @@
 import DeskpouchCore
 import Foundation
 import Observation
+import ToolColor
 import ToolScreenRecorder
 import ToolScreenshot
 
@@ -73,6 +74,9 @@ final class ShellState {
     /// Height the panel content may use before the History list has to scroll.
     var panelMaxHeight: CGFloat = 800
 
+    /// The colour row showing all its formats, if any. One at a time, and it survives the lists' refreshes.
+    var expandedColor: UUID?
+
     // History view.
     var historyQuery = ""
     var historyFilter: HistoryFilter = .all
@@ -114,6 +118,11 @@ final class ShellState {
     /// Main screen's backing scale factor, for `CaptureScale.native`'s label ("2x" on Retina, "1x" otherwise
     /// instead of a hard-coded "2x").
     var mainScreenScale: CGFloat = 2
+
+    // Color options.
+    var colorKey: KeyCombo = .commandShift9
+    var colorKeyTaken = false
+    var colorSettings = ColorSettings()
 
     // General.
     let general: GeneralSettings

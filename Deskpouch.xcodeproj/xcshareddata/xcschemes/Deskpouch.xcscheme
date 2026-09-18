@@ -77,6 +77,17 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "ToolColorTests"
+               BuildableName = "ToolColorTests"
+               BlueprintName = "ToolColorTests"
+               ReferencedContainer = "container:Packages/ToolColor">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "ToolVoiceTests"
                BuildableName = "ToolVoiceTests"
                BlueprintName = "ToolVoiceTests"
