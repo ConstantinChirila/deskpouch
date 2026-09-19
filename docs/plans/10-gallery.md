@@ -102,8 +102,20 @@ importing a tool. The app wires the gallery up: the store, and closures for copy
    the double-click interval; that was the wait. Decoding was measured and is not it (a 2080x1520 PNG takes 20 to
    30 ms). The preview still keeps the image on show plus its two neighbours decoded (`PreviewImageLoader`, 3
    entries) and shows the tile's thumbnail, blurred, until the full image or a video's first frame is there.
-   Still open in this step: the five colour formats, the dimmed missing tile and Clean up.
-4. Panel: "All" opens the gallery, the History view is removed, Recent rows get the preview button.
+   The rest, done the same day: a colour shows its swatch and every format as copyable lines (the app hands
+   them over, `GalleryActions.colorFormats` / `swatchHex`, since the conversions live in `ToolColor`; seen in
+   the demo). Missing files: `GalleryModel.missing` is filled off the main actor after every load, the tile is
+   dimmed and says "file missing", the preview offers Delete only, and "N files missing · Clean up" removes
+   those rows after a confirm whatever their number. A clean-up never trashes anything, even when a file came
+   back before the answer. Tested with real temp files and with an "everything unreachable" file check; the real
+   history has no missing rows, so it has not been seen on screen.
+4. Panel: "All" opens the gallery, the History view is removed, Recent rows get the preview button. **Done
+   2026-09-19**: `HistoryView`, `HistoryRow`, the shell's paging and delete, `ShellState`'s history fields and
+   Core's `HistoryPage` are gone. A Recent row shows an eye button on hover, and a double-click or the context
+   menu opens the gallery on it (it used to reveal in Finder; Show in Finder is in the context menu). The row
+   reads the click count off one tap gesture, like the gallery's tiles. Panel checked through
+   `DESKPOUCH_DEMO=options`; the hover button itself has not been seen (no hover in a demo).
+   Downstream packages needed their `.build` deleted after `HistoryPage.swift` left Core.
 5. Starred, date presets, pasted-into filter.
 6. Drag out, multi-copy.
 7. `DESKPOUCH_DEMO=gallery` and verification.

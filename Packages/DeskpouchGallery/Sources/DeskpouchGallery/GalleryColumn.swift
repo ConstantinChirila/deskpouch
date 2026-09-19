@@ -17,6 +17,7 @@ struct GalleryColumn: View {
         VStack(spacing: 10) {
             search
             chips
+            if !model.missing.isEmpty { missingLine }
             list
         }
         .frame(width: Self.width)
@@ -61,6 +62,20 @@ struct GalleryColumn: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var missingLine: some View {
+        HStack(spacing: 6) {
+            Circle().fill(Theme.Colors.record).frame(width: 6, height: 6)
+            Text(model.missing.count == 1 ? "1 file missing" : "\(model.missing.count) files missing")
+                .foregroundStyle(Theme.Colors.textSecondary)
+            Spacer(minLength: 8)
+            Button("Clean up") { model.requestCleanUp() }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.Colors.accentHigh)
+        }
+        .font(.dp(12))
+        .padding(.horizontal, 8)
+    }
+
     private var list: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -70,7 +85,9 @@ struct GalleryColumn: View {
                             ForEach(section.items) { item in
                                 GalleryTile(
                                     item: item, selected: model.selectedIDs.contains(item.id),
-                                    focused: model.focused?.id == item.id, thumbnails: controller.thumbnails
+                                    focused: model.focused?.id == item.id, missing: model.missing.contains(item.id),
+                                    swatch: item.kind == .color ? GalleryText.color(hex: controller.actions.swatchHex(item)) : nil,
+                                    thumbnails: controller.thumbnails
                                 )
                                 .id(item.id)
                                 // One gesture, the click count read off the event: a separate double-tap gesture
@@ -163,6 +180,10 @@ struct GalleryTile: View {
     let selected: Bool
     /// The row in the preview; brighter than the rest of a multi-selection.
     let focused: Bool
+    /// The file is gone: dimmed, and the meta line says so.
+    let missing: Bool
+    /// A colour row's colour.
+    let swatch: Color?
     let thumbnails: ThumbnailCache
     @State private var hovering = false
 
@@ -172,17 +193,19 @@ struct GalleryTile: View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
         HStack(spacing: 10) {
             thumb
+                .opacity(missing ? 0.4 : 1)
             VStack(alignment: .leading, spacing: 3) {
                 Text(GalleryText.title(item))
                     .font(.dp(13, .medium))
                     .lineLimit(item.text != nil && item.kind != .color ? 2 : 1)
                     .truncationMode(item.text == nil ? .middle : .tail)
-                Text(GalleryText.meta(item))
+                Text(missing ? GalleryText.meta(item) + " · file missing" : GalleryText.meta(item))
                     .font(.dp(11))
-                    .foregroundStyle(Theme.Colors.textTertiary)
+                    .foregroundStyle(missing ? Theme.Colors.record.opacity(0.85) : Theme.Colors.textTertiary)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .opacity(missing ? 0.55 : 1)
             if item.starred {
                 StarShape()
                     .fill(Theme.Colors.accentHigh)
@@ -204,7 +227,7 @@ struct GalleryTile: View {
     private var thumb: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
         if item.kind == .color {
-            shape.fill(GalleryText.color(hex: item.meta?.srgb ?? item.text) ?? Theme.Colors.well)
+            shape.fill(swatch ?? Theme.Colors.well)
                 .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
                 .frame(width: Self.thumbSize.width, height: Self.thumbSize.height)
         } else if item.text != nil {

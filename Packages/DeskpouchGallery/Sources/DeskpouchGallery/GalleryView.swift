@@ -30,7 +30,7 @@ struct GalleryView: View {
         }
         .overlay {
             if let pending = model.pendingDelete {
-                DeletePrompt(count: pending.count, model: model)
+                DeletePrompt(count: pending.count, cleanUp: model.pendingIsCleanUp, model: model)
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
         }
@@ -85,6 +85,8 @@ struct GalleryView: View {
 /// Asked before a large delete. The files go to the Trash, so this is the only warning.
 private struct DeletePrompt: View {
     let count: Int
+    /// Rows whose files are already gone: nothing goes to the Trash.
+    let cleanUp: Bool
     let model: GalleryModel
 
     var body: some View {
@@ -99,9 +101,11 @@ private struct DeletePrompt: View {
                         .shadow(color: Theme.Colors.record(0.9), radius: 6)
                         .padding(.top, 5)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Move \(count) items to the Trash?")
+                        Text(cleanUp ? "Remove \(count == 1 ? "1 row" : "\(count) rows") with a missing file?" : "Move \(count) items to the Trash?")
                             .font(.dp(15, .semibold))
-                        Text("They leave Deskpouch and their files go to the Trash, where they can still be put back.")
+                        Text(cleanUp
+                            ? "Their files are not where Deskpouch saved them. If the folder is only offline for now (a disk, iCloud), keep them."
+                            : "They leave Deskpouch and their files go to the Trash, where they can still be put back.")
                             .font(.dp(13))
                             .foregroundStyle(Theme.Colors.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -110,7 +114,7 @@ private struct DeletePrompt: View {
                 HStack(spacing: 8) {
                     Spacer(minLength: 8)
                     GalleryButton(title: "Keep them", hint: "Esc", style: .plain) { model.cancelDelete() }
-                    GalleryButton(title: "Move to Trash", hint: "↩", style: .destructive) { model.confirmDelete() }
+                    GalleryButton(title: cleanUp ? "Remove rows" : "Move to Trash", hint: "↩", style: .destructive) { model.confirmDelete() }
                 }
             }
             .padding(20)

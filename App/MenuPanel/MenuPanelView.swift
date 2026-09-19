@@ -35,8 +35,6 @@ struct MenuPanelView: View {
             case .tool(let id):
                 ToolView(toolID: id, state: state, actions: actions)
                     .transition(slide(from: .trailing))
-            case .history:
-                HistoryView(state: state, actions: actions)
                     .transition(slide(from: .trailing))
             }
         }
@@ -96,6 +94,7 @@ struct MainPanelView: View {
             if !state.recent.isEmpty {
                 RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
                               copy: actions.copyRecent, reveal: actions.revealRecent, edit: actions.edit,
+                              preview: { actions.openGallery($0) },
                               copyText: actions.copyText, expandedColor: state.expandedColor,
                               toggleFormats: { state.expandedColor = state.expandedColor == $0.id ? nil : $0.id }) {
                     state.popups.close()
@@ -945,6 +944,8 @@ struct RecentSection: View {
     let copy: @MainActor (HistoryItem) -> Void
     let reveal: @MainActor (HistoryItem) -> Void
     let edit: @MainActor (HistoryItem) -> Void
+    /// Opens the gallery on the row.
+    let preview: @MainActor (HistoryItem) -> Void
     /// Copies one of the formats under an expanded colour row.
     let copyText: @MainActor (String) -> Void
     /// The colour row showing its formats, and the toggle for it.
@@ -974,13 +975,13 @@ struct RecentSection: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Everything logged, with search")
+                .help("The gallery: everything captured, with search and previews")
             }
             .padding(.horizontal, 4)
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 ForEach(items) { item in
                     RecentRow(item: item, now: context.date, thumbnails: thumbnails, copy: { copy(item) }, reveal: { reveal(item) },
-                              edit: editAction(item), copyText: copyText,
+                              edit: editAction(item), preview: { preview(item) }, copyText: copyText,
                               showingFormats: expandedColor == item.id, toggleFormats: { toggleFormats(item) })
                 }
             }
@@ -995,242 +996,7 @@ extension RecentSection {
     }
 }
 
-extension HistoryView {
-    func editAction(_ item: HistoryItem) -> (@MainActor () -> Void)? {
-        guard item.editLabel != nil else { return nil }
-        return { actions.edit(item) }
-    }
-}
-
-/// Everything logged: search, All / Voice / Recordings, rows grouped by day, "Show older". Scrolls inside the panel.
-struct HistoryView: View {
-    let state: ShellState
-    let actions: MenuPanelActions
-
-    /// Rows per page; `loadHistory(true)` appends another.
-    static let pageSize = 20
-
-    var body: some View {
-        VStack(spacing: 16) {
-            header
-            VStack(spacing: 8) {
-                SearchField(text: Binding(get: { state.historyQuery }, set: { state.historyQuery = $0 }))
-                HStack {
-                    Segmented(selection: Binding(get: { state.historyFilter }, set: { value in
-                        state.historyFilter = value
-                        actions.loadHistory(false)
-                    }), options: ShellState.HistoryFilter.allCases, title: { $0.label })
-                    Spacer()
-                }
-            }
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 16) {
-                    if state.historyItems.isEmpty {
-                        Text(state.historyQuery.isEmpty ? "Nothing logged yet" : "No matches")
-                            .font(.dp(12))
-                            .foregroundStyle(Theme.Colors.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 60)
-                    }
-                    ForEach(DayGroup.sections(state.historyItems, date: \.createdAt)) { section in
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text(section.label)
-                                    .font(.dp(11, .semibold))
-                                    .tracking(0.66)
-                                    .textCase(.uppercase)
-                                    .foregroundStyle(Theme.Colors.textTertiary)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 4)
-                            ForEach(section.items) { item in
-                                HistoryRow(item: item, thumbnails: state.thumbnails,
-                                           copy: { actions.copyRecent(item) }, reveal: { actions.revealRecent(item) },
-                                           edit: editAction(item), copyText: actions.copyText,
-                                           showingFormats: state.expandedColor == item.id,
-                                           toggleFormats: { state.expandedColor = state.expandedColor == item.id ? nil : item.id },
-                                           delete: { actions.deleteHistory(item) })
-                            }
-                        }
-                    }
-                    if state.historyItems.count < state.historyMatches {
-                        Button { actions.loadHistory(true) } label: {
-                            Text("Show older · \(state.historyMatches - state.historyItems.count) more")
-                                .font(.dp(12))
-                                .foregroundStyle(Theme.Colors.textSecondary)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 32)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.bottom, 4)
-            }
-            .scrollBounceBehavior(.basedOnSize)
-            .frame(maxHeight: max(200, state.panelMaxHeight - 200))
-        }
-        // Each query is a table scan on the main actor; wait for a pause in typing instead of scanning per key.
-        .task(id: state.historyQuery) {
-            do {
-                try await Task.sleep(for: .milliseconds(150))
-            } catch {
-                return
-            }
-            actions.loadHistory(false)
-        }
-    }
-
-    private var header: some View {
-        HStack {
-            Button {
-                state.popups.close()
-                state.panelView = .main
-            } label: {
-                HStack(spacing: 8) {
-                    ChevronIcon()
-                        .stroke(style: .icon(1.6))
-                        .rotationEffect(.degrees(90))
-                        .foregroundStyle(Theme.Colors.text.opacity(0.7))
-                        .frame(width: 12, height: 12)
-                        .frame(width: 24, height: 24)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(Theme.Colors.tint(0.06)))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).strokeBorder(Theme.Colors.tint(0.12), lineWidth: 1))
-                    Text("History")
-                        .font(.dp(15, .semibold))
-                        .tracking(-0.15)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Back")
-            Spacer()
-            Text(summary)
-                .font(.dp(11))
-                .foregroundStyle(Theme.Colors.textTertiary)
-        }
-    }
-
-    private var summary: String {
-        let items = state.historyCount == 1 ? "1 item" : "\(state.historyCount) items"
-        guard state.historyBytes > 0 else { return items }
-        return "\(items) · \(ByteCountFormatter.string(fromByteCount: state.historyBytes, countStyle: .file))"
-    }
-}
-
-/// A History row: like a Recent row, with the clock time instead of a relative one and a delete button on hover.
-struct HistoryRow: View {
-    let item: HistoryItem
-    let thumbnails: ThumbnailCache
-    let copy: @MainActor () -> Void
-    let reveal: @MainActor () -> Void
-    let edit: (@MainActor () -> Void)?
-    let copyText: @MainActor (String) -> Void
-    let showingFormats: Bool
-    let toggleFormats: @MainActor () -> Void
-    let delete: @MainActor () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-        VStack(spacing: 8) {
-        HStack(spacing: hovering ? 8 : 12) {
-            HistoryTile(item: item, thumbnails: thumbnails)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.dp(13, .medium))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text(meta)
-                    .font(.dp(11))
-                    .foregroundStyle(Theme.Colors.textTertiary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            if hovering, let edit {
-                EditRowButton(item: item, action: edit)
-            }
-            if item.text != nil {
-                RowActionButton(item.copyLabel, icon: CopyIcon(), action: copy)
-            } else {
-                RowActionButton("Show in Finder", icon: FolderIcon(), action: reveal)
-            }
-            if hovering {
-                Button(action: delete) {
-                    TrashIcon()
-                        .stroke(style: .icon(1.5))
-                        .foregroundStyle(Theme.Colors.record.opacity(0.85))
-                        .frame(width: 14, height: 14)
-                        .frame(width: 28, height: 28)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous).fill(Theme.Colors.tint(0.05)))
-                        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .help("Remove from history (keeps the file)")
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
-            }
-            if item.pickedColor != nil {
-                FormatsDisclosure(isOpen: showingFormats, action: toggleFormats)
-            }
-        }
-        if showingFormats, let color = item.pickedColor {
-            ColorFormatsList(color: color, copy: copyText)
-        }
-        }
-        .padding(.vertical, 9)
-        .padding(.horizontal, 10)
-        .background(shape.fill(Theme.Colors.tint(hovering ? 0.06 : 0.03)))
-        .overlay(shape.strokeBorder(Theme.Colors.tint(hovering ? 0.12 : 0.07), lineWidth: 1))
-        .contentShape(shape)
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
-        .animation(.easeOut(duration: 0.16), value: showingFormats)
-        .onTapGesture(count: 2) {
-            if item.fileURL != nil { reveal() }
-        }
-        .onTapGesture {
-            if item.pickedColor != nil { toggleFormats() }
-        }
-        // The trash button only appears on hover and reveal is a double-click, so both are also row actions
-        // for VoiceOver and keyboard users.
-        .accessibilityElement(children: .combine)
-        .accessibilityAction(named: "Remove from history") { delete() }
-        .accessibilityActions {
-            if item.fileURL != nil {
-                Button("Show in Finder") { reveal() }
-            }
-            if let edit {
-                Button(item.editLabel ?? "Edit") { edit() }
-            }
-            if item.pickedColor != nil {
-                Button(showingFormats ? "Hide the other formats" : "Show every format", action: toggleFormats)
-            }
-        }
-    }
-
-    private var title: String {
-        if let text = item.text, !text.isEmpty { return text }
-        return item.fileURL?.lastPathComponent ?? "Capture"
-    }
-
-    private var meta: String {
-        var parts = [DayGroup.clock(item.createdAt)]
-        if let hint = item.tailwindHint { parts.append(hint) }
-        if let duration = item.duration, item.text == nil {
-            parts.append(TimeFormat.minutesSeconds(duration))
-        }
-        if let target = item.pastedInto {
-            parts.append("pasted into \(target)")
-        } else if item.fileURL != nil {
-            parts.append(FileManager.default.fileExists(atPath: item.fileURL?.path ?? "") ? "saved" : "file missing")
-        } else {
-            parts.append("copied")
-        }
-        return parts.joined(separator: " · ")
-    }
-}
-
-/// The 44x30 tile shared by Recent and History rows.
+/// The 44x30 tile of a Recent row.
 struct HistoryTile: View {
     let item: HistoryItem
     let thumbnails: ThumbnailCache
@@ -1291,6 +1057,8 @@ struct RecentRow: View {
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
     let edit: (@MainActor () -> Void)?
+    /// Opens the gallery on this row.
+    let preview: @MainActor () -> Void
     let copyText: @MainActor (String) -> Void
     let showingFormats: Bool
     let toggleFormats: @MainActor () -> Void
@@ -1299,7 +1067,7 @@ struct RecentRow: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
         VStack(spacing: 8) {
-        HStack(spacing: hovering && edit != nil ? 8 : 12) {
+        HStack(spacing: hovering ? 8 : 12) {
             tile
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -1312,8 +1080,9 @@ struct RecentRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if hovering, let edit {
-                EditRowButton(item: item, action: edit)
+            if hovering {
+                if let edit { EditRowButton(item: item, action: edit) }
+                RowActionButton("Preview in the gallery", icon: EyeIcon(), action: preview)
             }
             RowActionButton(item.copyLabel, icon: CopyIcon(), action: copy)
             if item.pickedColor != nil {
@@ -1326,21 +1095,29 @@ struct RecentRow: View {
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 10)
-        .background(shape.fill(Theme.Colors.tint(hovering && edit != nil ? 0.06 : 0.03)))
-        .overlay(shape.strokeBorder(Theme.Colors.tint(hovering && edit != nil ? 0.12 : 0.07), lineWidth: 1))
+        .background(shape.fill(Theme.Colors.tint(hovering ? 0.06 : 0.03)))
+        .overlay(shape.strokeBorder(Theme.Colors.tint(hovering ? 0.12 : 0.07), lineWidth: 1))
         .contentShape(shape)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .animation(.easeOut(duration: 0.16), value: showingFormats)
-        .onTapGesture(count: 2) {
-            if item.fileURL != nil { reveal() }
-        }
+        // One gesture, the click count read off the event: a separate double-tap gesture would hold every single
+        // click until the double-click interval is over.
         .onTapGesture {
-            if item.pickedColor != nil { toggleFormats() }
+            if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
+                preview()
+            } else if item.pickedColor != nil {
+                toggleFormats()
+            }
+        }
+        .contextMenu {
+            Button("Preview in the Gallery", action: preview)
+            if item.fileURL != nil { Button("Show in Finder", action: reveal) }
         }
         .help(helpText)
         .accessibilityElement(children: .combine)
         .accessibilityActions {
+            Button("Preview in the gallery") { preview() }
             if item.fileURL != nil {
                 Button("Show in Finder") { reveal() }
             }
@@ -1354,8 +1131,8 @@ struct RecentRow: View {
     }
 
     private var helpText: String {
-        if item.pickedColor != nil { return "Click for every format" }
-        return item.fileURL != nil ? "Double-click to show in Finder" : ""
+        if item.pickedColor != nil { return "Click for every format, double-click for the gallery" }
+        return "Double-click to preview in the gallery"
     }
 
     private var title: String {

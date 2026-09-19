@@ -35,8 +35,6 @@ struct MenuPanelActions {
     var setPillPosition: @MainActor (PillPosition) -> Void
     var clearHistory: @MainActor () -> Void
     /// Reloads the History rows for the current query and filter (`more` appends the next page).
-    var loadHistory: @MainActor (_ more: Bool) -> Void
-    var deleteHistory: @MainActor (HistoryItem) -> Void
     var openPermissionSettings: @MainActor () -> Void
     var closePanel: @MainActor () -> Void
     var quit: @MainActor () -> Void

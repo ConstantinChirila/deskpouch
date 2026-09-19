@@ -61,7 +61,15 @@ final class Shell {
                     NSWorkspace.shared.activateFileViewerSelecting([file])
                 },
                 edit: { [weak self] item in self?.panelActions.edit(item) },
-                editLabel: { $0.editLabel }
+                editLabel: { $0.editLabel },
+                colorFormats: { item in
+                    guard let color = item.pickedColor else { return [] }
+                    var lines = ColorFormat.allCases.map { (label: $0.label, value: $0.string(for: color)) }
+                    if let hint = item.tailwindHint { lines.append((label: "Tailwind", value: hint)) }
+                    return lines
+                },
+                copyText: { Paster.copy($0) },
+                swatchHex: { $0.pickedColor?.clamped.hex }
             ))
             gallery.onOpenChange = { [weak self] open in self?.presence.changed(open) }
             self.gallery = gallery
@@ -329,37 +337,6 @@ final class Shell {
         }
     }
 
-    /// Loads the first page for the current query and filter, appends the next one, or re-reads what is shown.
-    private func loadHistory(_ load: HistoryPage.Load) {
-        guard let history else { return }
-        do {
-            let page = try history.page(
-                load,
-                after: HistoryPage(items: state.historyItems, matches: state.historyMatches),
-                query: state.historyQuery.trimmingCharacters(in: .whitespaces),
-                toolID: state.historyFilter.toolID,
-                pageSize: HistoryView.pageSize
-            )
-            state.historyItems = page.items
-            state.historyMatches = page.matches
-        } catch {
-            log.error("history query failed: \(String(describing: error), privacy: .public)")
-        }
-    }
-
-    private func deleteHistory(_ item: HistoryItem) {
-        guard let history else { return }
-        do {
-            try history.delete(id: item.id)
-        } catch {
-            log.error("history delete failed: \(String(describing: error), privacy: .public)")
-            return
-        }
-        state.historyItems.removeAll { $0.id == item.id }
-        state.historyMatches = max(0, state.historyMatches - 1)
-        refreshRecent()
-    }
-
     private func clearHistory() {
         guard let history else { return }
         do {
@@ -403,7 +380,6 @@ final class Shell {
             let delivery = await pipeline.deliver(result, config: config)
             if delivery.recorded {
                 refreshRecent()
-                if state.panelView == .history { loadHistory(.refresh) }
             }
             // A new hold started while this result was on its way: leave its listening pill alone.
             if state.isListening { return }
@@ -593,8 +569,6 @@ final class Shell {
                 overlay.position = position
             },
             clearHistory: { [weak self] in self?.clearHistory() },
-            loadHistory: { [weak self] more in self?.loadHistory(more ? .more : .first) },
-            deleteHistory: { [weak self] item in self?.deleteHistory(item) },
             openPermissionSettings: { [weak self] in self?.openPermissionSettings() },
             closePanel: { [weak self] in self?.panel.close() },
             quit: { NSApp.terminate(nil) }
@@ -866,15 +840,7 @@ final class Shell {
             state.panelView = .general
         }
         snap("app-general", at: 10.2)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10.8) { [weak self] in
-            guard let self else { return }
-            state.historyQuery = ""
-            state.historyFilter = .all
-            loadHistory(.first)
-            state.panelView = .history
-        }
-        snap("app-history", at: 12)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 13.3) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 11.5) { [weak self] in
             self?.panel.holdsOpen = false
             self?.panel.close()
         }
@@ -1061,6 +1027,15 @@ final class Shell {
                     Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-gif.png"))
                 }
             }
+            gallery.model.query.kinds = [.color]
+            if let colour = gallery.model.items.first {
+                gallery.model.click(colour.id, command: false, shift: false)
+                try? await Task.sleep(for: .seconds(1))
+                if let out, let number = gallery.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-colour.png"))
+                }
+            }
+            log.info("demo(gallery): missing among loaded rows = \(gallery.model.missing.count)")
             gallery.model.query.kinds = nil
             gallery.debugFocusSearch()
             try? await Task.sleep(for: .seconds(1.5))

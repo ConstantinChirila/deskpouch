@@ -137,6 +137,48 @@ struct GalleryModelTests {
         #expect(model.focused?.id == ids[0])
     }
 
+    @Test func missingFilesAreFoundAndCleanedUpOnlyAfterAConfirm() async throws {
+        let folder = Self.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (store, ids) = try Self.seeded(4, folder: folder)
+        let note = UUID()
+        try store.record(HistoryItem(id: note, toolID: "voice", createdAt: Date(timeIntervalSince1970: 1), text: "hello", fileURL: nil, duration: nil, pastedInto: nil))
+        try FileManager.default.removeItem(at: folder.appending(path: "Screenshot 0.png"))
+        try FileManager.default.removeItem(at: folder.appending(path: "Screenshot 2.png"))
+        let trash = Trash()
+        let model = GalleryModel(store: store) { trash.files.append($0) }
+        await model.checkFiles()
+        // A row without a file is never missing.
+        #expect(model.missing == [ids[0], ids[2]])
+
+        model.requestCleanUp()
+        #expect(model.pendingDelete == [ids[2], ids[0]])
+        #expect(model.pendingIsCleanUp)
+        model.cancelDelete()
+        #expect(model.items.count == 5)
+
+        // The file of one row comes back before the answer: the row goes, the file is not trashed.
+        try Data([1]).write(to: folder.appending(path: "Screenshot 2.png"))
+        model.requestCleanUp()
+        model.confirmDelete()
+        #expect(trash.files.isEmpty)
+        #expect(FileManager.default.fileExists(atPath: folder.appending(path: "Screenshot 2.png").path))
+        #expect(model.items.map(\.id) == [ids[3], ids[1], note])
+        await model.checkFiles()
+        #expect(model.missing.isEmpty)
+    }
+
+    @Test func anUnreachableFolderMarksRowsMissingButNothingIsRemovedByItself() async throws {
+        let folder = Self.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (store, _) = try Self.seeded(3, folder: folder)
+        let model = GalleryModel(store: store, trash: { _ in }, fileExists: { _ in false })
+        await model.checkFiles()
+        #expect(model.missing.count == 3)
+        #expect(model.items.count == 3)
+        #expect(model.pendingDelete == nil)
+    }
+
     @Test func starTogglesTheWholeSelection() throws {
         let folder = Self.folder()
         defer { try? FileManager.default.removeItem(at: folder) }

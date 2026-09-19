@@ -11,15 +11,26 @@ public struct GalleryActions {
     public var edit: @MainActor (HistoryItem) -> Void
     /// "Annotate", "Trim", or nil when the row has no editor (or its file is gone).
     public var editLabel: @MainActor (HistoryItem) -> String?
+    /// Every format of a colour row, as (label, value) lines. The conversions live with the colour tool.
+    public var colorFormats: @MainActor (HistoryItem) -> [(label: String, value: String)]
+    public var copyText: @MainActor (String) -> Void
+    /// A colour row's colour as `#rrggbb`, whatever format its text is in; nil when it cannot be read.
+    public var swatchHex: @MainActor (HistoryItem) -> String?
 
     public init(
         copy: @escaping @MainActor (HistoryItem) -> Void, reveal: @escaping @MainActor (HistoryItem) -> Void,
-        edit: @escaping @MainActor (HistoryItem) -> Void, editLabel: @escaping @MainActor (HistoryItem) -> String?
+        edit: @escaping @MainActor (HistoryItem) -> Void, editLabel: @escaping @MainActor (HistoryItem) -> String?,
+        colorFormats: @escaping @MainActor (HistoryItem) -> [(label: String, value: String)],
+        copyText: @escaping @MainActor (String) -> Void,
+        swatchHex: @escaping @MainActor (HistoryItem) -> String?
     ) {
+        self.swatchHex = swatchHex
         self.copy = copy
         self.reveal = reveal
         self.edit = edit
         self.editLabel = editLabel
+        self.colorFormats = colorFormats
+        self.copyText = copyText
     }
 }
 

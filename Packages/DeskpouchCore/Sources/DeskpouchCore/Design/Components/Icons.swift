@@ -238,6 +238,20 @@ public struct PencilIcon: Shape {
     }
 }
 
+/// Eye: look at it larger.
+public struct EyeIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 1.5, y: 8))
+        p.addQuadCurve(to: CGPoint(x: 14.5, y: 8), control: CGPoint(x: 8, y: 0.5))
+        p.addQuadCurve(to: CGPoint(x: 1.5, y: 8), control: CGPoint(x: 8, y: 15.5))
+        p.closeSubpath()
+        p.addEllipse(in: CGRect(x: 6, y: 6, width: 4, height: 4))
+        return p.scaled(toFit: rect)
+    }
+}
+
 /// Trim: in and out brackets around a strip.
 public struct TrimIcon: Shape {
     public init() {}

@@ -15,30 +15,6 @@ final class ShellState {
         case general
         /// One tool's own view: its card, chips and options.
         case tool(String)
-        /// Everything logged, with search, filter and paging.
-        case history
-    }
-
-    enum HistoryFilter: String, CaseIterable {
-        case all, voice, recordings, screenshots
-
-        var label: String {
-            switch self {
-            case .all: "All"
-            case .voice: "Voice"
-            case .recordings: "Recordings"
-            case .screenshots: "Screenshots"
-            }
-        }
-
-        var toolID: String? {
-            switch self {
-            case .all: nil
-            case .voice: "voice"
-            case .recordings: "screen"
-            case .screenshots: "screenshot"
-            }
-        }
     }
 
     var isListening = false
@@ -77,12 +53,6 @@ final class ShellState {
     /// The colour row showing all its formats, if any. One at a time, and it survives the lists' refreshes.
     var expandedColor: UUID?
 
-    // History view.
-    var historyQuery = ""
-    var historyFilter: HistoryFilter = .all
-    /// Rows loaded so far for the current query and filter, newest first, and how many match in total.
-    var historyItems: [HistoryItem] = []
-    var historyMatches = 0
     /// "Clear…" was clicked; the row shows the confirmation.
     var confirmingClear = false
 

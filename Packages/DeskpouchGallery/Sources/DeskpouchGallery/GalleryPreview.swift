@@ -40,12 +40,17 @@ struct GalleryPreview: View {
         let selected = model.selectedIDs.count
         if selected > 1 {
             Message(title: "\(selected) items selected", detail: "⌘⌫ moves them to the Trash. Their originals elsewhere are not touched.")
+        } else if let item = model.focused, model.missing.contains(item.id) {
+            Message(title: "File moved or deleted", detail: "\(item.fileURL?.lastPathComponent ?? "It") is no longer where Deskpouch saved it. Delete removes the row.")
         } else if let item = model.focused {
             switch item.kind {
             case .screenshot:
                 ImagePreview(item: item, loader: images, ui: controller.ui, thumbnails: controller.thumbnails)
             case .color:
-                ColorPreview(item: item)
+                ColorPreview(
+                    item: item, swatch: GalleryText.color(hex: controller.actions.swatchHex(item)),
+                    formats: controller.actions.colorFormats(item), copy: controller.actions.copyText
+                )
             default:
                 if let text = item.text {
                     TextPreview(text: text)
@@ -80,7 +85,7 @@ struct GalleryPreview: View {
                     .truncationMode(.middle)
             }
             Spacer(minLength: 12)
-            if model.selectedIDs.count == 1, let item = model.focused {
+            if model.selectedIDs.count == 1, let item = model.focused, !model.missing.contains(item.id) {
                 GalleryButton(title: item.starred ? "Starred" : "Star", hint: "S", style: item.starred ? .on : .plain) {
                     model.toggleStar()
                 }
@@ -298,19 +303,65 @@ private struct TextPreview: View {
     }
 }
 
+/// A big swatch and every format of the colour, one line each; a line copies on click.
 private struct ColorPreview: View {
     let item: HistoryItem
+    let swatch: Color?
+    let formats: [(label: String, value: String)]
+    let copy: @MainActor (String) -> Void
+    @State private var copied: String?
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .fill(GalleryText.color(hex: item.meta?.srgb ?? item.text) ?? Theme.Colors.well)
+                .fill(swatch ?? Theme.Colors.well)
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                .frame(width: 220, height: 140)
-            Text(item.text ?? "")
-                .font(.dp(17, .semibold))
-                .textSelection(.enabled)
+                .frame(width: 260, height: 150)
+            if formats.isEmpty {
+                Text(item.text ?? "")
+                    .font(.dp(17, .semibold))
+                    .textSelection(.enabled)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(formats.enumerated()), id: \.offset) { index, format in
+                        if index > 0 { Rectangle().fill(Theme.Colors.tint(0.07)).frame(height: 1) }
+                        Button {
+                            copy(format.value)
+                            copied = format.label
+                            Task {
+                                try? await Task.sleep(for: .seconds(1.2))
+                                if copied == format.label { copied = nil }
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(format.label.uppercased())
+                                    .font(.dp(10, .semibold))
+                                    .tracking(0.6)
+                                    .foregroundStyle(Theme.Colors.textTertiary)
+                                    .frame(width: 70, alignment: .leading)
+                                Text(format.value)
+                                    .font(.dp(13, .medium))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text(copied == format.label ? "Copied" : "Copy")
+                                    .font(.dp(11))
+                                    .foregroundStyle(copied == format.label ? Theme.Colors.ok : Theme.Colors.textFaint)
+                            }
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 38)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Copy \(format.label): \(format.value)")
+                    }
+                }
+                .frame(width: 420)
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.well, style: .continuous).fill(Theme.Colors.tint(0.03)))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.well, style: .continuous).strokeBorder(Theme.Colors.tint(0.08), lineWidth: 1))
+            }
         }
+        .padding(24)
     }
 }
 

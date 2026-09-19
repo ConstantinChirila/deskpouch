@@ -25,14 +25,26 @@ public final class GalleryModel {
     private(set) var selection = GallerySelection()
     /// Rows waiting for the "Move N items to the Trash?" answer.
     public private(set) var pendingDelete: [UUID]?
+    /// The prompt is the missing rows' clean-up, not a delete of the selection.
+    public private(set) var pendingIsCleanUp = false
+    /// Loaded rows whose file is not where it was saved. Checked off the main actor: a save folder can be on a
+    /// slow or absent disk.
+    public private(set) var missing: Set<UUID> = []
 
     @ObservationIgnored private let store: HistoryStore
     @ObservationIgnored private let trash: (URL) throws -> Void
+    @ObservationIgnored private let fileExists: @Sendable (String) -> Bool
+    @ObservationIgnored private var fileCheck: Task<Void, Never>?
 
-    /// `trash` moves a file to the Trash; tests pass a recorder.
-    public init(store: HistoryStore, trash: @escaping (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }) {
+    /// `trash` moves a file to the Trash and `fileExists` looks on disk; tests pass their own.
+    public init(
+        store: HistoryStore,
+        trash: @escaping (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) },
+        fileExists: @escaping @Sendable (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+    ) {
         self.store = store
         self.trash = trash
+        self.fileExists = fileExists
         reload()
     }
 
@@ -60,6 +72,23 @@ public final class GalleryModel {
         }
         selection.prune(to: order)
         if let pending = pendingDelete, Set(pending).isDisjoint(with: order) { pendingDelete = nil }
+        scheduleFileCheck()
+    }
+
+    private func scheduleFileCheck() {
+        fileCheck?.cancel()
+        fileCheck = Task { [weak self] in await self?.checkFiles() }
+    }
+
+    /// Looks for every loaded row's file, off the main actor. Rows without a file are never missing.
+    func checkFiles() async {
+        let files = items.compactMap { item in item.fileURL.map { (item.id, $0.path) } }
+        let exists = fileExists
+        let gone = await Task.detached(priority: .utility) {
+            Set(files.filter { !exists($0.1) }.map(\.0))
+        }.value
+        guard !Task.isCancelled else { return }
+        missing = gone.intersection(order)
     }
 
     public var hasMore: Bool { items.count < total }
@@ -71,6 +100,7 @@ public final class GalleryModel {
             let next = try store.items(query, limit: Self.pageSize, offset: items.count)
             let known = Set(order)
             items += next.filter { !known.contains($0.id) }
+            scheduleFileCheck()
         } catch {
             log.error("load more failed: \(String(describing: error), privacy: .public)")
         }
@@ -117,6 +147,7 @@ public final class GalleryModel {
         let ids = order.filter { selection.ids.contains($0) }
         guard !ids.isEmpty else { return }
         if ids.count > Self.confirmAbove {
+            pendingIsCleanUp = false
             pendingDelete = ids
         } else {
             delete(ids)
@@ -126,19 +157,31 @@ public final class GalleryModel {
     public func confirmDelete() {
         guard let ids = pendingDelete else { return }
         pendingDelete = nil
-        delete(ids)
+        // A clean-up only ever removes rows: a file that came back meanwhile (the disk was plugged in) stays put.
+        delete(ids, trashingFiles: !pendingIsCleanUp)
+        pendingIsCleanUp = false
     }
 
     public func cancelDelete() {
         pendingDelete = nil
+        pendingIsCleanUp = false
+    }
+
+    /// "N missing · Clean up": drops the loaded rows whose files are gone, after a confirm whatever the number.
+    /// Never done without asking: the folder may only be unreachable for now.
+    public func requestCleanUp() {
+        let ids = order.filter { missing.contains($0) }
+        guard !ids.isEmpty else { return }
+        pendingIsCleanUp = true
+        pendingDelete = ids
     }
 
     /// Rows go, their own files go to the Trash (recoverable), thumbnails go. A file that is already gone is
     /// not an error. The selection lands on the next row.
-    private func delete(_ ids: [UUID]) {
+    private func delete(_ ids: [UUID], trashingFiles: Bool = true) {
         let next = selection.successor(in: order)
         do {
-            for file in try store.delete(ids: ids) where FileManager.default.fileExists(atPath: file.path) {
+            for file in try store.delete(ids: ids) where trashingFiles && FileManager.default.fileExists(atPath: file.path) {
                 do {
                     try trash(file)
                 } catch {
