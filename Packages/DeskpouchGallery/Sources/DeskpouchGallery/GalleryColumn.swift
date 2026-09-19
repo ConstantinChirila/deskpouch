@@ -17,6 +17,9 @@ struct GalleryColumn: View {
         VStack(spacing: 10) {
             search
             chips
+            filters
+                // Above the list, which is drawn after it: the dropdowns hang over the first rows.
+                .zIndex(1)
             if !model.missing.isEmpty { missingLine }
             list
         }
@@ -62,6 +65,53 @@ struct GalleryColumn: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Starred, when, and where it was pasted. The last one only when something was pasted somewhere.
+    private var filters: some View {
+        HStack(spacing: 6) {
+            Button { model.query.starredOnly.toggle() } label: {
+                HStack(spacing: 5) {
+                    StarShape().fill(model.query.starredOnly ? Theme.Colors.accentHigh : Theme.Colors.textSecondary).frame(width: 10, height: 10)
+                    Text("Starred").font(.dp(12, model.query.starredOnly ? .medium : .regular))
+                }
+                .fixedSize()
+                .foregroundStyle(model.query.starredOnly ? Theme.Colors.accentHigh : Theme.Colors.textSecondary)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(Capsule().fill(model.query.starredOnly ? Theme.Colors.accent(0.16) : Theme.Colors.tint(0.04)))
+                .overlay(Capsule().strokeBorder(model.query.starredOnly ? Theme.Colors.accent(0.40) : Theme.Colors.tint(0.12), lineWidth: 1))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Starred only")
+            .accessibilityAddTraits(model.query.starredOnly ? .isSelected : [])
+
+            MenuChip(
+                label: model.datePreset.label, active: model.datePreset != .any, isOpen: controller.ui.openMenu == .date,
+                options: GalleryDatePreset.allCases.map { (title: $0.label, selected: $0 == model.datePreset) },
+                toggle: { controller.ui.openMenu = controller.ui.openMenu == .date ? nil : .date },
+                pick: { index in
+                    model.datePreset = GalleryDatePreset.allCases[index]
+                    controller.ui.openMenu = nil
+                }
+            )
+            if !model.pastedApps.isEmpty {
+                let apps = model.pastedApps
+                MenuChip(
+                    label: model.query.pastedInto.map { "Into \($0)" } ?? "Pasted anywhere", active: model.query.pastedInto != nil,
+                    isOpen: controller.ui.openMenu == .pastedInto,
+                    options: [(title: "Pasted anywhere", selected: model.query.pastedInto == nil)]
+                        + apps.map { (title: $0, selected: $0 == model.query.pastedInto) },
+                    toggle: { controller.ui.openMenu = controller.ui.openMenu == .pastedInto ? nil : .pastedInto },
+                    pick: { index in
+                        model.query.pastedInto = index == 0 ? nil : apps[index - 1]
+                        controller.ui.openMenu = nil
+                    }
+                )
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
     private var missingLine: some View {
         HStack(spacing: 6) {
             Circle().fill(Theme.Colors.record).frame(width: 6, height: 6)
@@ -90,16 +140,11 @@ struct GalleryColumn: View {
                                     thumbnails: controller.thumbnails
                                 )
                                 .id(item.id)
-                                // One gesture, the click count read off the event: a separate double-tap gesture
-                                // makes SwiftUI hold every single click until the double-click interval is over.
-                                .onTapGesture {
-                                    let flags = NSEvent.modifierFlags
-                                    controller.ui.zoomed = false
-                                    if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-                                        controller.ui.filled = true
-                                    } else {
-                                        model.click(item.id, command: flags.contains(.command), shift: flags.contains(.shift))
-                                    }
+                                .overlay {
+                                    TileMouse(
+                                        click: { count, flags in controller.tileClicked(item, count: count, flags: flags) },
+                                        drag: { controller.dragPayloads(startingAt: item) }
+                                    )
                                 }
                                 .onAppear { if item.id == model.items.last?.id { model.loadMore() } }
                             }
@@ -114,7 +159,7 @@ struct GalleryColumn: View {
                         }
                     }
                     if model.items.isEmpty {
-                        EmptyColumn(filtered: model.query != HistoryQuery())
+                        EmptyColumn(filtered: model.isFiltered)
                     }
                 }
                 .padding(.trailing, 4)
@@ -125,6 +170,88 @@ struct GalleryColumn: View {
                 withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(id) }
             }
         }
+    }
+}
+
+/// A chip that opens a short list under itself, in the app's own style instead of a system menu. Amber while it
+/// holds anything but its default.
+private struct MenuChip: View {
+    let label: String
+    let active: Bool
+    let isOpen: Bool
+    let options: [(title: String, selected: Bool)]
+    let toggle: @MainActor () -> Void
+    let pick: @MainActor (Int) -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 5) {
+                Text(label)
+                    .font(.dp(12, active ? .medium : .regular))
+                    .lineLimit(1)
+                ChevronIcon()
+                    .stroke(style: .icon(1.4))
+                    .frame(width: 8, height: 8)
+                    .rotationEffect(.degrees(isOpen ? 180 : 0))
+            }
+            .foregroundStyle(active ? Theme.Colors.accentHigh : Theme.Colors.textSecondary)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .frame(maxWidth: 130)
+            .fixedSize(horizontal: true, vertical: false)
+            .background(Capsule().fill(active ? Theme.Colors.accent(0.16) : Theme.Colors.tint(0.04)))
+            .overlay(Capsule().strokeBorder(active || isOpen ? Theme.Colors.accent(0.40) : Theme.Colors.tint(0.12), lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .overlay(alignment: .topLeading) {
+            if isOpen {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                        MenuRow(title: option.title, selected: option.selected) { pick(index) }
+                    }
+                }
+                .padding(4)
+                .frame(width: 180, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Theme.Colors.card))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Colors.tint(0.14), lineWidth: 1))
+                .shadow(color: .black.opacity(0.5), radius: 14, y: 8)
+                .offset(y: 32)
+                .transition(.opacity.combined(with: .offset(y: -4)))
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: isOpen)
+    }
+}
+
+private struct MenuRow: View {
+    let title: String
+    let selected: Bool
+    let action: @MainActor () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.dp(12, selected ? .medium : .regular))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 4)
+                if selected {
+                    CheckIcon().stroke(style: .icon(2)).frame(width: 9, height: 9)
+                }
+            }
+            .foregroundStyle(selected ? Theme.Colors.accentHigh : Theme.Colors.text)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous).fill(Theme.Colors.tint(hovering ? 0.08 : 0)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

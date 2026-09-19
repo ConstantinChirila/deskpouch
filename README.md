@@ -165,7 +165,8 @@ open ~
 DESKPOUCH_DEMO=shot DESKPOUCH_DEMO_SHOT=window open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
 # The gallery on the real history: steps down the first rows, plays the newest recording (logs the player's
-# clock), shows a GIF and a colour, then focuses the search. With DESKPOUCH_DEMO_OUT writes app-gallery-*.png. Deletes nothing.
+# clock), shows a GIF and a colour, counts the date presets, posts a real click on a tile, focuses the search, and
+# deletes one capture it makes itself (checks the Trash). Keep the display awake: caffeinate -u -d -t 60. With DESKPOUCH_DEMO_OUT writes app-gallery-*.png. Deletes nothing.
 DESKPOUCH_DEMO=gallery DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
 # A real 4 s recording, the pill's Trim pressed, 1 s cut off each side and exported as mp4, then the same from the

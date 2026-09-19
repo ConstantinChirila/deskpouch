@@ -179,6 +179,44 @@ struct GalleryModelTests {
         #expect(model.pendingDelete == nil)
     }
 
+    @Test func theDatePresetNarrowsAndShowingARowClearsIt() throws {
+        let store = try HistoryStore.inMemory()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/London")!
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 19, hour: 15)))
+        func add(daysAgo: Int) throws -> UUID {
+            let id = UUID()
+            try store.record(HistoryItem(
+                id: id, toolID: "voice", createdAt: now.addingTimeInterval(-Double(daysAgo) * 86_400), text: "note \(daysAgo)",
+                fileURL: nil, duration: nil, pastedInto: daysAgo == 0 ? "Notes" : nil
+            ))
+            return id
+        }
+        let today = try add(daysAgo: 0)
+        let lastWeek = try add(daysAgo: 5)
+        let old = try add(daysAgo: 40)
+        let model = GalleryModel(store: store, now: { now }, calendar: calendar)
+        #expect(model.items.count == 3)
+        #expect(!model.isFiltered)
+        #expect(model.pastedApps == ["Notes"])
+
+        model.datePreset = .today
+        #expect(model.items.map(\.id) == [today])
+        #expect(model.isFiltered)
+        model.datePreset = .week
+        #expect(model.items.map(\.id) == [today, lastWeek])
+        #expect(model.counts == [.text: 2])
+
+        model.query.starredOnly = true
+        #expect(model.items.isEmpty)
+        model.show(old)
+        #expect(model.datePreset == .any)
+        #expect(model.focused?.id == old)
+
+        model.query.pastedInto = "Notes"
+        #expect(model.items.map(\.id) == [today])
+    }
+
     @Test func starTogglesTheWholeSelection() throws {
         let folder = Self.folder()
         defer { try? FileManager.default.removeItem(at: folder) }

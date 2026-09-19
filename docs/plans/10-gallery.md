@@ -116,9 +116,24 @@ importing a tool. The app wires the gallery up: the store, and closures for copy
    reads the click count off one tap gesture, like the gallery's tiles. Panel checked through
    `DESKPOUCH_DEMO=options`; the hover button itself has not been seen (no hover in a demo).
    Downstream packages needed their `.build` deleted after `HistoryPage.swift` left Core.
-5. Starred, date presets, pasted-into filter.
-6. Drag out, multi-copy.
-7. `DESKPOUCH_DEMO=gallery` and verification.
+5. Starred, date presets, pasted-into filter. **Done 2026-09-19**: a filter row under the kind chips. Starred is
+   a chip; the date presets and "pasted into" are chips that open a short list in the app's own style (Esc or a
+   pick closes it). `GalleryDatePreset` is pure: whole days in the user's calendar, tested with a fixed clock,
+   across a clock change too. The preset is applied at every load, so "Today" is still today after midnight.
+   Showing a row from the panel clears the preset along with the other filters.
+6. Drag out, multi-copy. **Done 2026-09-19**: a tile's mouse is handled in AppKit (`TileMouse`): clicks arrive with
+   their count and modifiers, and a drag starts a real dragging session, one pasteboard item per selected row (the
+   file, or the row's text), copy only. SwiftUI's `onDrag` carries a single item, which is why. Dragging a row that
+   is not selected selects it first, as Finder does. The screenshot in the preview drags out as its file. ⌘C with
+   several rows copies their files, or the texts joined by blank lines when none has a file (`GalleryExport`,
+   tested, pasteboard included); "Copy all" sits in the bar.
+7. `DESKPOUCH_DEMO=gallery` and verification. **Done 2026-09-19**. The demo steps through rows, plays a recording
+   and a GIF, shows a colour, opens the date list and counts every preset, stars a row and takes the star back,
+   posts a real click at the third tile (it landed on row 2, through `TileMouse`), and deletes a capture it makes
+   itself: appeared live, row gone, file out of its folder, file in the Trash. Keep the display awake for it
+   (`caffeinate -u -d -t 60`): asleep, the snapshots fail to encode and posted clicks go nowhere. Not done by hand
+   yet: a drag into another app, multi-select with the mouse, ⌘Tab and the Dock icon, the hover eye on Recent rows,
+   the missing-file state on screen, pinch zoom (not built: click or Space toggles fit and 100%).
 
 ## Tests
 GalleryModel: Shift range from an anchor, ⌘ toggle, select-all within a filter, selection after deleting one / many /

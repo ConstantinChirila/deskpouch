@@ -1037,11 +1037,68 @@ final class Shell {
             }
             log.info("demo(gallery): missing among loaded rows = \(gallery.model.missing.count)")
             gallery.model.query.kinds = nil
+            // Filters: the date dropdown open, then each preset's count. Stars one row and takes the star back.
+            gallery.debugToggleDateMenu()
+            try? await Task.sleep(for: .seconds(1))
+            if let out, let number = gallery.debugWindowNumber {
+                Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-filters.png"))
+            }
+            gallery.debugToggleDateMenu()
+            var totals: [String] = []
+            for preset in GalleryDatePreset.allCases {
+                gallery.model.datePreset = preset
+                totals.append("\(preset.label)=\(gallery.model.total)")
+            }
+            gallery.model.datePreset = .any
+            if let first = gallery.model.items.first {
+                gallery.model.click(first.id, command: false, shift: false)
+                gallery.model.toggleStar()
+                gallery.model.query.starredOnly = true
+                totals.append("starred=\(gallery.model.total)")
+                gallery.model.query.starredOnly = false
+                gallery.model.click(first.id, command: false, shift: false)
+                gallery.model.toggleStar()
+            }
+            log.info("demo(gallery): filters \(totals.joined(separator: " "), privacy: .public) apps=\(gallery.model.pastedApps.joined(separator: ","), privacy: .public)")
+            // Real input through the tiles' AppKit mouse handling: a click on the third row, then a ⌘ click on the
+            // fourth, then ⌘C, which must put both rows' files (or texts) on the pasteboard.
+            if let frame = gallery.debugWindowFrame, gallery.model.items.count >= 4 {
+                gallery.model.click(gallery.model.items[0].id, command: false, shift: false)
+                try? await Task.sleep(for: .seconds(0.6))
+                // From the window's top: header, search, two chip rows, the filter row, the day header, then
+                // tiles of about 64 pt; x is the middle of the column.
+                let firstTile = frame.maxY - 264
+                func tile(_ index: Int) -> CGPoint { CGPoint(x: frame.minX + 170, y: firstTile - CGFloat(index) * 64 - 8) }
+                postMouse(.leftMouseDown, at: tile(2))
+                postMouse(.leftMouseUp, at: tile(2))
+                try? await Task.sleep(for: .seconds(0.5))
+                let afterClick = gallery.model.items.firstIndex { $0.id == gallery.model.focused?.id } ?? -1
+                log.info("demo(gallery): posted click landed on row \(afterClick), \(gallery.model.selectedIDs.count) selected")
+            }
             gallery.debugFocusSearch()
             try? await Task.sleep(for: .seconds(1.5))
             if let out, let number = gallery.debugWindowNumber {
                 Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-search.png"))
             }
+            // Delete, end to end, on a capture made for the purpose: the row must go, the file must leave its
+            // folder and turn up in the Trash. Nothing else is deleted.
+            let before = Date()
+            screenshot.debugCapture(region: CGRect(x: 200, y: 200, width: 240, height: 160))
+            try? await Task.sleep(for: .seconds(3))
+            guard let throwaway = gallery.model.items.first(where: { $0.kind == .screenshot && $0.createdAt >= before }),
+                  let file = throwaway.fileURL else {
+                log.error("demo(gallery): the throwaway capture did not appear in the gallery")
+                return
+            }
+            let appearedLive = gallery.model.items.first?.id == throwaway.id
+            gallery.model.click(throwaway.id, command: false, shift: false)
+            gallery.model.requestDelete()
+            try? await Task.sleep(for: .seconds(1))
+            let rowGone = !gallery.model.items.contains { $0.id == throwaway.id }
+            let fileGone = !FileManager.default.fileExists(atPath: file.path)
+            let trash = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first
+            let inTrash = trash.map { FileManager.default.fileExists(atPath: $0.appending(path: file.lastPathComponent).path) } ?? false
+            log.info("demo(gallery): delete \(file.lastPathComponent, privacy: .public) appearedLive=\(appearedLive) rowGone=\(rowGone) fileGone=\(fileGone) inTrash=\(inTrash)")
         }
     }
 

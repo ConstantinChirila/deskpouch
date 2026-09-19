@@ -78,7 +78,7 @@ struct GalleryView: View {
 
     private var subtitle: String {
         let items = model.total == 1 ? "1 item" : "\(model.total) items"
-        return model.query == HistoryQuery() ? items : "\(items) match"
+        return model.isFiltered ? "\(items) match" : items
     }
 }
 

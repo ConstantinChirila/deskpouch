@@ -34,6 +34,10 @@ public struct GalleryActions {
     }
 }
 
+enum GalleryMenu: Equatable {
+    case date, pastedInto
+}
+
 /// View-only state: nothing the model's tests care about.
 @MainActor
 @Observable
@@ -46,6 +50,8 @@ final class GalleryUI {
     var filled = false
     /// "Copied" on the button for a moment.
     var copied = false
+    /// The filter dropdown that is open, if any.
+    var openMenu: GalleryMenu?
 }
 
 /// The gallery: one window, the whole history on the left, a large preview on the right (10-gallery.md).
@@ -117,6 +123,7 @@ public final class GalleryWindowController: NSObject, NSWindowDelegate {
         window?.saveFrame(usingName: Self.frameName)
         ui.filled = false
         ui.zoomed = false
+        ui.openMenu = nil
         video.stop()
         gif.stop()
         model.cancelDelete()
@@ -125,9 +132,42 @@ public final class GalleryWindowController: NSObject, NSWindowDelegate {
 
     // MARK: Actions
 
+    /// A tile's mouse went up without a drag. A double-click fills the window with the preview.
+    func tileClicked(_ item: HistoryItem, count: Int, flags: NSEvent.ModifierFlags) {
+        ui.openMenu = nil
+        ui.zoomed = false
+        if count >= 2 {
+            model.click(item.id, command: false, shift: false)
+            ui.filled = true
+        } else {
+            model.click(item.id, command: flags.contains(.command), shift: flags.contains(.shift))
+        }
+    }
+
+    /// A drag is leaving a tile: the whole selection when the tile is part of it, otherwise that tile alone
+    /// (which becomes the selection, as in Finder).
+    func dragPayloads(startingAt item: HistoryItem) -> [(writer: any NSPasteboardWriting, image: NSImage?)] {
+        if !model.selectedIDs.contains(item.id) {
+            model.click(item.id, command: false, shift: false)
+        }
+        return model.selectedItems.compactMap { row in
+            guard let payload = GalleryExport.dragPayload(row, missing: model.missing) else { return nil }
+            let picture = (row.thumbURL ?? row.fileURL).flatMap { thumbnails.image(for: $0) }
+                .map { NSImage(cgImage: $0, size: CGSize(width: 72, height: 48)) }
+            return (payload.writer, picture)
+        }
+    }
+
+    /// ⌘C and the Copy button. One row goes through the app (an image is copied as an image, a transcript as
+    /// text); several rows copy their files, or their texts when none has a file.
     func copyFocused() {
-        guard model.selectedIDs.count == 1, let item = model.focused else { return }
-        actions.copy(item)
+        let selected = model.selectedItems
+        if selected.count > 1 {
+            guard GalleryExport.copy(selected, missing: model.missing).write() else { return }
+        } else {
+            guard let item = model.focused else { return }
+            actions.copy(item)
+        }
         ui.copied = true
         copiedReset?.cancel()
         copiedReset = Task { [weak self] in
@@ -146,6 +186,8 @@ public final class GalleryWindowController: NSObject, NSWindowDelegate {
     func cancel() {
         if model.pendingDelete != nil {
             model.cancelDelete()
+        } else if ui.openMenu != nil {
+            ui.openMenu = nil
         } else if ui.filled {
             ui.filled = false
         } else if ui.zoomed {
@@ -246,6 +288,12 @@ public final class GalleryWindowController: NSObject, NSWindowDelegate {
     public var debugVideoState: String {
         "gif playing=\(gif.isPlaying) time=\(String(format: "%.2f", gif.time))/\(String(format: "%.2f", gif.duration)) · video playing=\(video.isPlaying) time=\(String(format: "%.2f", video.time)) duration=\(String(format: "%.2f", video.duration)) failed=\(video.failed)"
     }
+
+    /// Opens the date dropdown, as a click on its chip does. Verification only.
+    public func debugToggleDateMenu() { ui.openMenu = ui.openMenu == .date ? nil : .date }
+
+    /// The window's frame on screen (AppKit global), for a demo that posts real clicks at it. Verification only.
+    public var debugWindowFrame: CGRect? { window?.frame }
 
     /// Same as ⌘F. Verification only.
     public func debugFocusSearch() { ui.searchFocusRequests += 1 }

@@ -39,7 +39,7 @@ struct GalleryPreview: View {
     private var content: some View {
         let selected = model.selectedIDs.count
         if selected > 1 {
-            Message(title: "\(selected) items selected", detail: "⌘⌫ moves them to the Trash. Their originals elsewhere are not touched.")
+            Message(title: "\(selected) items selected", detail: "Drag them into another app, ⌘C copies their files, ⌘⌫ moves them to the Trash.")
         } else if let item = model.focused, model.missing.contains(item.id) {
             Message(title: "File moved or deleted", detail: "\(item.fileURL?.lastPathComponent ?? "It") is no longer where Deskpouch saved it. Delete removes the row.")
         } else if let item = model.focused {
@@ -96,6 +96,9 @@ struct GalleryPreview: View {
                     GalleryButton(title: label, hint: "↩", style: .plain) { controller.editFocused() }
                 }
                 GalleryButton(title: controller.ui.copied ? "Copied" : "Copy", hint: "⌘C", style: .primary) { controller.copyFocused() }
+            }
+            if model.selectedIDs.count > 1 {
+                GalleryButton(title: controller.ui.copied ? "Copied" : "Copy all", hint: "⌘C", style: .primary) { controller.copyFocused() }
             }
             if !model.selectedIDs.isEmpty {
                 GalleryButton(title: "Delete", hint: "⌘⌫", style: .destructive) { model.requestDelete() }
@@ -258,6 +261,8 @@ private struct ImagePreview: View {
             }
             .contentShape(Rectangle())
             .onTapGesture { ui.zoomed.toggle() }
+            // The picture itself drags out as its file.
+            .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
             .accessibilityElement()
             .accessibilityLabel("Screenshot, \(ui.zoomed ? "actual size" : "fitted")")
         } else if let url = item.fileURL, loader.failed.contains(url) {

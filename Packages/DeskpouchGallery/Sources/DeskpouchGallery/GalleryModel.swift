@@ -19,9 +19,16 @@ public final class GalleryModel {
     public private(set) var total = 0
     /// Per kind, with every filter but the kind applied: what each chip would show.
     public private(set) var counts: [HistoryKind: Int] = [:]
+    /// Search text, kinds, starred and pasted-into. The date comes from `datePreset`, worked out at every load so
+    /// "Today" is still today after midnight.
     public var query = HistoryQuery() {
         didSet { if query != oldValue { reload() } }
     }
+    public var datePreset: GalleryDatePreset = .any {
+        didSet { if datePreset != oldValue { reload() } }
+    }
+    /// Apps something was pasted into, for the filter's choices.
+    public private(set) var pastedApps: [String] = []
     private(set) var selection = GallerySelection()
     /// Rows waiting for the "Move N items to the Trash?" answer.
     public private(set) var pendingDelete: [UUID]?
@@ -35,13 +42,18 @@ public final class GalleryModel {
     @ObservationIgnored private let trash: (URL) throws -> Void
     @ObservationIgnored private let fileExists: @Sendable (String) -> Bool
     @ObservationIgnored private var fileCheck: Task<Void, Never>?
+    @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let calendar: Calendar
 
     /// `trash` moves a file to the Trash and `fileExists` looks on disk; tests pass their own.
     public init(
         store: HistoryStore,
         trash: @escaping (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) },
-        fileExists: @escaping @Sendable (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+        fileExists: @escaping @Sendable (String) -> Bool = { FileManager.default.fileExists(atPath: $0) },
+        now: @escaping () -> Date = Date.init, calendar: Calendar = .current
     ) {
+        self.now = now
+        self.calendar = calendar
         self.store = store
         self.trash = trash
         self.fileExists = fileExists
@@ -49,6 +61,16 @@ public final class GalleryModel {
     }
 
     private var order: [UUID] { items.map(\.id) }
+
+    /// Any filter is on: the header says "match", the empty state says "nothing matches".
+    public var isFiltered: Bool { query != HistoryQuery() || datePreset != .any }
+
+    /// `query` with the date preset's start filled in.
+    private var effectiveQuery: HistoryQuery {
+        var effective = query
+        effective.from = datePreset.start(now: now(), calendar: calendar)
+        return effective
+    }
 
     // MARK: Loading
 
@@ -64,9 +86,11 @@ public final class GalleryModel {
 
     private func load(limit: Int) {
         do {
+            let query = effectiveQuery
             items = try store.items(query, limit: limit, offset: 0)
             total = try store.count(query)
             counts = try store.countsByKind(query)
+            pastedApps = try store.pastedIntoApps()
         } catch {
             log.error("load failed: \(String(describing: error), privacy: .public)")
         }
@@ -97,7 +121,7 @@ public final class GalleryModel {
     public func loadMore() {
         guard hasMore else { return }
         do {
-            let next = try store.items(query, limit: Self.pageSize, offset: items.count)
+            let next = try store.items(effectiveQuery, limit: Self.pageSize, offset: items.count)
             let known = Set(order)
             items += next.filter { !known.contains($0.id) }
             scheduleFileCheck()
@@ -135,6 +159,7 @@ public final class GalleryModel {
     /// Opened from a Recent row: that row, with the filters out of its way when they hide it.
     public func show(_ id: UUID) {
         if !order.contains(id) {
+            datePreset = .any
             query = HistoryQuery()
         }
         if order.contains(id) { selection.set(id) }
