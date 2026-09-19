@@ -153,18 +153,20 @@ public final class ScreenshotTool: Tool {
         // open a second picker, silently dropping this selection. `keyPressed()` ignores `.capturing`, so a press
         // now just does nothing until this capture finishes.
         phase = .capturing
+        let screens = picker.model.screens
         // No yield needed before capturing: `dismiss()` above orders the picker's overlay windows out
         // synchronously (`NSWindow.orderOut`, no animation), and the capture itself cannot see them anyway,
         // region and screen filters exclude Deskpouch's whole app, and window mode targets one window directly
         // (`desktopIndependentWindow`) with nothing else in frame.
         Task { [weak self] in
-            await self?.capture(selection)
+            await self?.capture(selection, screens: screens)
         }
     }
 
     // MARK: Capture
 
-    private func capture(_ selection: PickerSelection) async {
+    /// `screens` are the picker's displays, which place a window selection on one of them for the history row.
+    private func capture(_ selection: PickerSelection, screens: [PickerScreen]) async {
         // `.capturing` was already set by whoever called this (the picker or a debug path); deactivate() never
         // resets it while a capture is in flight, so this only bails if something unexpected changed the phase.
         guard case .capturing = phase else { return }
@@ -191,7 +193,9 @@ public final class ScreenshotTool: Tool {
             let followUp = ResultFollowUp(label: "Annotate") { [weak self] file in
                 self?.annotate(fileURL: file)
             }
-            context.emit(ToolResult(toolID: id, fileURL: staging, image: image, followUp: followUp))
+            // Where it was taken, so the row can be recaptured and compared later (plan 04).
+            let meta = selection.captureMeta(screens: screens)
+            context.emit(ToolResult(toolID: id, fileURL: staging, image: image, followUp: followUp, meta: meta))
         } catch {
             log.error("capture failed: \(String(describing: error), privacy: .public)")
             phase = .idle
@@ -318,7 +322,7 @@ public final class ScreenshotTool: Tool {
                 }
                 phase = .capturing
                 let selection: PickerSelection = region.map { .region(screen: screen, rect: $0) } ?? .screen(screen)
-                await capture(selection)
+                await capture(selection, screens: model.screens)
             } catch {
                 phase = .idle
                 log.error("debug capture failed: \(String(describing: error), privacy: .public)")
@@ -346,7 +350,7 @@ public final class ScreenshotTool: Tool {
                     return
                 }
                 phase = .capturing
-                await capture(.window(window))
+                await capture(.window(window), screens: model.screens)
             } catch {
                 phase = .idle
                 log.error("debug window capture failed: \(String(describing: error), privacy: .public)")
