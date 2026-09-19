@@ -218,7 +218,8 @@ struct CapturedPill: View {
             Rectangle().fill(Theme.Colors.tint(0.15)).frame(width: 1, height: 18)
             Button(action: perform) {
                 HStack(spacing: 7) {
-                    PencilIcon()
+                    // The state only carries the label; Trim is the one follow-up that is not a pencil job.
+                    (action == "Trim" ? AnyShape(TrimIcon()) : AnyShape(PencilIcon()))
                         .stroke(style: .icon(1.8))
                         .frame(width: 12, height: 12)
                     Text(action).font(.dp(13, .semibold))

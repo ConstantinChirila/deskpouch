@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import DeskpouchCore
 import ImageIO
@@ -368,6 +369,14 @@ final class Shell {
 
     // MARK: Output
 
+    /// The first frame of a video, small. Nil when it cannot be read.
+    private static func poster(of file: URL) async -> CGImage? {
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: file))
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 320, height: 320)
+        return try? await generator.image(at: .zero).image
+    }
+
     private func deliver(_ result: ToolResult) {
         Task { [weak self] in
             guard let self else { return }
@@ -387,8 +396,14 @@ final class Shell {
                 case (false, true): "Copied"
                 case (false, false): "Captured"
                 }
+                // A recording brings no image of its own: its first frame fills the pill's tile.
+                var thumbnail = result.image
+                if thumbnail == nil, result.kind == .recording {
+                    thumbnail = await Self.poster(of: file)
+                    if state.isListening { return }
+                }
                 overlay.showCaptured(
-                    thumbnail: result.image, title: title, hint: file.lastPathComponent, action: followUp.label
+                    thumbnail: thumbnail, title: title, hint: file.lastPathComponent, action: followUp.label
                 ) {
                     followUp.perform(file)
                 }
@@ -481,10 +496,14 @@ final class Shell {
                 guard let file = item.fileURL else { return }
                 NSWorkspace.shared.activateFileViewerSelecting([file])
             },
-            annotate: { [weak self] item in
+            edit: { [weak self] item in
                 guard let self, let file = item.fileURL else { return }
                 panel.close()
-                screenshot.annotate(fileURL: file)
+                if item.kind == .recording {
+                    screen.trim(fileURL: file)
+                } else {
+                    screenshot.annotate(fileURL: file)
+                }
             },
             setHoldKey: { [weak self] key in self?.setHoldKey(key) },
             setPressKey: { [weak self] combo in self?.setPressKey(combo) },
@@ -588,6 +607,10 @@ final class Shell {
             }
             return
         }
+        if env["DESKPOUCH_DEMO"] == "trim" {
+            runTrimDemo(out: out)
+            return
+        }
         if env["DESKPOUCH_DEMO"] == "shot-picker" {
             // The real interactive flow, not the `shot` demo's shortcut: `keyPressed()` opens the picker exactly
             // as ⌘⇧2 does, a region is drawn through the same `PickerModel` calls a drag uses, and `confirm()` is
@@ -617,11 +640,11 @@ final class Shell {
                     log.error("demo(annotate-two): needs two screenshot rows in Recent")
                     return
                 }
-                rows.forEach { self.panelActions.annotate($0) }
+                rows.forEach { self.panelActions.edit($0) }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
                     guard let self, let first = rows.first else { return }
                     let before = editor.documents.count
-                    panelActions.annotate(first)
+                    panelActions.edit(first)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
                         guard let self else { return }
                         log.info("demo(annotate-two): open after two = \(before), after reopening the first = \(self.editor.documents.count) (want 2 and 2)")
@@ -927,7 +950,7 @@ final class Shell {
             }
             log.info("demo(annotate): annotating \(item.fileURL?.path ?? "nil", privacy: .public)")
             overlay.hide()
-            panelActions.annotate(item)
+            panelActions.edit(item)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.annotateDemoMark(out: out, original: item.fileURL) }
         }
     }
@@ -961,6 +984,45 @@ final class Shell {
                 let originalKept = original.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
                 log.info("demo(annotate): newest row = \(annotated?.fileURL?.lastPathComponent ?? "nil", privacy: .public) exists=\(exists) besideOriginal=\(besideOriginal) originalKept=\(originalKept) pasteboardPNG=\(hasPNG) editorOpen=\(self.editor.isOpen) pill=\(String(describing: self.overlay.state), privacy: .public)")
                 if let out { Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill-after-export.png")) }
+            }
+        }
+    }
+
+    /// `DESKPOUCH_DEMO=trim`: a real 4 s recording through the pipeline, the pill's Trim pressed, 1 s cut off each
+    /// side, exported as mp4; then the same from the recording's row as a GIF. Logs each export's name, length and
+    /// size. With `DESKPOUCH_DEMO_OUT` writes app-pill-trim.png and app-trim.png.
+    private func runTrimDemo(out: URL?) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            self?.screen.debugRecord(region: CGRect(x: 160, y: 140, width: 1040, height: 760), seconds: 4)
+        }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(7.5))
+            guard let self else { return }
+            log.info("demo(trim): pill = \(String(describing: self.overlay.state), privacy: .public)")
+            if let out { Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill-trim.png")) }
+            guard let original = state.recent.first(where: { $0.canTrim }) else {
+                log.error("demo(trim): no recording row to trim")
+                return
+            }
+            overlay.debugTapFollowUp()
+            for gif in [false, true] {
+                if gif { panelActions.edit(original) }
+                try? await Task.sleep(for: .seconds(2))
+                guard let kept = screen.debugTrimOpenDocument(cutting: 1, gif: gif) else {
+                    log.error("demo(trim): editor did not open")
+                    return
+                }
+                try? await Task.sleep(for: .seconds(1.5))
+                if let out, !gif, let number = editor.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-trim.png"))
+                }
+                editor.debugExport()
+                try? await Task.sleep(for: .seconds(gif ? 6 : 3))
+                let row = state.recent.first
+                let size = (row?.fileURL).flatMap { try? FileManager.default.attributesOfItem(atPath: $0.path)[.size] as? NSNumber }
+                let beside = row?.fileURL?.deletingLastPathComponent().path == original.fileURL?.deletingLastPathComponent().path
+                let originalKept = original.fileURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+                log.info("demo(trim): kept=\(kept) newest row = \(row?.fileURL?.lastPathComponent ?? "nil", privacy: .public) duration=\(row?.duration ?? -1) bytes=\(size?.intValue ?? -1) besideOriginal=\(beside) originalKept=\(originalKept) editorOpen=\(self.editor.isOpen)")
             }
         }
     }

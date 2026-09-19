@@ -9,6 +9,8 @@ private let log = Logger(subsystem: "com.constantinchirila.deskpouch", category:
 
 /// ⌘⇧6 opens the region / window / screen picker; Record starts a ScreenCaptureKit recording straight to mp4.
 /// The same key, the menubar icon or the pill's Stop button ends it and the file is emitted as a `ToolResult`.
+/// The pill then offers Trim, which opens the shared editor on the delivered file; so does the hover button on
+/// recording rows (`trim(fileURL:)`).
 @MainActor
 public final class ScreenRecorderTool: Tool {
     public let id = "screen"
@@ -92,6 +94,7 @@ public final class ScreenRecorderTool: Tool {
         case .idle, .starting, .stopping:
             break
         }
+        context?.editor.close { $0 is TrimDocument }
     }
 
     public var isRecording: Bool {
@@ -287,7 +290,10 @@ public final class ScreenRecorderTool: Tool {
                     context.overlay.flash(.failed("Nothing recorded"))
                     return
                 }
-                context.emit(ToolResult(toolID: id, fileURL: recording.url, duration: recording.duration))
+                let followUp = ResultFollowUp(label: "Trim") { [weak self] file in
+                    self?.trim(fileURL: file)
+                }
+                context.emit(ToolResult(toolID: id, fileURL: recording.url, duration: recording.duration, followUp: followUp))
             } catch {
                 log.error("stop failed: \(String(describing: error), privacy: .public)")
                 phase = .idle
@@ -295,6 +301,29 @@ public final class ScreenRecorderTool: Tool {
             }
         }
     }
+
+    // MARK: Trim
+
+    /// Opens the editor on a recording. The export comes back through the pipeline as a new result.
+    public func trim(fileURL: URL) {
+        guard let context else { return }
+        Task { [weak self] in
+            // Duration, size and frame rate are read off the main actor before the window opens.
+            let media = try? await TrimDocument.Media.load(fileURL)
+            guard let self else { return }
+            guard let media else {
+                log.error("trim: cannot read \(fileURL.lastPathComponent, privacy: .public)")
+                context.overlay.flash(.failed("That recording is gone"), for: .seconds(2))
+                return
+            }
+            let document = TrimDocument(sourceURL: fileURL, media: media, toolID: id)
+            context.editor.present(document, for: id)
+            lastDocument = document
+        }
+    }
+
+    /// The document last opened, for demos.
+    private weak var lastDocument: TrimDocument?
 
     private func fail(_ message: String) {
         phase = .idle
@@ -354,6 +383,17 @@ public final class ScreenRecorderTool: Tool {
                 log.error("debug record failed: \(String(describing: error), privacy: .public)")
             }
         }
+    }
+
+    /// Cuts `seconds` off each side of the open Trim document and picks the format, through the same calls the
+    /// handles and the format chip make. Returns the kept length, nil when no document is open. Verification only.
+    public func debugTrimOpenDocument(cutting seconds: TimeInterval, gif: Bool) -> TimeInterval? {
+        guard let document = lastDocument else { return nil }
+        document.dragStart(to: seconds)
+        document.dragEnd(to: document.model.duration - seconds)
+        document.handleDragFinished()
+        document.format = gif ? .gif : .mp4
+        return document.model.selectedDuration
     }
 
     public func debugCancelPicker() {

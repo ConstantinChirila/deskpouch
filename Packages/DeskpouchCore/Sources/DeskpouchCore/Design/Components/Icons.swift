@@ -238,6 +238,20 @@ public struct PencilIcon: Shape {
     }
 }
 
+/// Trim: in and out brackets around a strip.
+public struct TrimIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 5.5, y: 3)); p.addLine(to: CGPoint(x: 3, y: 3))
+        p.addLine(to: CGPoint(x: 3, y: 13)); p.addLine(to: CGPoint(x: 5.5, y: 13))
+        p.move(to: CGPoint(x: 10.5, y: 3)); p.addLine(to: CGPoint(x: 13, y: 3))
+        p.addLine(to: CGPoint(x: 13, y: 13)); p.addLine(to: CGPoint(x: 10.5, y: 13))
+        p.move(to: CGPoint(x: 6.5, y: 8)); p.addLine(to: CGPoint(x: 9.5, y: 8))
+        return p.scaled(toFit: rect)
+    }
+}
+
 /// Arrow pointing up-right.
 public struct ArrowIcon: Shape {
     public init() {}

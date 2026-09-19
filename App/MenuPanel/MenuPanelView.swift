@@ -95,7 +95,7 @@ struct MainPanelView: View {
             }
             if !state.recent.isEmpty {
                 RecentSection(items: state.recent, count: state.historyCount, thumbnails: state.thumbnails,
-                              copy: actions.copyRecent, reveal: actions.revealRecent, annotate: actions.annotate,
+                              copy: actions.copyRecent, reveal: actions.revealRecent, edit: actions.edit,
                               copyText: actions.copyText, expandedColor: state.expandedColor,
                               toggleFormats: { state.expandedColor = state.expandedColor == $0.id ? nil : $0.id }) {
                     state.popups.close()
@@ -947,7 +947,7 @@ struct RecentSection: View {
     let thumbnails: ThumbnailCache
     let copy: @MainActor (HistoryItem) -> Void
     let reveal: @MainActor (HistoryItem) -> Void
-    let annotate: @MainActor (HistoryItem) -> Void
+    let edit: @MainActor (HistoryItem) -> Void
     /// Copies one of the formats under an expanded colour row.
     let copyText: @MainActor (String) -> Void
     /// The colour row showing its formats, and the toggle for it.
@@ -983,7 +983,7 @@ struct RecentSection: View {
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 ForEach(items) { item in
                     RecentRow(item: item, now: context.date, thumbnails: thumbnails, copy: { copy(item) }, reveal: { reveal(item) },
-                              annotate: annotateAction(item), copyText: copyText,
+                              edit: editAction(item), copyText: copyText,
                               showingFormats: expandedColor == item.id, toggleFormats: { toggleFormats(item) })
                 }
             }
@@ -992,16 +992,16 @@ struct RecentSection: View {
 }
 
 extension RecentSection {
-    func annotateAction(_ item: HistoryItem) -> (@MainActor () -> Void)? {
-        guard item.canAnnotate else { return nil }
-        return { annotate(item) }
+    func editAction(_ item: HistoryItem) -> (@MainActor () -> Void)? {
+        guard item.editLabel != nil else { return nil }
+        return { edit(item) }
     }
 }
 
 extension HistoryView {
-    func annotateAction(_ item: HistoryItem) -> (@MainActor () -> Void)? {
-        guard item.canAnnotate else { return nil }
-        return { actions.annotate(item) }
+    func editAction(_ item: HistoryItem) -> (@MainActor () -> Void)? {
+        guard item.editLabel != nil else { return nil }
+        return { actions.edit(item) }
     }
 }
 
@@ -1049,7 +1049,7 @@ struct HistoryView: View {
                             ForEach(section.items) { item in
                                 HistoryRow(item: item, thumbnails: state.thumbnails,
                                            copy: { actions.copyRecent(item) }, reveal: { actions.revealRecent(item) },
-                                           annotate: annotateAction(item), copyText: actions.copyText,
+                                           edit: editAction(item), copyText: actions.copyText,
                                            showingFormats: state.expandedColor == item.id,
                                            toggleFormats: { state.expandedColor = state.expandedColor == item.id ? nil : item.id },
                                            delete: { actions.deleteHistory(item) })
@@ -1127,7 +1127,7 @@ struct HistoryRow: View {
     let thumbnails: ThumbnailCache
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
-    let annotate: (@MainActor () -> Void)?
+    let edit: (@MainActor () -> Void)?
     let copyText: @MainActor (String) -> Void
     let showingFormats: Bool
     let toggleFormats: @MainActor () -> Void
@@ -1150,8 +1150,8 @@ struct HistoryRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if hovering, let annotate {
-                AnnotateRowButton(action: annotate)
+            if hovering, let edit {
+                EditRowButton(item: item, action: edit)
             }
             if item.text != nil {
                 RowActionButton(item.copyLabel, icon: CopyIcon(), action: copy)
@@ -1202,8 +1202,8 @@ struct HistoryRow: View {
             if item.fileURL != nil {
                 Button("Show in Finder") { reveal() }
             }
-            if let annotate {
-                Button("Annotate") { annotate() }
+            if let edit {
+                Button(item.editLabel ?? "Edit") { edit() }
             }
             if item.pickedColor != nil {
                 Button(showingFormats ? "Hide the other formats" : "Show every format", action: toggleFormats)
@@ -1293,7 +1293,7 @@ struct RecentRow: View {
     let thumbnails: ThumbnailCache
     let copy: @MainActor () -> Void
     let reveal: @MainActor () -> Void
-    let annotate: (@MainActor () -> Void)?
+    let edit: (@MainActor () -> Void)?
     let copyText: @MainActor (String) -> Void
     let showingFormats: Bool
     let toggleFormats: @MainActor () -> Void
@@ -1302,7 +1302,7 @@ struct RecentRow: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
         VStack(spacing: 8) {
-        HStack(spacing: hovering && annotate != nil ? 8 : 12) {
+        HStack(spacing: hovering && edit != nil ? 8 : 12) {
             tile
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -1315,8 +1315,8 @@ struct RecentRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if hovering, let annotate {
-                AnnotateRowButton(action: annotate)
+            if hovering, let edit {
+                EditRowButton(item: item, action: edit)
             }
             RowActionButton(item.copyLabel, icon: CopyIcon(), action: copy)
             if item.pickedColor != nil {
@@ -1329,8 +1329,8 @@ struct RecentRow: View {
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 10)
-        .background(shape.fill(Theme.Colors.tint(hovering && annotate != nil ? 0.06 : 0.03)))
-        .overlay(shape.strokeBorder(Theme.Colors.tint(hovering && annotate != nil ? 0.12 : 0.07), lineWidth: 1))
+        .background(shape.fill(Theme.Colors.tint(hovering && edit != nil ? 0.06 : 0.03)))
+        .overlay(shape.strokeBorder(Theme.Colors.tint(hovering && edit != nil ? 0.12 : 0.07), lineWidth: 1))
         .contentShape(shape)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
@@ -1347,8 +1347,8 @@ struct RecentRow: View {
             if item.fileURL != nil {
                 Button("Show in Finder") { reveal() }
             }
-            if let annotate {
-                Button("Annotate") { annotate() }
+            if let edit {
+                Button(item.editLabel ?? "Edit") { edit() }
             }
             if item.pickedColor != nil {
                 Button(showingFormats ? "Hide the other formats" : "Show every format", action: toggleFormats)
@@ -1384,12 +1384,13 @@ struct RecentRow: View {
 }
 
 /// Hover action on screenshot rows: amber pencil, opens the editor.
-struct AnnotateRowButton: View {
+struct EditRowButton: View {
+    let item: HistoryItem
     let action: @MainActor () -> Void
 
     var body: some View {
         Button(action: action) {
-            PencilIcon()
+            (item.canTrim ? AnyShape(TrimIcon()) : AnyShape(PencilIcon()))
                 .stroke(style: .icon(1.5))
                 .foregroundStyle(Theme.Colors.accentHigh)
                 .frame(width: 14, height: 14)
@@ -1399,8 +1400,8 @@ struct AnnotateRowButton: View {
                 .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.keycap, style: .continuous))
         }
         .buttonStyle(.plain)
-        .help("Annotate")
-        .accessibilityLabel("Annotate")
+        .help(item.editLabel ?? "")
+        .accessibilityLabel(item.editLabel ?? "")
         .transition(.opacity.combined(with: .scale(scale: 0.9)))
     }
 }
@@ -1419,6 +1420,19 @@ extension HistoryItem {
     var canAnnotate: Bool {
         guard kind == .screenshot, let fileURL else { return false }
         return FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
+    /// A recording whose file is still there. Not a GIF: there is nothing left to cut a GIF from cleanly.
+    var canTrim: Bool {
+        guard kind == .recording, let fileURL, fileURL.pathExtension.lowercased() != "gif" else { return false }
+        return FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
+    /// What the row's hover button opens: Annotate for a screenshot, Trim for a recording.
+    var editLabel: String? {
+        if canAnnotate { return "Annotate" }
+        if canTrim { return "Trim" }
+        return nil
     }
 }
 

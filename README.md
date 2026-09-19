@@ -164,6 +164,11 @@ DESKPOUCH_DEMO=shot open build/DerivedData/Build/Products/Debug/Deskpouch.app
 open ~
 DESKPOUCH_DEMO=shot DESKPOUCH_DEMO_SHOT=window open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
+# A real 4 s recording, the pill's Trim pressed, 1 s cut off each side and exported as mp4, then the same from the
+# recording's row as a GIF. Logs each export's name, length and size; with DESKPOUCH_DEMO_OUT writes
+# app-pill-trim.png and app-trim.png.
+DESKPOUCH_DEMO=trim DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
 # The real ⌘⇧2 flow, not the shortcut above: keyPressed() opens the picker, a region is drawn through the same
 # PickerModel calls a drag uses, and confirm() is the call the Return key and the toolbar's Capture button make
 # (so pickerFinished, dismiss and capture all run for real). Logs whether the picker's windows are gone after
@@ -224,4 +229,4 @@ design/                   spec and mocks
 - Milestone 3 done: SQLite history, per-tool after-capture actions (chips on the Voice card), Recent list with re-copy.
 - Milestone 4 done: ⌘⇧6 picker (region, window, screen), ScreenCaptureKit recording to mp4 with system audio and optional mic, recording pill and menubar timer, screen card with its chips.
 - Milestone 5 done: per-tool views with options (model, language, microphone, folder, quality, frame rate, audio, shortcuts), General view (launch at login, sounds, menubar timer, history switches and clear, permissions, version). Panel layout v2: a list of tools that opens into each tool's view.
-- v1 done; v2 tools (see `PLAN.md`) in progress. Foundation (Capture package, tool switches, image results and history kinds) done. Screenshot (⌘⇧2 quick capture plus the Annotate editor) done. Color (⌘⇧9 loupe) done.
+- v1 done; v2 tools (see `PLAN.md`) in progress. Foundation (Capture package, tool switches, image results and history kinds) done. Screenshot (⌘⇧2 quick capture plus the Annotate editor) done. Color (⌘⇧9 loupe) done. Trim + GIF (Trim on the pill after a recording and on recording rows: cut mp4 without re-encoding, or a GIF) done. Text grab and screenshot diff are parked.

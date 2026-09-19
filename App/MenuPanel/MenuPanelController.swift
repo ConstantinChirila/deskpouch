@@ -13,7 +13,8 @@ struct MenuPanelActions {
     var copyText: @MainActor (String) -> Void
     var revealRecent: @MainActor (HistoryItem) -> Void
     /// Opens the editor on a screenshot row.
-    var annotate: @MainActor (HistoryItem) -> Void
+    /// The row's hover button: Annotate for a screenshot, Trim for a recording.
+    var edit: @MainActor (HistoryItem) -> Void
     var setHoldKey: @MainActor (ModifierKey) -> Void
     var setPressKey: @MainActor (KeyCombo) -> Void
     var setToolEnabled: @MainActor (_ toolID: String, _ enabled: Bool) -> Void
