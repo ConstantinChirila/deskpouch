@@ -62,6 +62,9 @@ public extension EditorDocument {
 public final class EditorWindowController {
     /// Where exported results go; the shell feeds them to the output pipeline.
     public var deliver: (@MainActor (ToolResult) -> Void)?
+    /// True when the first editor opens, false when the last one closes. The shell turns Deskpouch into a regular
+    /// app (Dock icon, ⌘Tab) for as long as a real window is up.
+    public var onOpenChange: (@MainActor (Bool) -> Void)?
 
     /// Open windows, oldest first.
     private(set) var sessions: [EditorSession] = []
@@ -90,6 +93,8 @@ public final class EditorWindowController {
         if sessions.isEmpty {
             let frontmost = NSWorkspace.shared.frontmostApplication
             previousApp = frontmost?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
+            // Before the window shows: `show` activates the app, which is what brings the menu bar up.
+            onOpenChange?(true)
         }
         let previous = sessions.last?.window
         let session = open(document, toolID: toolID)
@@ -121,6 +126,7 @@ public final class EditorWindowController {
     func sessionClosed(_ session: EditorSession) {
         sessions.removeAll { $0 === session }
         guard sessions.isEmpty else { return }
+        onOpenChange?(false)
         // Hand focus back to whatever was in front before the editors, so ⌘V lands there.
         if let previousApp, !previousApp.isTerminated {
             previousApp.activate()

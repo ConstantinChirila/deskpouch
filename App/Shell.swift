@@ -17,6 +17,7 @@ final class Shell {
     private let hotkeys = HotkeyCenter()
     private let overlay = OverlayController()
     private let editor = EditorWindowController()
+    private let presence = WindowPresence()
     private let history: HistoryStore?
     private let effects = SystemOutputEffects()
     private let pipeline: OutputPipeline
@@ -48,6 +49,7 @@ final class Shell {
 
     func start() {
         editor.deliver = { [weak self] result in self?.deliver(result) }
+        editor.onOpenChange = { [weak self] open in self?.presence.changed(open) }
         let context = ToolContext(
             overlay: overlay,
             editor: editor,
