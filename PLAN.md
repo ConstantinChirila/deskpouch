@@ -85,7 +85,7 @@ Design direction settled 2026-09-14: "Mint ground, amber accent", custom chrome.
 
 The `Tool` protocol starts as a stub for voice and gets reshaped by the second tool. Do not design it upfront.
 
-## Status (2026-09-17)
+## Status (2026-09-19)
 
 Milestones 1 to 5 (v1) are implemented. Milestones 1 to 3 are verified on the dev machine (milestone 3 with a real dictation landing in Recent). Milestone 5 (options rows and General) is checked against the mocks through `DESKPOUCH_DEMO=options`; its controls still want a hands-on pass (shortcut recording, folder chooser, launch at login). Milestone 4 (screen recorder) is verified on the dev machine: a 4 s region recording through `DESKPOUCH_DEMO=record` produced a 1006x734 H.264 mp4 with a system audio track in `~/Movies/Deskpouch`, put the file on the pasteboard and logged it in history; the pill, panel and picker were checked against the mocks through the demo modes. macOS 15 shows its own "bypass the system private window picker" alert on the first recording (and periodically after); click Allow. `README.md` has build, permissions, and verification instructions.
 
@@ -149,8 +149,42 @@ Decisions from the colour work:
   ours.
 - Not verified by hand yet: Escape and Return in the loupe, a second display, and the loupe over a non-P3 screen.
 
-Also due before diff (04): store each capture's display and rect in history (`capture_rect`), which screenshot
-step 1 did not do.
+`capture_rect` (due before diff, 04) is done 2026-09-19: every screenshot row now carries `display` and `rect` in
+`meta` (`PickerSelection.captureMeta(screens:)` in `DeskpouchCapture`, pure and tested). Verified through
+`DESKPOUCH_DEMO=shot` (row meta `{"rect":[160,140,1040,760],"display":1}`, file 2080x1520 px) and
+`DESKPOUCH_DEMO_SHOT=window` (bare frame `[444,402,920,464]`). `scripts/test.sh` passes. Diff (04) is parked (2026-09-19: not used often enough); the
+meta stays, it is cheap and 04 needs it if it comes back.
+
+Trim + GIF (05) is done 2026-09-19 (`ToolScreenRecorder/Trim`). Verified through `DESKPOUCH_DEMO=trim`: a real 4.3 s
+recording, the pill's Trim pressed, 1 s cut off each side, exported as `… trimmed.mp4` (2.3 s by Spotlight's
+duration, beside the original, original kept, history row, copied), then Trim from the recording's row exported as
+`… trimmed.gif` (960x700, 29 frames for 2.3 s). Editor and pill checked from the demo's PNGs. `scripts/test.sh`
+passes (201 tests). Not driven by hand yet: real drags on the handles and the playhead, Space / I / O / arrows,
+Copy, the discard prompt, the GIF-over-15-s warning. Next: gallery (10), grilled first.
+
+Decisions from the trim work:
+- The row's hover button is one slot (`PanelActions.edit`, `HistoryItem.editLabel`): Annotate for a screenshot, Trim
+  for a recording. GIF rows get no Trim.
+- The pill's tile shows the recording's first frame (the shell reads it, `ToolResult.image` stays nil so the
+  pipeline does not treat the result as an image), and the button's glyph follows the label ("Trim").
+- GIF frames: the reader decodes at the output size (max 960 wide, never upscaled); each twelfth of a second shows
+  the last frame at or before it, and a still stretch becomes one image with a longer delay, so screen recordings
+  with idle parts stay small. 12 distinct frames a second at most.
+- The GIF size estimate is measured, not guessed: up to 1 s from the in point is written to a temporary file
+  (300 ms after the last change) and scaled by length. The mp4 estimate is the file's size by share of length.
+- Handles snap to 0.1 s and stop 0.5 s short of each other; I and O take the playhead unsnapped; arrows step one
+  frame (Shift: ten). Seeks are exact and coalesced: a drag only waits for the newest.
+- Closing with a trim set asks first, like Annotate. Copy writes the cut into Application Support and puts that file
+  on the pasteboard (the button says Copied before a long GIF has finished writing; known).
+- A GIF of the whole recording is named `… .gif`, not `… trimmed.gif`.
+
+Decisions from the `capture_rect` work:
+- The rect is display-local points with a top-left origin, which is what a region `StillCapture` takes back.
+- A window is stored as its bare frame (no shadow), clipped to the display holding most of it; Recapture of a
+  window row is therefore a region capture of where the window was, and with the shadow on the two files differ in
+  size (diff's "sizes differ" letterbox covers it, or Recapture can ignore the shadow; decide in 04).
+- A window on no known display writes no meta, and so do annotated exports and rows from before this: Recapture
+  has to be hidden for rows without it.
 
 Decisions made while implementing:
 - Hotkeys use `NSEvent` global + local monitors, not a CGEvent tap. A tap could be created without Accessibility but was then silently starved by macOS.
@@ -218,12 +252,13 @@ Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Buil
 1. [Screenshot + annotate](docs/plans/01-screenshot.md), ⌘⇧2: quick capture (step 1, done 2026-09-16, package `ToolScreenshot`), pill Annotate button (step 2), editor with arrow/box/text/blur/badge (step 3); both done 2026-09-17.
 2. [Text grab](docs/plans/02-text-grab.md), ⌘⇧8: region OCR through Vision, lines kept, pasted. **Parked 2026-09-17**; color goes next.
 3. [Color](docs/plans/03-color.md), ⌘⇧9: loupe, click copies hex (format option), Tailwind name as hint. **Done 2026-09-17.**
-4. [Screenshot diff](docs/plans/04-diff.md): two history rows → Compare; Recapture same region; slider / onion / pixels.
-5. [Trim + GIF](docs/plans/05-trim-gif.md): pill Trim button, passthrough MP4, capped GIF.
+4. [Screenshot diff](docs/plans/04-diff.md): two history rows → Compare; Recapture same region; slider / onion / pixels. **Parked 2026-09-19** (`capture_rect` is in place).
+5. [Trim + GIF](docs/plans/05-trim-gif.md): pill Trim button, passthrough MP4, capped GIF. **Done 2026-09-19.**
 6. [Demo polish](docs/plans/06-demo-polish.md): click ripple, keystroke chip, presenter mode; exclusion becomes per-window. Webcam bubble later.
 7. [Meeting](docs/plans/07-meeting.md), ⌘⇧M: system audio + mic as Me/Them, live 30 s chunks, markdown into the vault. Moves the transcribers into a `DeskpouchSpeech` package.
-8. [Voice note](docs/plans/08-voice-note.md), Right Command hold: append to the daily note, no paste.
+8. [Voice note](docs/plans/08-voice-note.md), Right Command hold: append to the daily note, no paste. **Parked 2026-09-19**: Voice already pastes into Obsidian, and an unstructured append-only list is a dumping ground; revive only with a way to structure it.
 9. [Image convert](docs/plans/09-image-convert.md): drop on row or Finder service, WebP/PNG/JPEG beside the source.
+10. [Gallery](docs/plans/10-gallery.md) (added and grilled 2026-09-19): one master-detail window over history (list left, large preview right), replaces the panel's History view; delete moves the file to the Trash, multi-select, starred, date presets, drag out; the app turns regular (Dock, ⌘Tab) while a real window is open. Package `DeskpouchGallery`. Step 0 (activation-policy spike, on the editors) is done 2026-09-19: works, no menu-bar quirk. Step 1 (Core: `HistoryQuery`, counts by kind, `starred`, batch delete handing back files) is done the same day, 211 tests pass. Next: step 2, the window.
 
 Package rule after 0 and 7: tools import Core, Capture and Speech only; those three never import a tool; Core imports neither of the other two.
 
