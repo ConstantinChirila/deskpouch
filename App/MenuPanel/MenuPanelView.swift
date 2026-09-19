@@ -99,10 +99,7 @@ struct MainPanelView: View {
                               copyText: actions.copyText, expandedColor: state.expandedColor,
                               toggleFormats: { state.expandedColor = state.expandedColor == $0.id ? nil : $0.id }) {
                     state.popups.close()
-                    state.historyQuery = ""
-                    state.historyFilter = .all
-                    actions.loadHistory(false)
-                    state.panelView = .history
+                    actions.openGallery(nil)
                 }
             }
             footer

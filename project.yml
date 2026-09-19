@@ -36,6 +36,8 @@ packages:
     path: Packages/ToolScreenshot
   ToolColor:
     path: Packages/ToolColor
+  DeskpouchGallery:
+    path: Packages/DeskpouchGallery
 
 configFiles:
   Debug: Signing.xcconfig
@@ -58,6 +60,7 @@ targets:
       - package: ToolScreenRecorder
       - package: ToolScreenshot
       - package: ToolColor
+      - package: DeskpouchGallery
     info:
       path: App/Info.plist
       properties:

@@ -12,7 +12,8 @@ struct MenuPanelActions {
     /// Copies a plain string (one of the formats under an expanded colour row).
     var copyText: @MainActor (String) -> Void
     var revealRecent: @MainActor (HistoryItem) -> Void
-    /// Opens the editor on a screenshot row.
+    /// "All" under Recent: the gallery window, optionally on one row.
+    var openGallery: @MainActor (HistoryItem?) -> Void
     /// The row's hover button: Annotate for a screenshot, Trim for a recording.
     var edit: @MainActor (HistoryItem) -> Void
     var setHoldKey: @MainActor (ModifierKey) -> Void

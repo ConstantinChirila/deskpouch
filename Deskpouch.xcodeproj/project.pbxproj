@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		0500F276FC178B56DE8D8BB0 /* WindowPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF4E3ABD2D959E85927757D /* WindowPresence.swift */; };
 		0C02628E7259874D7FD35B64 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE7D868125BD06D6B6DD988 /* Shell.swift */; };
-		0C03FE3CC9A20685DBBBF0F6 /* ThumbnailCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 585F824E8BD34D94C5F33FE7 /* ThumbnailCache.swift */; };
 		2454C12D082F109DF2A6FCB3 /* SimulatedLevelSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */; };
 		3636D94CB915309CD63CE378 /* DeskpouchCapture in Frameworks */ = {isa = PBXBuildFile; productRef = B491C166A9E137A1646B6634 /* DeskpouchCapture */; };
 		4210671DD9F3677E1182BB89 /* PanelTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA42675F412F933FA4794F55 /* PanelTools.swift */; };
@@ -27,6 +26,7 @@
 		A9CD7C25DE2E0849A2526397 /* WavLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D081FAD61856D394B8A0F03 /* WavLoader.swift */; };
 		BC438519774B40BE0317DA8D /* DeskpouchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5C940766A0F276D2FACFCF8B /* DeskpouchCore */; };
 		C9D6FDAE4E503A1EB517D4E3 /* ToolScreenshot in Frameworks */ = {isa = PBXBuildFile; productRef = CB98BCF9E64DA7DDB13EFC4A /* ToolScreenshot */; };
+		D75D518F5D189273B3AA8F94 /* DeskpouchGallery in Frameworks */ = {isa = PBXBuildFile; productRef = B17A9EE5E4FF017AC828A4C0 /* DeskpouchGallery */; };
 		E8553035E576409669FDD8C9 /* ShellState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 117EB870727BF3B8BEC6B23D /* ShellState.swift */; };
 /* End PBXBuildFile section */
 
@@ -36,10 +36,10 @@
 		21C511F9445B0D2F2566D16C /* ToolVoice */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolVoice; path = Packages/ToolVoice; sourceTree = SOURCE_ROOT; };
 		3CE7D868125BD06D6B6DD988 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
 		4EE4C6D7A2F44EB9EB61D4E0 /* ToolScreenRecorder */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolScreenRecorder; path = Packages/ToolScreenRecorder; sourceTree = SOURCE_ROOT; };
-		585F824E8BD34D94C5F33FE7 /* ThumbnailCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCache.swift; sourceTree = "<group>"; };
 		5899EFA3DC3C3B3A32581DF8 /* ToolColor */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolColor; path = Packages/ToolColor; sourceTree = SOURCE_ROOT; };
 		60C492790EFEA746C0DA06CA /* MenuPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelController.swift; sourceTree = "<group>"; };
 		6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedLevelSource.swift; sourceTree = "<group>"; };
+		64BD44798F06639265562CBF /* DeskpouchGallery */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchGallery; path = Packages/DeskpouchGallery; sourceTree = SOURCE_ROOT; };
 		6D081FAD61856D394B8A0F03 /* WavLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WavLoader.swift; sourceTree = "<group>"; };
 		6D3031371CC2D3391D04FE0A /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		74171F664B916342221667E8 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
@@ -53,7 +53,7 @@
 		DA42675F412F933FA4794F55 /* PanelTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelTools.swift; sourceTree = "<group>"; };
 		EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCapture; path = Packages/DeskpouchCapture; sourceTree = SOURCE_ROOT; };
 		FCF4E3ABD2D959E85927757D /* WindowPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPresence.swift; sourceTree = "<group>"; };
-		"TEMP_F387C112-6823-4442-824B-AAEDE8764FAA" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +67,7 @@
 				518F54A7E17890E698B8128F /* ToolScreenRecorder in Frameworks */,
 				C9D6FDAE4E503A1EB517D4E3 /* ToolScreenshot in Frameworks */,
 				65FF08C6163FFCA40289015F /* ToolColor in Frameworks */,
+				D75D518F5D189273B3AA8F94 /* DeskpouchGallery in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -106,7 +107,6 @@
 				60C492790EFEA746C0DA06CA /* MenuPanelController.swift */,
 				808C40D7AD0482A78A66418A /* MenuPanelView.swift */,
 				DA42675F412F933FA4794F55 /* PanelTools.swift */,
-				585F824E8BD34D94C5F33FE7 /* ThumbnailCache.swift */,
 			);
 			path = MenuPanel;
 			sourceTree = "<group>";
@@ -125,6 +125,7 @@
 			children = (
 				EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */,
 				9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */,
+				64BD44798F06639265562CBF /* DeskpouchGallery */,
 				5899EFA3DC3C3B3A32581DF8 /* ToolColor */,
 				4EE4C6D7A2F44EB9EB61D4E0 /* ToolScreenRecorder */,
 				A9D64F0C3DDC0C8B3AA2C06F /* ToolScreenshot */,
@@ -141,10 +142,10 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_14598712-9CCF-4C22-BFD4-BFB7192DD11F" /* deskpouch */ = {
+		"TEMP_8F834F98-5E3F-4A3C-B4ED-CB68D48A76D4" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_F387C112-6823-4442-824B-AAEDE8764FAA" /* Signing.xcconfig */,
+				"TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -172,6 +173,7 @@
 				A775083F6B6659C1AA9009A5 /* ToolScreenRecorder */,
 				CB98BCF9E64DA7DDB13EFC4A /* ToolScreenshot */,
 				9923BE220F3FA7552CF88F7B /* ToolColor */,
+				B17A9EE5E4FF017AC828A4C0 /* DeskpouchGallery */,
 			);
 			productName = Deskpouch;
 			productReference = 19DE6D2757F545337C4910C3 /* Deskpouch.app */;
@@ -204,6 +206,7 @@
 			packageReferences = (
 				F83E15E34BEA534A43778172 /* XCLocalSwiftPackageReference "Packages/DeskpouchCapture" */,
 				0360330C54A5569B7F57133A /* XCLocalSwiftPackageReference "Packages/DeskpouchCore" */,
+				541F60B4CA052BB643C5EA2F /* XCLocalSwiftPackageReference "Packages/DeskpouchGallery" */,
 				7DD191523B1151163CF790DB /* XCLocalSwiftPackageReference "Packages/ToolColor" */,
 				EDE94C1FB7BFFF29E9E1FCBA /* XCLocalSwiftPackageReference "Packages/ToolScreenRecorder" */,
 				7D1AE8E7189B4E9CB620A340 /* XCLocalSwiftPackageReference "Packages/ToolScreenshot" */,
@@ -245,7 +248,6 @@
 				E8553035E576409669FDD8C9 /* ShellState.swift in Sources */,
 				2454C12D082F109DF2A6FCB3 /* SimulatedLevelSource.swift in Sources */,
 				756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */,
-				0C03FE3CC9A20685DBBBF0F6 /* ThumbnailCache.swift in Sources */,
 				A9CD7C25DE2E0849A2526397 /* WavLoader.swift in Sources */,
 				0500F276FC178B56DE8D8BB0 /* WindowPresence.swift in Sources */,
 				A026F1C1A6D6E94DD05E19E1 /* WindowSnapshot.swift in Sources */,
@@ -277,7 +279,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_F387C112-6823-4442-824B-AAEDE8764FAA" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -342,7 +344,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_F387C112-6823-4442-824B-AAEDE8764FAA" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -459,6 +461,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/DeskpouchCore;
 		};
+		541F60B4CA052BB643C5EA2F /* XCLocalSwiftPackageReference "Packages/DeskpouchGallery" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/DeskpouchGallery;
+		};
 		7D1AE8E7189B4E9CB620A340 /* XCLocalSwiftPackageReference "Packages/ToolScreenshot" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/ToolScreenshot;
@@ -497,6 +503,10 @@
 		A775083F6B6659C1AA9009A5 /* ToolScreenRecorder */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ToolScreenRecorder;
+		};
+		B17A9EE5E4FF017AC828A4C0 /* DeskpouchGallery */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeskpouchGallery;
 		};
 		B491C166A9E137A1646B6634 /* DeskpouchCapture */ = {
 			isa = XCSwiftPackageProductDependency;

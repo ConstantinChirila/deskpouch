@@ -164,6 +164,10 @@ DESKPOUCH_DEMO=shot open build/DerivedData/Build/Products/Debug/Deskpouch.app
 open ~
 DESKPOUCH_DEMO=shot DESKPOUCH_DEMO_SHOT=window open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
+# The gallery on the real history: steps down the first rows, plays the newest recording (logs the player's
+# clock), shows a GIF, then focuses the search. With DESKPOUCH_DEMO_OUT writes app-gallery-*.png. Deletes nothing.
+DESKPOUCH_DEMO=gallery DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
 # A real 4 s recording, the pill's Trim pressed, 1 s cut off each side and exported as mp4, then the same from the
 # recording's row as a GIF. Logs each export's name, length and size; with DESKPOUCH_DEMO_OUT writes
 # app-pill-trim.png and app-trim.png.

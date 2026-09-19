@@ -1,6 +1,7 @@
 import AVFoundation
 import AppKit
 import DeskpouchCore
+import DeskpouchGallery
 import ImageIO
 import ToolColor
 import ToolScreenRecorder
@@ -18,6 +19,8 @@ final class Shell {
     private let overlay = OverlayController()
     private let editor = EditorWindowController()
     private let presence = WindowPresence()
+    /// Nil when the history database could not be opened.
+    private var gallery: GalleryWindowController?
     private let history: HistoryStore?
     private let effects = SystemOutputEffects()
     private let pipeline: OutputPipeline
@@ -50,6 +53,19 @@ final class Shell {
     func start() {
         editor.deliver = { [weak self] result in self?.deliver(result) }
         editor.onOpenChange = { [weak self] open in self?.presence.changed(open) }
+        if let history {
+            let gallery = GalleryWindowController(store: history, actions: GalleryActions(
+                copy: { [weak self] item in self?.copyRecent(item) },
+                reveal: { item in
+                    guard let file = item.fileURL else { return }
+                    NSWorkspace.shared.activateFileViewerSelecting([file])
+                },
+                edit: { [weak self] item in self?.panelActions.edit(item) },
+                editLabel: { $0.editLabel }
+            ))
+            gallery.onOpenChange = { [weak self] open in self?.presence.changed(open) }
+            self.gallery = gallery
+        }
         let context = ToolContext(
             overlay: overlay,
             editor: editor,
@@ -425,6 +441,7 @@ final class Shell {
         guard let history else { return }
         do {
             state.recent = try history.recent(limit: Self.recentLimit)
+            gallery?.historyChanged()
             state.historyCount = try history.count()
             state.historyBytes = try history.filePaths().reduce(into: Int64(0)) { total, path in
                 let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
@@ -497,6 +514,11 @@ final class Shell {
             revealRecent: { item in
                 guard let file = item.fileURL else { return }
                 NSWorkspace.shared.activateFileViewerSelecting([file])
+            },
+            openGallery: { [weak self] item in
+                guard let self else { return }
+                panel.close()
+                gallery?.present(selecting: item?.id)
             },
             edit: { [weak self] item in
                 guard let self, let file = item.fileURL else { return }
@@ -607,6 +629,10 @@ final class Shell {
                 let full = ProcessInfo.processInfo.environment["DESKPOUCH_DEMO_FULL"] != nil
                 self?.screen.debugRecord(region: full ? nil : CGRect(x: 160, y: 140, width: 1040, height: 760), seconds: 4)
             }
+            return
+        }
+        if env["DESKPOUCH_DEMO"] == "gallery" {
+            runGalleryDemo(out: out)
             return
         }
         if env["DESKPOUCH_DEMO"] == "trim" {
@@ -986,6 +1012,60 @@ final class Shell {
                 let originalKept = original.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
                 log.info("demo(annotate): newest row = \(annotated?.fileURL?.lastPathComponent ?? "nil", privacy: .public) exists=\(exists) besideOriginal=\(besideOriginal) originalKept=\(originalKept) pasteboardPNG=\(hasPNG) editorOpen=\(self.editor.isOpen) pill=\(String(describing: self.overlay.state), privacy: .public)")
                 if let out { Self.writePNG(overlay.debugSnapshot(), to: out.appending(path: "app-pill-after-export.png")) }
+            }
+        }
+    }
+
+    /// `DESKPOUCH_DEMO=gallery`: opens the gallery on the real history and steps down it, one PNG per row for the
+    /// first rows (app-gallery-N.png) with `DESKPOUCH_DEMO_OUT`. Deletes nothing.
+    private func runGalleryDemo(out: URL?) {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, let gallery else {
+                log.error("demo(gallery): no history store")
+                return
+            }
+            gallery.present()
+            for step in 0..<4 {
+                try? await Task.sleep(for: .seconds(1.5))
+                let focused = gallery.model.focused
+                log.info("demo(gallery): \(step) focused=\(focused?.kind.rawValue ?? "nil", privacy: .public) total=\(gallery.model.total) loaded=\(gallery.model.items.count)")
+                if let out, let number = gallery.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-\(step).png"))
+                }
+                gallery.model.move(by: 1, extending: false)
+            }
+            // Recordings: the newest mp4, Space to play, and the player's clock a moment later.
+            gallery.model.query.kinds = [.recording]
+            if let recording = gallery.model.items.first(where: { $0.fileURL?.pathExtension.lowercased() != "gif" }) {
+                gallery.model.click(recording.id, command: false, shift: false)
+                try? await Task.sleep(for: .seconds(1.5))
+                if let out, let number = gallery.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-video.png"))
+                }
+                gallery.debugPressSpace()
+                try? await Task.sleep(for: .seconds(1.5))
+                log.info("demo(gallery): video \(gallery.debugVideoState, privacy: .public)")
+                if let out, let number = gallery.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-video-playing.png"))
+                }
+                gallery.debugPressSpace()
+            }
+            if let gif = gallery.model.items.first(where: { $0.fileURL?.pathExtension.lowercased() == "gif" }) {
+                gallery.model.click(gif.id, command: false, shift: false)
+                try? await Task.sleep(for: .seconds(1.5))
+                log.info("demo(gallery): gif after 1.5 s: \(gallery.debugVideoState, privacy: .public)")
+                gallery.debugPressSpace()
+                log.info("demo(gallery): gif after Space: \(gallery.debugVideoState, privacy: .public)")
+                if let out, let number = gallery.debugWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-gif.png"))
+                }
+            }
+            gallery.model.query.kinds = nil
+            gallery.debugFocusSearch()
+            try? await Task.sleep(for: .seconds(1.5))
+            if let out, let number = gallery.debugWindowNumber {
+                Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "app-gallery-search.png"))
             }
         }
     }

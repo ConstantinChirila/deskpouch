@@ -196,29 +196,3 @@ private struct Playhead: View {
         .allowsHitTesting(false)
     }
 }
-
-/// `AVPlayerLayer` in a view, instead of AVKit's player and its native controls.
-private struct PlayerSurface: NSViewRepresentable {
-    let player: AVPlayer
-
-    func makeNSView(context: Context) -> PlayerLayerView {
-        PlayerLayerView(player: player)
-    }
-
-    func updateNSView(_ view: PlayerLayerView, context: Context) {}
-}
-
-private final class PlayerLayerView: NSView {
-    init(player: AVPlayer) {
-        super.init(frame: .zero)
-        wantsLayer = true
-        guard let layer = layer as? AVPlayerLayer else { return }
-        layer.player = player
-        layer.videoGravity = .resizeAspect
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("not used") }
-
-    override func makeBackingLayer() -> CALayer { AVPlayerLayer() }
-}
