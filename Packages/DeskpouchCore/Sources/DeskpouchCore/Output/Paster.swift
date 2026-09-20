@@ -29,4 +29,19 @@ public enum Paster {
         up.post(tap: .cghidEventTap)
         return target
     }
+
+    /// Presses Return in the frontmost app, to send what was just pasted. False when the event could not be posted.
+    @discardableResult
+    public static func pressReturn() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.bundleIdentifier != Bundle.main.bundleIdentifier,
+              let source = CGEventSource(stateID: .combinedSessionState),
+              let down = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: true),   // kVK_Return
+              let up = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: false) else {
+            return false
+        }
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
+        return true
+    }
 }

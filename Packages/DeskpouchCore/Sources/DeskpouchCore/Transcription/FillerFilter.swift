@@ -65,13 +65,3 @@ public struct FillerFilter: Sendable {
     private static let sentenceEnds: Set<Character> = [".", "!", "?"]
     private static let clauseBreaks: Set<Character> = [",", ";", ":"]
 }
-
-private extension String {
-    func trimmingTrailingWhitespace() -> String {
-        String(reversed().drop(while: \.isWhitespace).reversed())
-    }
-
-    func trimmingLeadingWhitespace() -> String {
-        String(drop(while: \.isWhitespace))
-    }
-}

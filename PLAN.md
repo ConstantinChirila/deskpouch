@@ -244,6 +244,18 @@ Leftovers closed 2026-09-15: thumbnails, panel spring-in and fade-out (card expa
 
 The Model row offers two engines behind the `Transcriber` protocol: Parakeet v3 (FluidAudio, about 470 MB download, best accuracy, 25 European languages) and Apple Speech (`AppleTranscriber`: the Speech framework with `requiresOnDeviceRecognition`, nothing to download, less accurate, languages follow the dictation assets installed in macOS). `voice.engine` persists the choice; Parakeet only downloads when it is the selected engine, and with Apple selected a "Remove download" button deletes the Parakeet folder. Apple Speech needs the Speech Recognition grant (prompted on first use) and Dictation turned on in System Settings › Keyboard; with it off, macOS answers kLSRErrorDomain 201 and the pill says so. Other local models under 500 MB were assessed and not added: Parakeet TDT-CTC 110M (English, lighter, less accurate) and SenseVoice small (Asian languages) are one day's work inside FluidAudio if a need appears; WhisperKit's small models lose to Parakeet in English; Apple's SpeechAnalyzer needs macOS 26.
 
+## Voice text options (2026-09-20)
+
+Picked from a read of FluidVoice (GPLv3, ideas only; it runs on the same FluidAudio library). All run on the text after decode, in this order: fillers, a closing "send", numbers, spoken punctuation, dictionary (`VoiceTool.polish`). New options are off by default, except numbers.
+- Spoken punctuation (`SpokenPunctuation`, Core): "comma", "question mark", "new line", "new paragraph" and friends become marks, English commands. Punctuation the model put around a command goes with it. "period" and "dash" only count when the model set them apart, so "the best period of my life" survives.
+- Say "send" (`SpokenSend`, `ToolResult.submitAfterPaste`, `OutputEffects.pressReturn`): a dictation ending in "send" as its own sentence is pasted without it, then Return is pressed 150 ms later. A dictation that is only "send" presses Return and logs nothing. No Return when nothing took the paste.
+- Dictionary (`WordReplacements`, `voice.dictionary` as JSON): heard to written pairs, whole words, any case, longest first. Edited inline in the Voice view.
+- Tap to lock (`Tool.holdLatched`): a tap of the hold key shorter than 0.4 s keeps recording; the next tap's release finishes. Holding still works. The shell keeps its listening state while latched. Ends by itself after 10 minutes (samples are in memory).
+- Skip fillers got its chip (the option existed without a control).
+- Numbers as digits (`SpokenNumbers`, Core, on by default, only while the language is English): Parakeet already writes most numbers as digits ("25%", "January 5th, 2025", "1,200", "21st"; checked with `say` recordings through `DESKPOUCH_DEMO=transcribe`), so this catches what it leaves as words: money ("$232.50"), times ("3:30 PM"), long cardinals, spoken years, decimals, percent. One to nine stay words unless a unit follows ("five dollars"). Runs after "send", before spoken punctuation.
+- FluidAudio's ITN (`TextNormalizer`) was not used for this. Probed on 2026-09-20: it drops words ("I have one idea and two problems" became "I have 1 idea 2 problems") and writes "03:30 p.m..". Vocabulary boosting through FluidAudio's CTC rescorer needs a second model download and token timings; the dictionary covers the need for now.
+- Hands-on pass left: real dictations for each option (how Parakeet punctuates around spoken commands decides how well the rules hold), tap to lock with the real key, Return timing in Slack and a browser, typing in the dictionary fields inside the panel.
+
 ## v2 tools (planned 2026-09-16)
 
 Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Build order, foundation first:

@@ -508,11 +508,13 @@ struct VoiceToolView: View {
     /// Notify is left out on purpose: the pill already says what happened. The recorder uses it.
     static let chips: [OutputAction] = [.paste, .copy, .history]
 
+    @State private var editingDictionary = false
+
     var body: some View {
         ToolCard(live: state.isListening, liveColor: Theme.Colors.accent) {
             HStack(spacing: 12) {
                 VoiceTile()
-                Text("Hold to talk, release to paste")
+                Text(state.voiceTapToLock ? "Hold to talk, or tap to lock" : "Hold to talk, release to paste")
                     .font(.dp(12))
                     .foregroundStyle(Theme.Colors.textSecondary)
                 Spacer(minLength: 8)
@@ -603,9 +605,106 @@ struct VoiceToolView: View {
                         if case .hold(let key) = kind { actions.setHoldKey(key) }
                     }
                 }
+                OptionRow("Tap to lock", detail: "tap the key to talk hands-free, tap again to finish") {
+                    ToggleSwitch("Tap to lock", isOn: Binding(get: { state.voiceTapToLock }, set: { actions.setVoiceTapToLock($0) }))
+                }
+                cleanUp
+                OptionRow("Dictionary", detail: dictionaryDetail) {
+                    RowButton(editingDictionary ? "Done" : "Edit") { editingDictionary.toggle() }
+                }
+                if editingDictionary {
+                    DictionaryEditor(
+                        entries: Binding(get: { state.voiceDictionary }, set: { actions.setVoiceDictionary($0) })
+                    )
+                }
             }
             .padding(.top, 4)
         }
+    }
+
+    private var dictionaryDetail: String {
+        let count = state.voiceDictionary.filter(\.isUsable).count
+        return count == 0 ? "names and jargon the engine gets wrong" : "\(count) \(count == 1 ? "word" : "words") corrected"
+    }
+
+    /// What happens to the text after decode, as chips: they read as one set, like the output chips above.
+    private var cleanUp: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Clean-up")
+                .font(.dp(10))
+                .tracking(0.6)
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.Colors.textTertiary)
+            FlowLayout(spacing: 6) {
+                Chip("Skip um, uh", isOn: state.voiceSkipFillers) {
+                    actions.setVoiceSkipFillers(!state.voiceSkipFillers)
+                }
+                Chip("Numbers as digits", isOn: state.voiceNumbersAsDigits) {
+                    actions.setVoiceNumbersAsDigits(!state.voiceNumbersAsDigits)
+                }
+                .help("\"two hundred dollars\" becomes \"$200\", \"three thirty pm\" becomes \"3:30 PM\". One to nine stay words. English only.")
+                Chip("Spoken punctuation", isOn: state.voiceSpokenPunctuation) {
+                    actions.setVoiceSpokenPunctuation(!state.voiceSpokenPunctuation)
+                }
+                .help("Say \"comma\", \"question mark\", \"new line\" or \"new paragraph\". English commands.")
+                Chip("\"Send\" presses Return", isOn: state.voiceSayToSend) {
+                    actions.setVoiceSayToSend(!state.voiceSayToSend)
+                }
+                .help("End a dictation with \"send\" as its own sentence: the text is pasted, then Return is pressed.")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 10)
+    }
+}
+
+/// The voice dictionary: one line per entry, what the engine writes on the left, what it should write on the right.
+struct DictionaryEditor: View {
+    @Binding var entries: [WordReplacement]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(entries) { entry in
+                HStack(spacing: 6) {
+                    field("heard", text: binding(entry.id, \.heard))
+                    ChevronIcon()
+                        .stroke(style: .icon(1.4))
+                        .foregroundStyle(Theme.Colors.textTertiary)
+                        .frame(width: 8, height: 8)
+                    field("written", text: binding(entry.id, \.written))
+                    Button {
+                        entries.removeAll { $0.id == entry.id }
+                    } label: {
+                        Text("Remove").font(.dp(11)).foregroundStyle(Theme.Colors.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            RowButton("Add word") { entries.append(WordReplacement(heard: "", written: "")) }
+        }
+        .padding(.vertical, 10)
+    }
+
+    private func binding(_ id: UUID, _ keyPath: WritableKeyPath<WordReplacement, String>) -> Binding<String> {
+        Binding(
+            get: { entries.first { $0.id == id }?[keyPath: keyPath] ?? "" },
+            set: { value in
+                guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+                entries[index][keyPath: keyPath] = value
+            }
+        )
+    }
+
+    private func field(_ placeholder: String, text: Binding<String>) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
+        return TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(.dp(12))
+            .foregroundStyle(Theme.Colors.text)
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background(shape.fill(Theme.Colors.well))
+            .overlay(shape.strokeBorder(Theme.Colors.tint(0.08), lineWidth: 1))
     }
 }
 

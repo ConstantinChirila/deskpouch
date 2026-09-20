@@ -10,6 +10,8 @@ public final class OutputPipeline {
     public struct Delivery: Sendable, Equatable {
         public var copied = false
         public var pastedInto: String?
+        /// Return was pressed after the paste (a dictation that ended in "send").
+        public var submitted = false
         public var savedTo: URL?
         public var notified = false
         public var recorded = false
@@ -66,7 +68,14 @@ public final class OutputPipeline {
                 delivery.copied = true
 
             case .paste:
-                guard let text else { continue }
+                guard let text else {
+                    // A dictation that was only "send": nothing to paste, the draft already in the field goes.
+                    if result.submitAfterPaste {
+                        await effects.pressReturn()
+                        delivery.submitted = true
+                    }
+                    continue
+                }
                 let copiedForPaste = !delivery.copied
                 if copiedForPaste {
                     // ⌘V reads the pasteboard, so the text has to go there; put the old contents back afterwards.
@@ -79,6 +88,9 @@ public final class OutputPipeline {
                     pasteboardSnapshot = nil
                     delivery.copied = true
                     delivery.ran.append(.copy)
+                } else if result.submitAfterPaste, delivery.pastedInto != nil {
+                    await effects.pressReturn()
+                    delivery.submitted = true
                 }
 
             case .saveToFolder:
@@ -109,6 +121,8 @@ public final class OutputPipeline {
 
             case .history:
                 guard let history else { continue }
+                // A dictation that was only "send" leaves nothing to log.
+                guard text != nil || result.fileURL != nil || result.image != nil else { continue }
                 let thumbURL = result.image.flatMap { HistoryThumbnails.write($0, id: result.id, to: thumbsDirectory) }
                 do {
                     try history.record(HistoryItem(

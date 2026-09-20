@@ -24,6 +24,11 @@ struct MenuPanelActions {
     var removeVoiceModel: @MainActor () -> Void
     var setVoiceMicrophone: @MainActor (String?) -> Void
     var setVoiceSkipFillers: @MainActor (Bool) -> Void
+    var setVoiceSpokenPunctuation: @MainActor (Bool) -> Void
+    var setVoiceSayToSend: @MainActor (Bool) -> Void
+    var setVoiceNumbersAsDigits: @MainActor (Bool) -> Void
+    var setVoiceTapToLock: @MainActor (Bool) -> Void
+    var setVoiceDictionary: @MainActor ([WordReplacement]) -> Void
     var updateRecorder: @MainActor ((inout RecorderSettings) -> Void) -> Void
     var chooseFolder: @MainActor () -> Void
     var setShotPressKey: @MainActor (KeyCombo) -> Void

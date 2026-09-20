@@ -25,6 +25,7 @@ final class RecordingEffects: OutputEffects {
         calls.append("paste")
         return pasteTarget
     }
+    func pressReturn() async { calls.append("return") }
     func save(_ result: ToolResult, to folder: URL) throws -> URL {
         calls.append("save(\(folder.lastPathComponent))")
         return savedURL
@@ -119,6 +120,35 @@ struct OutputPipelineTests {
         #expect(effects.calls == ["snapshot", "copyText", "paste", "restore(previous clipboard)"])
         #expect(!delivery.copied)
         #expect(delivery.pastedInto == "Slack")
+    }
+
+    @Test func submitPressesReturnAfterThePaste() async throws {
+        let effects = RecordingEffects()
+        let pipeline = OutputPipeline(effects: effects, history: nil)
+        let result = ToolResult(toolID: "voice", text: "on my way", submitAfterPaste: true)
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste]))
+        #expect(effects.calls == ["snapshot", "copyText", "paste", "return", "restore(previous clipboard)"])
+        #expect(delivery.submitted)
+    }
+
+    @Test func submitIsSkippedWhenNothingTookThePaste() async throws {
+        let effects = RecordingEffects()
+        effects.pasteTarget = nil
+        let pipeline = OutputPipeline(effects: effects, history: nil)
+        let result = ToolResult(toolID: "voice", text: "on my way", submitAfterPaste: true)
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste]))
+        #expect(!effects.calls.contains("return"))
+        #expect(!delivery.submitted)
+    }
+
+    @Test func aLoneSendOnlyPressesReturn() async throws {
+        let effects = RecordingEffects()
+        let history = try HistoryStore.inMemory()
+        let pipeline = OutputPipeline(effects: effects, history: history)
+        let result = ToolResult(toolID: "voice", text: "", submitAfterPaste: true)
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste, .copy, .history]))
+        #expect(effects.calls == ["return"])
+        #expect(!delivery.recorded)
     }
 
     @Test func fileResultsSaveThenRevealThenShellThenNotify() async throws {

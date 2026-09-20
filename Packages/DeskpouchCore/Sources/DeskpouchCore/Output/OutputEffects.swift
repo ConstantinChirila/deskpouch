@@ -22,6 +22,8 @@ public protocol OutputEffects: AnyObject {
     func copyImage(_ image: CGImage, pngData: Data?)
     /// Posts ⌘V. Returns the target app's name, or nil when nothing could be pasted into.
     func pasteIntoFrontmostApp() async -> String?
+    /// Presses Return in the frontmost app, after a paste it should send.
+    func pressReturn() async
     /// Writes `result` into `folder`; returns the saved file's URL.
     func save(_ result: ToolResult, to folder: URL) throws -> URL
     func revealInFinder(_ url: URL)
@@ -104,6 +106,12 @@ public final class SystemOutputEffects: OutputEffects {
         // Give the pasteboard server a moment before the target app reads it.
         try? await Task.sleep(for: .milliseconds(40))
         return Paster.pasteIntoFrontmostApp()
+    }
+
+    public func pressReturn() async {
+        // The target app handles ⌘V asynchronously; a Return that overtakes it sends the old draft.
+        try? await Task.sleep(for: .milliseconds(150))
+        Paster.pressReturn()
     }
 
     public func save(_ result: ToolResult, to folder: URL) throws -> URL {

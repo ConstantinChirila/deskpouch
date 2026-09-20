@@ -71,6 +71,11 @@ final class ShellState {
     var voiceLanguages: [String] = []
     var voiceMicrophoneUID: String?
     var voiceSkipFillers = true
+    var voiceSpokenPunctuation = false
+    var voiceSayToSend = false
+    var voiceNumbersAsDigits = true
+    var voiceTapToLock = false
+    var voiceDictionary: [WordReplacement] = []
     var microphones: [AudioInputDevice] = []
 
     // Screen options.

@@ -9,6 +9,9 @@ public protocol Tool: AnyObject {
     var name: String { get }
     /// Hold-to-act modifier key. The shell registers it and forwards begin/end.
     var holdKey: ModifierKey? { get }
+    /// The capture a hold started is still running after the release (Voice's tap to lock). The shell keeps its
+    /// listening state until a later release finds this false.
+    var holdLatched: Bool { get }
     /// Press-to-act key combo. The shell registers it and forwards presses.
     var pressKey: KeyCombo? { get }
     /// After-capture actions the tool wants until the user changes them in the panel.
@@ -30,6 +33,7 @@ public protocol Tool: AnyObject {
 
 public extension Tool {
     var holdKey: ModifierKey? { nil }
+    var holdLatched: Bool { false }
     var pressKey: KeyCombo? { nil }
     func activate() {}
     func deactivate() {}
@@ -97,12 +101,15 @@ public struct ToolResult: Sendable, Identifiable {
     public let followUp: ResultFollowUp?
     /// Extras logged with the row: the exact colour picked, the display and rect captured.
     public let meta: ResultMeta?
+    /// Press Return once the text is pasted. Voice sets it for a dictation that ended in "send".
+    public let submitAfterPaste: Bool
 
     public init(
         toolID: String, text: String? = nil, fileURL: URL? = nil, image: CGImage? = nil,
         duration: TimeInterval? = nil, kind: HistoryKind? = nil, followUp: ResultFollowUp? = nil,
-        meta: ResultMeta? = nil
+        meta: ResultMeta? = nil, submitAfterPaste: Bool = false
     ) {
+        self.submitAfterPaste = submitAfterPaste
         self.followUp = followUp
         self.meta = meta
         id = UUID()

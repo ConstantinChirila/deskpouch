@@ -112,6 +112,11 @@ final class Shell {
         refreshVoiceEngine()
         state.voiceMicrophoneUID = voice.microphoneUID
         state.voiceSkipFillers = voice.skipFillers
+        state.voiceSpokenPunctuation = voice.spokenPunctuation
+        state.voiceSayToSend = voice.sayToSend
+        state.voiceNumbersAsDigits = voice.numbersAsDigits
+        state.voiceTapToLock = voice.tapToLock
+        state.voiceDictionary = voice.dictionary
         screen.onStatus = { [weak self] text in
             guard let self else { return }
             state.screenStatus = text
@@ -155,20 +160,25 @@ final class Shell {
             guard let self, let tool else { return }
             switch phase {
             case .pressed:
-                state.isListening = true
-                statusItem.beginListening()
-                playCue(start: true)
+                // A press while latched (Voice's tap to lock) is the finishing tap: already listening.
+                if !tool.holdLatched {
+                    state.isListening = true
+                    statusItem.beginListening()
+                    playCue(start: true)
+                }
                 tool.holdBegan()
             case .released:
+                tool.holdEnded()
+                guard !tool.holdLatched else { return }
                 state.isListening = false
                 statusItem.showIdle()
                 playCue(start: false)
-                tool.holdEnded()
             case .cancelled:
                 // The modifier was part of a typed chord; stop quietly, no cue.
+                tool.holdCancelled()
+                guard !tool.holdLatched else { return }
                 state.isListening = false
                 statusItem.showIdle()
-                tool.holdCancelled()
             }
         }
     }
@@ -536,6 +546,31 @@ final class Shell {
                 guard let self else { return }
                 voice.skipFillers = on
                 state.voiceSkipFillers = on
+            },
+            setVoiceSpokenPunctuation: { [weak self] on in
+                guard let self else { return }
+                voice.spokenPunctuation = on
+                state.voiceSpokenPunctuation = on
+            },
+            setVoiceSayToSend: { [weak self] on in
+                guard let self else { return }
+                voice.sayToSend = on
+                state.voiceSayToSend = on
+            },
+            setVoiceNumbersAsDigits: { [weak self] on in
+                guard let self else { return }
+                voice.numbersAsDigits = on
+                state.voiceNumbersAsDigits = on
+            },
+            setVoiceTapToLock: { [weak self] on in
+                guard let self else { return }
+                voice.tapToLock = on
+                state.voiceTapToLock = on
+            },
+            setVoiceDictionary: { [weak self] entries in
+                guard let self else { return }
+                voice.dictionary = entries
+                state.voiceDictionary = entries
             },
             updateRecorder: { [weak self] change in
                 guard let self else { return }

@@ -114,6 +114,43 @@ struct VoiceToolTests {
         #expect(await tool.debugTranscribe([Float](repeating: 0, count: 16_000)) == "um hello")
     }
 
+    @Test func polishRunsSendThenMarksThenDictionary() {
+        let tool = tool()
+        tool.sayToSend = true
+        tool.spokenPunctuation = true
+        tool.dictionary = [WordReplacement(heard: "desk pouch", written: "Deskpouch")]
+        let polished = tool.polish("Is desk pouch ready question mark. Send.")
+        #expect(polished == .init(text: "Is Deskpouch ready?", submit: true))
+    }
+
+    @Test func numbersBecomeDigitsInEnglishOnly() {
+        let tool = tool()
+        tool.language = "en"
+        #expect(tool.polish("It costs twenty five dollars.").text == "It costs $25.")
+        tool.numbersAsDigits = false
+        #expect(tool.polish("It costs twenty five dollars.").text == "It costs twenty five dollars.")
+    }
+
+    @Test func polishLeavesTextAloneByDefault() {
+        let polished = tool().polish("Hello comma world. Send.")
+        #expect(polished == .init(text: "Hello comma world. Send.", submit: false))
+    }
+
+    @Test func textOptionsPersist() {
+        let suite = "voice-text-options-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let first = VoiceTool(parakeet: StubTranscriber(), apple: StubTranscriber(), defaults: defaults)
+        #expect(!first.spokenPunctuation && !first.sayToSend && !first.tapToLock && first.dictionary.isEmpty)
+        first.spokenPunctuation = true
+        first.sayToSend = true
+        first.tapToLock = true
+        first.dictionary = [WordReplacement(heard: "a", written: "b")]
+        let second = VoiceTool(parakeet: StubTranscriber(), apple: StubTranscriber(), defaults: defaults)
+        #expect(second.spokenPunctuation && second.sayToSend && second.tapToLock)
+        #expect(second.dictionary.map(\.heard) == ["a"])
+    }
+
     @Test func debugTranscribeNeverEmits() async {
         let tool = tool()
         let (_, emitted) = attach(tool)

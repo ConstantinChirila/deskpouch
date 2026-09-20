@@ -93,6 +93,54 @@ public final class VoiceTool: Tool {
         didSet { defaults.set(skipFillers, forKey: Self.skipFillersDefaultsKey) }
     }
 
+    static let spokenPunctuationDefaultsKey = "voice.spokenPunctuation"
+    static let sayToSendDefaultsKey = "voice.sayToSend"
+    static let numbersAsDigitsDefaultsKey = "voice.numbersAsDigits"
+    static let tapToLockDefaultsKey = "voice.tapToLock"
+    static let dictionaryDefaultsKey = "voice.dictionary"
+
+    /// "comma", "question mark", "new line" become the marks they name. English commands. Persisted, off by default.
+    public var spokenPunctuation: Bool {
+        didSet { defaults.set(spokenPunctuation, forKey: Self.spokenPunctuationDefaultsKey) }
+    }
+
+    /// Spelled-out numbers the engine left as words become digits ("$232.50", "3:30 PM"). Only while the language
+    /// is English. Persisted, on by default.
+    public var numbersAsDigits: Bool {
+        didSet { defaults.set(numbersAsDigits, forKey: Self.numbersAsDigitsDefaultsKey) }
+    }
+
+    /// A dictation that ends in "send" is pasted without it, then Return is pressed. Persisted, off by default.
+    public var sayToSend: Bool {
+        didSet { defaults.set(sayToSend, forKey: Self.sayToSendDefaultsKey) }
+    }
+
+    /// A tap of the hold key (shorter than `minimumHold`) keeps recording hands-free; the next tap finishes.
+    /// Holding works as before. Persisted, off by default.
+    public var tapToLock: Bool {
+        didSet { defaults.set(tapToLock, forKey: Self.tapToLockDefaultsKey) }
+    }
+
+    /// Words the engine gets wrong and what to write instead. Persisted as JSON.
+    public var dictionary: [WordReplacement] {
+        didSet {
+            replacements = WordReplacements(dictionary)
+            defaults.set(try? JSONEncoder().encode(dictionary), forKey: Self.dictionaryDefaultsKey)
+        }
+    }
+
+    private var replacements: WordReplacements
+
+    /// A locked recording ends by itself after this long: the samples are held in memory.
+    static let lockLimit: Duration = .seconds(600)
+
+    /// Recording hands-free after a tap.
+    public private(set) var holdLatched = false
+    /// The press that ends a locked recording is down; its release finishes.
+    private var finishingLock = false
+    private var lockTimeout: Task<Void, Never>?
+    private var holdBeganAt: Date?
+
     /// Core Audio UID of the microphone, nil for the system default. Persisted.
     public var microphoneUID: String? {
         get { recorder.deviceUID }
@@ -161,6 +209,15 @@ public final class VoiceTool: Tool {
         recorder.deviceUID = defaults.string(forKey: Self.microphoneDefaultsKey)
         skipFillers = defaults.object(forKey: Self.skipFillersDefaultsKey) == nil
             || defaults.bool(forKey: Self.skipFillersDefaultsKey)
+        spokenPunctuation = defaults.bool(forKey: Self.spokenPunctuationDefaultsKey)
+        sayToSend = defaults.bool(forKey: Self.sayToSendDefaultsKey)
+        numbersAsDigits = defaults.object(forKey: Self.numbersAsDigitsDefaultsKey) == nil
+            || defaults.bool(forKey: Self.numbersAsDigitsDefaultsKey)
+        tapToLock = defaults.bool(forKey: Self.tapToLockDefaultsKey)
+        let stored = defaults.data(forKey: Self.dictionaryDefaultsKey)
+            .flatMap { try? JSONDecoder().decode([WordReplacement].self, from: $0) } ?? []
+        dictionary = stored
+        replacements = WordReplacements(stored)
     }
 
     public func attach(_ context: ToolContext) {
@@ -200,6 +257,7 @@ public final class VoiceTool: Tool {
             _ = recorder.stop()
             context?.overlay.hide()
         }
+        endLock()
         let previous = job
         job = Task { [parakeet, apple] in
             await previous?.value
@@ -210,6 +268,10 @@ public final class VoiceTool: Tool {
 
     public func holdBegan() {
         guard let context else { return }
+        if holdLatched {
+            finishingLock = true
+            return
+        }
         switch Permissions.microphone {
         case .undetermined:
             // First use: ask, and let this hold go. The next one records.
@@ -237,12 +299,29 @@ public final class VoiceTool: Tool {
             return
         }
         log.info("recording started")
+        holdBeganAt = Date()
         let recorder = recorder
         context.overlay.showListening { recorder.currentLevel }
     }
 
     public func holdEnded() {
         guard let context, recorder.isRecording else { return }
+        if holdLatched {
+            // The release of the tap that locked it changes nothing; the next tap's release finishes.
+            guard finishingLock else { return }
+        } else if tapToLock, let began = holdBeganAt, Date().timeIntervalSince(began) < Self.minimumHold {
+            log.info("tap: recording locked")
+            holdLatched = true
+            lockTimeout = Task { [weak self] in
+                try? await Task.sleep(for: Self.lockLimit)
+                guard !Task.isCancelled, let self, holdLatched else { return }
+                log.info("locked recording reached its limit")
+                finishingLock = true
+                holdEnded()
+            }
+            return
+        }
+        endLock()
         let samples = recorder.stop()
         let duration = Double(samples.count) / MicRecorder.sampleRate
         log.info("recording stopped: \(samples.count) samples, \(duration, format: .fixed(precision: 2))s")
@@ -260,9 +339,21 @@ public final class VoiceTool: Tool {
 
     public func holdCancelled() {
         guard let context, recorder.isRecording else { return }
+        if holdLatched {
+            // The key was part of a chord while locked: not the finishing tap.
+            finishingLock = false
+            return
+        }
         _ = recorder.stop()
         log.info("recording dropped: the hold key was part of a chord")
         context.overlay.hide()
+    }
+
+    private func endLock() {
+        holdLatched = false
+        finishingLock = false
+        lockTimeout?.cancel()
+        lockTimeout = nil
     }
 
     // A new hold may have started while an older transcription was queued or running; its listening pill wins.
@@ -272,6 +363,22 @@ public final class VoiceTool: Tool {
 
     private func flash(_ state: PillState, for duration: Duration = .seconds(1.2)) {
         if !recorder.isRecording { context?.overlay.flash(state, for: duration) }
+    }
+
+    /// The text passes after the filler filter: a closing "send" comes off first so the numbers, the marks and
+    /// the dictionary see the body alone.
+    func polish(_ text: String) -> SpokenSend.Parsed {
+        var text = text
+        var submit = false
+        if sayToSend {
+            let parsed = SpokenSend.parse(text)
+            text = parsed.text
+            submit = parsed.submit
+        }
+        if numbersAsDigits, language == "en" { text = SpokenNumbers.default.apply(text) }
+        if spokenPunctuation { text = SpokenPunctuation.default.apply(text) }
+        text = replacements.apply(text)
+        return SpokenSend.Parsed(text: text, submit: submit)
     }
 
     #if DEBUG
@@ -306,14 +413,17 @@ public final class VoiceTool: Tool {
             if text != transcript.text {
                 log.info("fillers stripped: \(transcript.text.count) -> \(text.count) chars")
             }
-            guard !text.isEmpty else {
+            let polished = polish(text)
+            guard !polished.text.isEmpty || polished.submit else {
                 flash(.failed("Nothing heard"))
                 return nil
             }
             if emit {
-                context.emit(ToolResult(toolID: id, text: text, duration: duration))
+                context.emit(ToolResult(
+                    toolID: id, text: polished.text, duration: duration, submitAfterPaste: polished.submit
+                ))
             }
-            return text
+            return polished.text
         } catch {
             log.error("transcription failed: \(String(describing: error), privacy: .public)")
             if let described = error as? any LocalizedError, let message = described.errorDescription {
