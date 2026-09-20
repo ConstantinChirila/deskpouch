@@ -133,6 +133,18 @@ struct SpokenNumbersTests {
         #expect(numbers.apply("the twelfth floor, the two hundredth visitor") == "the 12th floor, the 200th visitor")
     }
 
+    @Test func leavesLookalikesAlone() {
+        #expect(numbers.apply("a fifty fifty chance") == "a 50 50 chance")
+        #expect(numbers.apply("ten twenty dollar bills") == "10 $20 bills")
+        #expect(numbers.apply("At one point five of us left.") == "At one point five of us left.")
+    }
+
+    @Test func spokenYearsTakeNoComma() {
+        #expect(numbers.apply("since two thousand twenty five") == "since 2025")
+        #expect(numbers.apply("in twenty twenty") == "in 2020")
+        #expect(numbers.apply("three thousand twenty five rows") == "3,025 rows")
+    }
+
     @Test func leavesDigitsAlone() {
         #expect(numbers.apply("We need 25% more by January 5th, 2025.") == "We need 25% more by January 5th, 2025.")
     }

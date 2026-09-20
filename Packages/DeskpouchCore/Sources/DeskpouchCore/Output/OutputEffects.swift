@@ -22,8 +22,9 @@ public protocol OutputEffects: AnyObject {
     func copyImage(_ image: CGImage, pngData: Data?)
     /// Posts ⌘V. Returns the target app's name, or nil when nothing could be pasted into.
     func pasteIntoFrontmostApp() async -> String?
-    /// Presses Return in the frontmost app, after a paste it should send.
-    func pressReturn() async
+    /// Presses Return in the app that took the last paste (or the frontmost one when nothing was pasted).
+    /// False when it was not pressed: focus moved on, or the event could not be posted.
+    func pressReturn() async -> Bool
     /// Writes `result` into `folder`; returns the saved file's URL.
     func save(_ result: ToolResult, to folder: URL) throws -> URL
     func revealInFinder(_ url: URL)
@@ -41,9 +42,13 @@ public final class SystemOutputEffects: OutputEffects {
     private var notificationsAuthorized = false
     /// Pasteboard change count right after our last copy; a restore is skipped once someone else has copied.
     private var ownChangeCount: Int?
+    /// The app the last ⌘V went to. Return is only pressed while it is still in front.
+    private var pasteTarget: pid_t?
 
     /// How long a user shell command may run before it is terminated.
     static let shellTimeout: Duration = .seconds(30)
+    /// Wait between ⌘V and Return. A guess that held in native fields; web views may want more.
+    static let returnDelay: Duration = .milliseconds(150)
 
     public init() {}
 
@@ -105,13 +110,22 @@ public final class SystemOutputEffects: OutputEffects {
     public func pasteIntoFrontmostApp() async -> String? {
         // Give the pasteboard server a moment before the target app reads it.
         try? await Task.sleep(for: .milliseconds(40))
-        return Paster.pasteIntoFrontmostApp()
+        let name = Paster.pasteIntoFrontmostApp()
+        pasteTarget = name == nil ? nil : NSWorkspace.shared.frontmostApplication?.processIdentifier
+        return name
     }
 
-    public func pressReturn() async {
+    public func pressReturn() async -> Bool {
+        let target = pasteTarget
+        pasteTarget = nil
         // The target app handles ⌘V asynchronously; a Return that overtakes it sends the old draft.
-        try? await Task.sleep(for: .milliseconds(150))
-        Paster.pressReturn()
+        if target != nil { try? await Task.sleep(for: Self.returnDelay) }
+        // Focus moved since the paste (a dialog, another app): Return there would press something unasked.
+        if let target, NSWorkspace.shared.frontmostApplication?.processIdentifier != target {
+            log.info("paste target lost focus, Return not pressed")
+            return false
+        }
+        return Paster.pressReturn()
     }
 
     public func save(_ result: ToolResult, to folder: URL) throws -> URL {

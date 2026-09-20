@@ -650,7 +650,7 @@ struct VoiceToolView: View {
                 Chip("\"Send\" presses Return", isOn: state.voiceSayToSend) {
                     actions.setVoiceSayToSend(!state.voiceSayToSend)
                 }
-                .help("End a dictation with \"send\" as its own sentence: the text is pasted, then Return is pressed.")
+                .help("End a dictation with \"send\" as its own sentence: the text is pasted, then Return is pressed. Needs Paste on; without it the word stays in the text.")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -659,40 +659,55 @@ struct VoiceToolView: View {
 }
 
 /// The voice dictionary: one line per entry, what the engine writes on the left, what it should write on the right.
+/// Typing edits a draft; it is handed over half a second after the last change and when the editor closes, so
+/// the tool does not rebuild its rules and rewrite its defaults on every keystroke.
 struct DictionaryEditor: View {
     @Binding var entries: [WordReplacement]
+    @State private var draft: [WordReplacement] = []
+    @State private var loaded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(entries) { entry in
-                HStack(spacing: 6) {
-                    field("heard", text: binding(entry.id, \.heard))
-                    ChevronIcon()
-                        .stroke(style: .icon(1.4))
-                        .foregroundStyle(Theme.Colors.textTertiary)
-                        .frame(width: 8, height: 8)
-                    field("written", text: binding(entry.id, \.written))
-                    Button {
-                        entries.removeAll { $0.id == entry.id }
-                    } label: {
-                        Text("Remove").font(.dp(11)).foregroundStyle(Theme.Colors.textTertiary)
+            ForEach($draft) { $entry in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        field("heard", text: $entry.heard)
+                        ChevronIcon()
+                            .stroke(style: .icon(1.4))
+                            .foregroundStyle(Theme.Colors.textTertiary)
+                            .frame(width: 8, height: 8)
+                        field("written", text: $entry.written)
+                        Button {
+                            draft.removeAll { $0.id == entry.id }
+                        } label: {
+                            Text("Remove").font(.dp(11)).foregroundStyle(Theme.Colors.textTertiary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    if entry.isUsable, entry.written.trimmingCharacters(in: .whitespaces).isEmpty {
+                        Text("nothing written: the word is deleted from dictations")
+                            .font(.dp(10))
+                            .foregroundStyle(Theme.Colors.textTertiary)
+                    }
                 }
             }
-            RowButton("Add word") { entries.append(WordReplacement(heard: "", written: "")) }
+            RowButton("Add word") { draft.append(WordReplacement(heard: "", written: "")) }
         }
         .padding(.vertical, 10)
+        .onAppear {
+            draft = entries
+            loaded = true
+        }
+        .task(id: draft) {
+            guard loaded, draft != entries else { return }
+            try? await Task.sleep(for: .milliseconds(500))
+            if !Task.isCancelled { commit() }
+        }
+        .onDisappear { commit() }
     }
 
-    private func binding(_ id: UUID, _ keyPath: WritableKeyPath<WordReplacement, String>) -> Binding<String> {
-        Binding(
-            get: { entries.first { $0.id == id }?[keyPath: keyPath] ?? "" },
-            set: { value in
-                guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
-                entries[index][keyPath: keyPath] = value
-            }
-        )
+    private func commit() {
+        if loaded, draft != entries { entries = draft }
     }
 
     private func field(_ placeholder: String, text: Binding<String>) -> some View {
@@ -705,6 +720,7 @@ struct DictionaryEditor: View {
             .frame(height: 26)
             .background(shape.fill(Theme.Colors.well))
             .overlay(shape.strokeBorder(Theme.Colors.tint(0.08), lineWidth: 1))
+            .onSubmit { commit() }
     }
 }
 

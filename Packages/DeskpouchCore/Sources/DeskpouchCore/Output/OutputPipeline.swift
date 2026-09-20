@@ -40,7 +40,10 @@ public final class OutputPipeline {
 
     public func deliver(_ result: ToolResult, config: ToolOutputConfig) async -> Delivery {
         var delivery = Delivery()
-        let text = result.text.flatMap { $0.isEmpty ? nil : $0 }
+        let fullText = result.text.flatMap { $0.isEmpty ? nil : $0 }
+        // A closing "send" only comes off when the text is going to be pasted and sent.
+        let submitting = result.submitText != nil && config.actions.contains(.paste)
+        var text = submitting ? result.submitText.flatMap { $0.isEmpty ? nil : $0 } : fullText
         var pasteboardSnapshot: (any Sendable)?
         // A file that is about to be moved by Save is copied afterwards, so the pasteboard points at its final
         // home. An image result is copied as pixel data straight away instead: it does not reference the file
@@ -68,11 +71,11 @@ public final class OutputPipeline {
                 delivery.copied = true
 
             case .paste:
-                guard let text else {
+                guard let pasted = text else {
                     // A dictation that was only "send": nothing to paste, the draft already in the field goes.
-                    if result.submitAfterPaste {
-                        await effects.pressReturn()
-                        delivery.submitted = true
+                    if submitting {
+                        delivery.submitted = await effects.pressReturn()
+                        if !delivery.submitted { text = fullText }
                     }
                     continue
                 }
@@ -80,17 +83,23 @@ public final class OutputPipeline {
                 if copiedForPaste {
                     // ⌘V reads the pasteboard, so the text has to go there; put the old contents back afterwards.
                     pasteboardSnapshot = effects.snapshotPasteboard()
-                    effects.copyText(text)
+                    effects.copyText(pasted)
                 }
                 delivery.pastedInto = await effects.pasteIntoFrontmostApp()
-                if delivery.pastedInto == nil, copiedForPaste {
-                    // Nothing took the paste. Leave the text on the pasteboard rather than lose it.
-                    pasteboardSnapshot = nil
-                    delivery.copied = true
-                    delivery.ran.append(.copy)
-                } else if result.submitAfterPaste, delivery.pastedInto != nil {
-                    await effects.pressReturn()
-                    delivery.submitted = true
+                if delivery.pastedInto == nil {
+                    // Nothing took the paste, so nothing is sent either: the closing word goes back in.
+                    if submitting, let fullText {
+                        text = fullText
+                        effects.copyText(fullText)
+                    }
+                    if copiedForPaste {
+                        // Leave the text on the pasteboard rather than lose it.
+                        pasteboardSnapshot = nil
+                        delivery.copied = true
+                        delivery.ran.append(.copy)
+                    }
+                } else if submitting {
+                    delivery.submitted = await effects.pressReturn()
                 }
 
             case .saveToFolder:

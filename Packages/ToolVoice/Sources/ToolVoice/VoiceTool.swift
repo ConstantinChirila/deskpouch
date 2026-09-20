@@ -19,6 +19,18 @@ public enum VoiceEngine: String, CaseIterable, Sendable {
     }
 }
 
+/// What Voice needs from a microphone. `MicRecorder` is the real one; tests drive the hold logic with a fake.
+@MainActor
+public protocol VoiceRecording: AnyObject {
+    var deviceUID: String? { get set }
+    var isRecording: Bool { get }
+    var currentLevel: Float { get }
+    func start() throws
+    @discardableResult func stop() -> [Float]
+}
+
+extension MicRecorder: VoiceRecording {}
+
 /// Hold-to-talk dictation. Hold the key, speak, release: the transcript is emitted as a `ToolResult`.
 @MainActor
 public final class VoiceTool: Tool {
@@ -132,7 +144,12 @@ public final class VoiceTool: Tool {
     private var replacements: WordReplacements
 
     /// A locked recording ends by itself after this long: the samples are held in memory.
-    static let lockLimit: Duration = .seconds(600)
+    public static let defaultLockLimit: Duration = .seconds(600)
+    private let lockLimit: Duration
+
+    /// A locked recording ended without a key release (it reached its limit). The shell only hears about holds
+    /// through the hotkey, so this is how it learns to leave its listening state.
+    public var onLatchEnded: (@MainActor () -> Void)?
 
     /// Recording hands-free after a tap.
     public private(set) var holdLatched = false
@@ -185,7 +202,9 @@ public final class VoiceTool: Tool {
     private let parakeet: any Transcriber
     private let apple: any Transcriber
     private var transcriber: any Transcriber { engine == .apple ? apple : parakeet }
-    private let recorder = MicRecorder()
+    private let recorder: any VoiceRecording
+    private let microphonePermission: @MainActor () -> Permissions.MicrophoneStatus
+    private let now: @MainActor () -> Date
     private let defaults: UserDefaults
     private var context: ToolContext?
     /// The newest transcription. Each one waits for the one before, so dictations are emitted in order.
@@ -194,11 +213,20 @@ public final class VoiceTool: Tool {
     public init(
         parakeet: any Transcriber = ParakeetTranscriber(),
         apple: any Transcriber = AppleTranscriber(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        recorder: (any VoiceRecording)? = nil,
+        microphonePermission: @escaping @MainActor () -> Permissions.MicrophoneStatus = { Permissions.microphone },
+        now: @escaping @MainActor () -> Date = { Date() },
+        lockLimit: Duration = VoiceTool.defaultLockLimit
     ) {
         self.parakeet = parakeet
         self.apple = apple
         self.defaults = defaults
+        let recorder = recorder ?? MicRecorder()
+        self.recorder = recorder
+        self.microphonePermission = microphonePermission
+        self.now = now
+        self.lockLimit = lockLimit
         engine = defaults.string(forKey: Self.engineDefaultsKey).flatMap(VoiceEngine.init(rawValue:)) ?? .parakeet
         if defaults.object(forKey: Self.holdKeyDefaultsKey) != nil,
            let key = ModifierKey(rawValue: UInt16(clamping: defaults.integer(forKey: Self.holdKeyDefaultsKey))) {
@@ -272,7 +300,7 @@ public final class VoiceTool: Tool {
             finishingLock = true
             return
         }
-        switch Permissions.microphone {
+        switch microphonePermission() {
         case .undetermined:
             // First use: ask, and let this hold go. The next one records.
             log.info("microphone permission undetermined, prompting")
@@ -299,7 +327,7 @@ public final class VoiceTool: Tool {
             return
         }
         log.info("recording started")
-        holdBeganAt = Date()
+        holdBeganAt = now()
         let recorder = recorder
         context.overlay.showListening { recorder.currentLevel }
     }
@@ -309,15 +337,16 @@ public final class VoiceTool: Tool {
         if holdLatched {
             // The release of the tap that locked it changes nothing; the next tap's release finishes.
             guard finishingLock else { return }
-        } else if tapToLock, let began = holdBeganAt, Date().timeIntervalSince(began) < Self.minimumHold {
+        } else if tapToLock, let began = holdBeganAt, now().timeIntervalSince(began) < Self.minimumHold {
             log.info("tap: recording locked")
             holdLatched = true
-            lockTimeout = Task { [weak self] in
-                try? await Task.sleep(for: Self.lockLimit)
+            lockTimeout = Task { [weak self, lockLimit] in
+                try? await Task.sleep(for: lockLimit)
                 guard !Task.isCancelled, let self, holdLatched else { return }
                 log.info("locked recording reached its limit")
                 finishingLock = true
                 holdEnded()
+                onLatchEnded?()
             }
             return
         }
@@ -365,20 +394,26 @@ public final class VoiceTool: Tool {
         if !recorder.isRecording { context?.overlay.flash(state, for: duration) }
     }
 
-    /// The text passes after the filler filter: a closing "send" comes off first so the numbers, the marks and
-    /// the dictionary see the body alone.
-    func polish(_ text: String) -> SpokenSend.Parsed {
+    /// What a dictation becomes after the text passes.
+    struct Polished: Equatable {
+        /// Everything that was said, closing "send" included.
+        let text: String
+        /// Set when the dictation ended in "send": the text without it, for the paste that Return follows.
+        let submitText: String?
+    }
+
+    /// The text passes after the filler filter. A closing "send" is split off first so the numbers, the marks
+    /// and the dictionary see the body alone; the whole text gets the same passes for when nothing is sent.
+    func polish(_ text: String) -> Polished {
+        let body = sayToSend ? SpokenSend.parse(text) : SpokenSend.Parsed(text: text, submit: false)
+        return Polished(text: passes(text), submitText: body.submit ? passes(body.text) : nil)
+    }
+
+    private func passes(_ text: String) -> String {
         var text = text
-        var submit = false
-        if sayToSend {
-            let parsed = SpokenSend.parse(text)
-            text = parsed.text
-            submit = parsed.submit
-        }
         if numbersAsDigits, language == "en" { text = SpokenNumbers.default.apply(text) }
         if spokenPunctuation { text = SpokenPunctuation.default.apply(text) }
-        text = replacements.apply(text)
-        return SpokenSend.Parsed(text: text, submit: submit)
+        return replacements.apply(text)
     }
 
     #if DEBUG
@@ -414,13 +449,13 @@ public final class VoiceTool: Tool {
                 log.info("fillers stripped: \(transcript.text.count) -> \(text.count) chars")
             }
             let polished = polish(text)
-            guard !polished.text.isEmpty || polished.submit else {
+            guard !polished.text.isEmpty else {
                 flash(.failed("Nothing heard"))
                 return nil
             }
             if emit {
                 context.emit(ToolResult(
-                    toolID: id, text: polished.text, duration: duration, submitAfterPaste: polished.submit
+                    toolID: id, text: polished.text, duration: duration, submitText: polished.submitText
                 ))
             }
             return polished.text

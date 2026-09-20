@@ -11,7 +11,9 @@ import Foundation
 /// - "two hundred thirty two dollars and fifty cents" is "$232.50"; euros work the same. Pounds are left alone,
 ///   they are also a weight.
 /// - "three thirty pm" is "3:30 PM".
-/// - Two runs of two digits in a row are a year: "nineteen ninety nine" is "1999".
+/// - Two runs of two digits in a row are a year when the first is 17 to 20: "nineteen ninety nine" is "1999",
+///   "fifty fifty" stays. 2001 to 2099 takes no comma, it is nearly always the year.
+/// - "at one point five of us left" keeps its words: "one point" after "at", "some", "that" is the idiom.
 /// - Ordinals follow the same size rule ("twenty first" is "21st", "first" stays). "twenty second" only converts
 ///   next to "the" or "of", since "a twenty second delay" is a duration.
 /// - Words only join a run across spaces or a hyphen, never across punctuation.
@@ -32,7 +34,8 @@ public struct SpokenNumbers: Sendable {
             var end = number.end
             var written: String?
 
-            if let decimal = parseDecimal(pieces, words, after: end) {
+            if !isPointIdiom(pieces, words, number, start: position),
+               let decimal = parseDecimal(pieces, words, after: end) {
                 end = decimal.end
                 let percent = word(pieces, words, end + 1) == "percent" && joins(pieces, words, end)
                 written = "\(number.value).\(decimal.digits)" + (percent ? "%" : "")
@@ -193,6 +196,13 @@ public struct SpokenNumbers: Sendable {
 
     // MARK: Decimals, money, time, years
 
+    /// "at one point five of us left": "one point" after these words is the idiom, not a decimal.
+    private func isPointIdiom(_ pieces: [Piece], _ words: [Int], _ number: Number, start: Int) -> Bool {
+        guard number.wordCount == 1, word(pieces, words, start) == "one",
+              let before = word(pieces, words, start - 1) else { return false }
+        return ["at", "some", "that", "this", "no"].contains(before)
+    }
+
     private func parseDecimal(_ pieces: [Piece], _ words: [Int], after end: Int) -> (digits: String, end: Int)? {
         guard word(pieces, words, end + 1) == "point", joins(pieces, words, end) else { return nil }
         var digits = ""
@@ -247,7 +257,8 @@ public struct SpokenNumbers: Sendable {
     private func parseYear(
         _ pieces: [Piece], _ words: [Int], first: Number, after end: Int
     ) -> (text: String, end: Int)? {
-        guard (10...99).contains(first.value), first.roundScale == nil,
+        // Only centuries people say this way; "fifty fifty" and "ten twenty dollar bills" are not years.
+        guard (17...20).contains(first.value), first.roundScale == nil,
               let second = parseNumber(pieces, words, at: end + 1), !second.ordinal,
               (10...99).contains(second.value), second.roundScale == nil else { return nil }
         return ("\(first.value)\(second.value)", second.end)
@@ -257,6 +268,8 @@ public struct SpokenNumbers: Sendable {
 
     private static func plain(_ number: Number) -> String {
         if let round = number.roundScale, round.name != "thousand" { return "\(round.count) \(round.name)" }
+        // "two thousand twenty five" is nearly always the year, which takes no comma.
+        if (2001...2099).contains(number.value) { return String(number.value) }
         return grouped(number.value)
     }
 

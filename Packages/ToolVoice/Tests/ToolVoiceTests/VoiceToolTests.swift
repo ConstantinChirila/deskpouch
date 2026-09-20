@@ -29,6 +29,33 @@ final class StubTranscriber: Transcriber, @unchecked Sendable {
     }
 }
 
+/// A microphone that records `seconds` of silence.
+@MainActor
+final class FakeRecorder: VoiceRecording {
+    var deviceUID: String?
+    private(set) var isRecording = false
+    let currentLevel: Float = 0
+    private(set) var starts = 0
+    var seconds = 1.0
+
+    func start() throws {
+        isRecording = true
+        starts += 1
+    }
+
+    func stop() -> [Float] {
+        guard isRecording else { return [] }
+        isRecording = false
+        return [Float](repeating: 0, count: Int(seconds * 16_000))
+    }
+}
+
+@MainActor
+final class FakeClock {
+    var date = Date(timeIntervalSince1970: 0)
+    func advance(_ seconds: TimeInterval) { date += seconds }
+}
+
 @MainActor
 struct VoiceToolTests {
     private let defaults: UserDefaults
@@ -120,7 +147,7 @@ struct VoiceToolTests {
         tool.spokenPunctuation = true
         tool.dictionary = [WordReplacement(heard: "desk pouch", written: "Deskpouch")]
         let polished = tool.polish("Is desk pouch ready question mark. Send.")
-        #expect(polished == .init(text: "Is Deskpouch ready?", submit: true))
+        #expect(polished == .init(text: "Is Deskpouch ready? Send.", submitText: "Is Deskpouch ready?"))
     }
 
     @Test func numbersBecomeDigitsInEnglishOnly() {
@@ -129,11 +156,20 @@ struct VoiceToolTests {
         #expect(tool.polish("It costs twenty five dollars.").text == "It costs $25.")
         tool.numbersAsDigits = false
         #expect(tool.polish("It costs twenty five dollars.").text == "It costs twenty five dollars.")
+        tool.numbersAsDigits = true
+        tool.language = "de"
+        #expect(tool.polish("It costs twenty five dollars.").text == "It costs twenty five dollars.")
+    }
+
+    @Test func aLoneSendKeepsItsWordForWhenNothingIsSent() {
+        let tool = tool()
+        tool.sayToSend = true
+        #expect(tool.polish("Send.") == .init(text: "Send.", submitText: ""))
     }
 
     @Test func polishLeavesTextAloneByDefault() {
         let polished = tool().polish("Hello comma world. Send.")
-        #expect(polished == .init(text: "Hello comma world. Send.", submit: false))
+        #expect(polished == .init(text: "Hello comma world. Send.", submitText: nil))
     }
 
     @Test func textOptionsPersist() {
@@ -142,6 +178,8 @@ struct VoiceToolTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let first = VoiceTool(parakeet: StubTranscriber(), apple: StubTranscriber(), defaults: defaults)
         #expect(!first.spokenPunctuation && !first.sayToSend && !first.tapToLock && first.dictionary.isEmpty)
+        #expect(first.numbersAsDigits)
+        first.numbersAsDigits = false
         first.spokenPunctuation = true
         first.sayToSend = true
         first.tapToLock = true
@@ -149,6 +187,119 @@ struct VoiceToolTests {
         let second = VoiceTool(parakeet: StubTranscriber(), apple: StubTranscriber(), defaults: defaults)
         #expect(second.spokenPunctuation && second.sayToSend && second.tapToLock)
         #expect(second.dictionary.map(\.heard) == ["a"])
+        #expect(!second.numbersAsDigits)
+    }
+
+    // MARK: Tap to lock
+
+    private func lockable(
+        _ recorder: FakeRecorder, _ clock: FakeClock, tapToLock: Bool = true, lockLimit: Duration = .seconds(600)
+    ) -> VoiceTool {
+        let tool = VoiceTool(
+            parakeet: StubTranscriber(), apple: StubTranscriber(), defaults: defaults, recorder: recorder,
+            microphonePermission: { .granted }, now: { clock.date }, lockLimit: lockLimit
+        )
+        tool.tapToLock = tapToLock
+        return tool
+    }
+
+    @Test func aHoldRecordsAndEmitsOnRelease() async {
+        let (recorder, clock) = (FakeRecorder(), FakeClock())
+        let tool = lockable(recorder, clock)
+        let (_, emitted) = attach(tool)
+        tool.holdBegan()
+        clock.advance(1)
+        tool.holdEnded()
+        #expect(!tool.holdLatched && !recorder.isRecording)
+        await tool.debugWaitForJobs()
+        #expect(emitted().map(\.text) == ["hello"])
+    }
+
+    @Test func aTapLocksAndTheNextTapFinishes() async {
+        let (recorder, clock) = (FakeRecorder(), FakeClock())
+        let tool = lockable(recorder, clock)
+        let (_, emitted) = attach(tool)
+        tool.holdBegan()
+        clock.advance(0.1)
+        tool.holdEnded()
+        #expect(tool.holdLatched && recorder.isRecording)
+
+        clock.advance(5)
+        tool.holdBegan()
+        #expect(recorder.starts == 1)
+        #expect(tool.holdLatched)
+        tool.holdEnded()
+        #expect(!tool.holdLatched && !recorder.isRecording)
+        await tool.debugWaitForJobs()
+        #expect(emitted().count == 1)
+    }
+
+    @Test func aTapWithoutTapToLockIsDropped() async {
+        let (recorder, clock) = (FakeRecorder(), FakeClock())
+        let tool = lockable(recorder, clock, tapToLock: false)
+        let (_, emitted) = attach(tool)
+        recorder.seconds = 0.1
+        tool.holdBegan()
+        clock.advance(0.1)
+        tool.holdEnded()
+        #expect(!tool.holdLatched && !recorder.isRecording)
+        await tool.debugWaitForJobs()
+        #expect(emitted().isEmpty)
+    }
+
+    @Test func aChordWhileLockedDoesNotFinish() {
+        let (recorder, clock) = (FakeRecorder(), FakeClock())
+        let tool = lockable(recorder, clock)
+        _ = attach(tool)
+        tool.holdBegan()
+        tool.holdEnded()
+        tool.holdBegan()
+        tool.holdCancelled()
+        #expect(tool.holdLatched && recorder.isRecording)
+        // The chord's own release never arrives (`HotkeyPhase.cancelled`); a stray one must not finish either.
+        tool.holdEnded()
+        #expect(tool.holdLatched && recorder.isRecording)
+    }
+
+    @Test func deactivateClearsTheLock() async {
+        let (recorder, clock) = (FakeRecorder(), FakeClock())
+        let tool = lockable(recorder, clock)
+        let (_, emitted) = attach(tool)
+        tool.holdBegan()
+        tool.holdEnded()
+        tool.deactivate()
+        #expect(!tool.holdLatched && !recorder.isRecording)
+        await tool.debugWaitForJobs()
+        #expect(emitted().isEmpty)
+    }
+
+    @Test func theLimitFinishesAndTellsTheShell() async {
+        let (recorder, clock) = (FakeRecorder(), FakeClock())
+        let tool = lockable(recorder, clock, lockLimit: .milliseconds(20))
+        let (_, emitted) = attach(tool)
+        var ended = 0
+        tool.onLatchEnded = { ended += 1 }
+        tool.holdBegan()
+        tool.holdEnded()
+        #expect(tool.holdLatched)
+        for _ in 0..<200 where tool.holdLatched { try? await Task.sleep(for: .milliseconds(10)) }
+        #expect(!tool.holdLatched && !recorder.isRecording)
+        #expect(ended == 1)
+        await tool.debugWaitForJobs()
+        #expect(emitted().count == 1)
+    }
+
+    @Test func finishingByTapDoesNotReportALatchEnd() {
+        let (recorder, clock) = (FakeRecorder(), FakeClock())
+        let tool = lockable(recorder, clock)
+        _ = attach(tool)
+        var ended = 0
+        tool.onLatchEnded = { ended += 1 }
+        tool.holdBegan()
+        tool.holdEnded()
+        tool.holdBegan()
+        tool.holdEnded()
+        #expect(ended == 0)
     }
 
     @Test func debugTranscribeNeverEmits() async {

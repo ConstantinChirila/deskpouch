@@ -25,7 +25,11 @@ final class RecordingEffects: OutputEffects {
         calls.append("paste")
         return pasteTarget
     }
-    func pressReturn() async { calls.append("return") }
+    var returnLands = true
+    func pressReturn() async -> Bool {
+        calls.append("return")
+        return returnLands
+    }
     func save(_ result: ToolResult, to folder: URL) throws -> URL {
         calls.append("save(\(folder.lastPathComponent))")
         return savedURL
@@ -122,33 +126,61 @@ struct OutputPipelineTests {
         #expect(delivery.pastedInto == "Slack")
     }
 
-    @Test func submitPressesReturnAfterThePaste() async throws {
+    @Test func submitPastesWithoutTheClosingWordThenPressesReturn() async throws {
         let effects = RecordingEffects()
-        let pipeline = OutputPipeline(effects: effects, history: nil)
-        let result = ToolResult(toolID: "voice", text: "on my way", submitAfterPaste: true)
-        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste]))
+        let history = try HistoryStore.inMemory()
+        let pipeline = OutputPipeline(effects: effects, history: history)
+        let result = ToolResult(toolID: "voice", text: "on my way. Send.", submitText: "on my way.")
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste, .history]))
         #expect(effects.calls == ["snapshot", "copyText", "paste", "return", "restore(previous clipboard)"])
         #expect(delivery.submitted)
+        #expect(try history.recent(limit: 1).first?.text == "on my way.")
     }
 
-    @Test func submitIsSkippedWhenNothingTookThePaste() async throws {
+    @Test func withoutPasteTheClosingWordStays() async throws {
+        let effects = RecordingEffects()
+        let history = try HistoryStore.inMemory()
+        let pipeline = OutputPipeline(effects: effects, history: history)
+        let result = ToolResult(toolID: "voice", text: "on my way. Send.", submitText: "on my way.")
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.copy, .history]))
+        #expect(effects.calls == ["copyText"])
+        #expect(!delivery.submitted)
+        #expect(try history.recent(limit: 1).first?.text == "on my way. Send.")
+    }
+
+    @Test func whenNothingTakesThePasteTheWholeTextIsKept() async throws {
         let effects = RecordingEffects()
         effects.pasteTarget = nil
-        let pipeline = OutputPipeline(effects: effects, history: nil)
-        let result = ToolResult(toolID: "voice", text: "on my way", submitAfterPaste: true)
-        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste]))
-        #expect(!effects.calls.contains("return"))
+        let history = try HistoryStore.inMemory()
+        let pipeline = OutputPipeline(effects: effects, history: history)
+        let result = ToolResult(toolID: "voice", text: "on my way. Send.", submitText: "on my way.")
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste, .history]))
+        #expect(effects.calls == ["snapshot", "copyText", "paste", "copyText"])
         #expect(!delivery.submitted)
+        #expect(delivery.copied)
+        #expect(try history.recent(limit: 1).first?.text == "on my way. Send.")
     }
 
     @Test func aLoneSendOnlyPressesReturn() async throws {
         let effects = RecordingEffects()
         let history = try HistoryStore.inMemory()
         let pipeline = OutputPipeline(effects: effects, history: history)
-        let result = ToolResult(toolID: "voice", text: "", submitAfterPaste: true)
+        let result = ToolResult(toolID: "voice", text: "Send.", submitText: "")
         let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste, .copy, .history]))
         #expect(effects.calls == ["return"])
+        #expect(delivery.submitted)
         #expect(!delivery.recorded)
+    }
+
+    @Test func aLoneSendThatCannotBePressedIsLoggedAsText() async throws {
+        let effects = RecordingEffects()
+        effects.returnLands = false
+        let history = try HistoryStore.inMemory()
+        let pipeline = OutputPipeline(effects: effects, history: history)
+        let result = ToolResult(toolID: "voice", text: "Send.", submitText: "")
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste, .history]))
+        #expect(!delivery.submitted)
+        #expect(try history.recent(limit: 1).first?.text == "Send.")
     }
 
     @Test func fileResultsSaveThenRevealThenShellThenNotify() async throws {

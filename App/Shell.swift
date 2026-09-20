@@ -122,6 +122,13 @@ final class Shell {
             state.screenStatus = text
             state.recorderSettings = screen.settings
         }
+        voice.onLatchEnded = { [weak self] in
+            // A locked dictation reached its limit: no key release will come to end the listening state.
+            guard let self else { return }
+            state.isListening = false
+            statusItem.showIdle()
+            playCue(start: false)
+        }
         screenshot.onStatus = { [weak self] _ in
             guard let self else { return }
             state.shotSettings = screenshot.settings

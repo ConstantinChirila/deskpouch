@@ -101,15 +101,17 @@ public struct ToolResult: Sendable, Identifiable {
     public let followUp: ResultFollowUp?
     /// Extras logged with the row: the exact colour picked, the display and rect captured.
     public let meta: ResultMeta?
-    /// Press Return once the text is pasted. Voice sets it for a dictation that ended in "send".
-    public let submitAfterPaste: Bool
+    /// Set for a dictation that ended in "send": what to paste before pressing Return (`text` without the
+    /// closing word, possibly empty). The pipeline only uses it when it pastes; otherwise `text` goes out whole,
+    /// so the word is never dropped without the Return it stood for.
+    public let submitText: String?
 
     public init(
         toolID: String, text: String? = nil, fileURL: URL? = nil, image: CGImage? = nil,
         duration: TimeInterval? = nil, kind: HistoryKind? = nil, followUp: ResultFollowUp? = nil,
-        meta: ResultMeta? = nil, submitAfterPaste: Bool = false
+        meta: ResultMeta? = nil, submitText: String? = nil
     ) {
-        self.submitAfterPaste = submitAfterPaste
+        self.submitText = submitText
         self.followUp = followUp
         self.meta = meta
         id = UUID()
