@@ -10,6 +10,9 @@ import Foundation
 /// - A line break keeps a sentence end before it ("Done. New line" keeps the full stop) and drops a clause break.
 /// - "period" and "dash" are also ordinary words, so they only count as commands when the model set
 ///   them apart: at the end of the text, or with punctuation of their own ("so, period." but not "a period of").
+/// - Every command is prose when it is being talked about: right after "a", "an", "the" and the like ("add a
+///   comma here", "the Oxford comma", "a big question mark"), or before "of" ("a new line of products").
+///   "colon" is also the organ ("colon cancer").
 public struct SpokenPunctuation: Sendable {
     public static let `default` = SpokenPunctuation()
 
@@ -31,6 +34,17 @@ public struct SpokenPunctuation: Sendable {
     ]
 
     static let ambiguous: Set<String> = ["period", "dash"]
+
+    /// A command right after one of these is the thing itself, not an instruction. The adjectives are the ones
+    /// people put before the mark's name.
+    static let proseBefore: Set<String> = [
+        "a", "an", "the", "this", "that", "another", "oxford", "serial", "trailing", "missing", "big", "huge",
+    ]
+
+    /// A command right before one of these is prose. "of" applies to every command.
+    static let proseAfter: [String: Set<String>] = [
+        "colon": ["cancer", "cleanse", "health", "surgery", "screening", "polyp", "polyps"],
+    ]
 
     private let pattern: NSRegularExpression
     private let written: [String: String]
@@ -64,12 +78,18 @@ public struct SpokenPunctuation: Sendable {
                 searchFrom = commandRange.upperBound
                 continue
             }
+            var before = String(text[..<range.lowerBound]).trimmingTrailingWhitespace()
+            let previous = leading.isEmpty ? Self.lastWord(of: before) : ""
+            let next = trailing.isEmpty ? String(after.prefix(while: \.isLetter)).lowercased() : ""
+            if Self.proseBefore.contains(previous) || next == "of" || Self.proseAfter[spoken]?.contains(next) == true {
+                searchFrom = commandRange.upperBound
+                continue
+            }
             guard let mark = written[spoken] else {
                 searchFrom = commandRange.upperBound
                 continue
             }
 
-            var before = String(text[..<range.lowerBound]).trimmingTrailingWhitespace()
             var rest = after
             let isBreak = mark.hasPrefix("\n")
             if isBreak {
@@ -90,6 +110,11 @@ public struct SpokenPunctuation: Sendable {
             searchFrom = text.index(text.startIndex, offsetBy: min(before.count, text.count))
         }
         return text.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The word the text ends on, lowercased. Empty when it ends on anything else.
+    private static func lastWord(of text: String) -> String {
+        String(text.reversed().prefix(while: \.isLetter).reversed()).lowercased()
     }
 
     private static let sentenceEnds: Set<Character> = [".", "!", "?"]

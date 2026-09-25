@@ -155,6 +155,25 @@ struct EditorWindowControllerTests {
         #expect(drop.closed == 1)
     }
 
+    /// The window's root view holds the session: closing has to break that, or both stay in memory.
+    @Test func closedSessionAndWindowAreReleased() async {
+        let (editor, _) = controller()
+        weak var session: EditorSession?
+        weak var window: NSWindow?
+        do {
+            let opened = editor.open(StubDocument(), toolID: "stub")
+            opened.prepareWindow()
+            session = opened
+            window = opened.window
+            #expect(window != nil)
+            opened.close()
+        }
+        // The content view is dropped a turn after the close.
+        for _ in 0..<10 where session != nil || window != nil { await Task.yield() }
+        #expect(session == nil)
+        #expect(window == nil)
+    }
+
     @Test func fittedFrameClampsAndCentres() {
         let visible = CGRect(x: 0, y: 0, width: 1000, height: 800)
         let small = EditorWindowController.fittedFrame(for: CGSize(width: 100, height: 100), in: visible)

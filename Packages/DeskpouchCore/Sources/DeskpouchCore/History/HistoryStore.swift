@@ -192,11 +192,16 @@ public final class HistoryStore {
 
     // MARK: Writes
 
+    /// Recording an id again updates the row and keeps its star: `starred` only applies to a new row.
     public func record(_ item: HistoryItem) throws {
         let statement = try prepare(
             """
-            INSERT OR REPLACE INTO results (id, tool_id, created_at, text, file_path, duration, pasted_into, kind, thumb_path, meta, starred)
+            INSERT INTO results (id, tool_id, created_at, text, file_path, duration, pasted_into, kind, thumb_path, meta, starred)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                tool_id = excluded.tool_id, created_at = excluded.created_at, text = excluded.text,
+                file_path = excluded.file_path, duration = excluded.duration, pasted_into = excluded.pasted_into,
+                kind = excluded.kind, thumb_path = excluded.thumb_path, meta = excluded.meta
             """
         )
         defer { sqlite3_finalize(statement) }
@@ -223,10 +228,16 @@ public final class HistoryStore {
     @discardableResult
     public func delete(ids: [UUID]) throws -> [URL] {
         var files: [URL] = []
-        for id in ids {
-            if let path = try filePath(id: id) { files.append(URL(fileURLWithPath: path)) }
-            try delete(id: id)
+        var thumbs: [String] = []
+        // All or nothing: a failure halfway leaves every row in place, so no file loses the row that points at it.
+        try transaction {
+            for id in ids {
+                if let path = try filePath(id: id) { files.append(URL(fileURLWithPath: path)) }
+                if let thumb = try thumbPath(id: id) { thumbs.append(thumb) }
+                try deleteRow(id: id)
+            }
         }
+        for thumb in thumbs { HistoryThumbnails.remove(URL(fileURLWithPath: thumb)) }
         return files
     }
 
@@ -258,9 +269,13 @@ public final class HistoryStore {
     }
 
     public func delete(id: UUID) throws {
-        if let thumb = try thumbPath(id: id) {
-            HistoryThumbnails.remove(URL(fileURLWithPath: thumb))
-        }
+        let thumb = try thumbPath(id: id)
+        try deleteRow(id: id)
+        // The thumbnail goes once the row is gone: a failed delete keeps a row whose thumbnail still exists.
+        if let thumb { HistoryThumbnails.remove(URL(fileURLWithPath: thumb)) }
+    }
+
+    private func deleteRow(id: UUID) throws {
         let statement = try prepare("DELETE FROM results WHERE id = ?")
         defer { sqlite3_finalize(statement) }
         bind(statement, 1, id.uuidString)
@@ -268,10 +283,9 @@ public final class HistoryStore {
     }
 
     public func clear() throws {
-        for thumb in try allThumbPaths() {
-            HistoryThumbnails.remove(URL(fileURLWithPath: thumb))
-        }
+        let thumbs = try allThumbPaths()
         try exec("DELETE FROM results")
+        for thumb in thumbs { HistoryThumbnails.remove(URL(fileURLWithPath: thumb)) }
     }
 
     private func thumbPath(id: UUID) throws -> String? {
@@ -321,6 +335,24 @@ public final class HistoryStore {
         let next = bind(statement, filter.values)
         sqlite3_bind_int(statement, next, Int32(max(0, limit)))
         sqlite3_bind_int(statement, next + 1, Int32(max(0, offset)))
+        return try readItems(statement)
+    }
+
+    /// One row by id, whatever the gallery has loaded; nil when there is no such row.
+    public func item(id: UUID) throws -> HistoryItem? {
+        let statement = try prepare(
+            """
+            SELECT id, tool_id, created_at, text, file_path, duration, pasted_into, kind, thumb_path, meta, starred
+            FROM results WHERE id = ?
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+        bind(statement, 1, id.uuidString)
+        return try readItems(statement).first
+    }
+
+    /// Steps a statement selecting the columns `items` and `item(id:)` share.
+    private func readItems(_ statement: OpaquePointer) throws -> [HistoryItem] {
         var items: [HistoryItem] = []
         while true {
             let rc = sqlite3_step(statement)
@@ -468,6 +500,17 @@ public final class HistoryStore {
     }
 
     // MARK: SQLite plumbing
+
+    private func transaction(_ body: () throws -> Void) throws {
+        try exec("BEGIN IMMEDIATE")
+        do {
+            try body()
+            try exec("COMMIT")
+        } catch {
+            try? exec("ROLLBACK")
+            throw error
+        }
+    }
 
     private func exec(_ sql: String) throws {
         var error: UnsafeMutablePointer<CChar>?

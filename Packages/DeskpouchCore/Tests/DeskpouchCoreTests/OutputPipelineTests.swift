@@ -16,13 +16,17 @@ final class RecordingEffects: OutputEffects {
         return pasteboardBefore
     }
     func restorePasteboard(_ snapshot: any Sendable) async {
+        if suspends { try? await Task.sleep(for: .milliseconds(20)) }
         calls.append("restore(\(snapshot as? String ?? "?"))")
     }
     func copyText(_ text: String) { calls.append("copyText") }
     func copyFile(_ url: URL) { calls.append("copyFile") }
     func copyImage(_ image: CGImage, pngData: Data?) { calls.append("copyImage") }
+    /// Suspends inside the paste and the restore, the way the real effects sleep there.
+    var suspends = false
     func pasteIntoFrontmostApp() async -> String? {
         calls.append("paste")
+        if suspends { try? await Task.sleep(for: .milliseconds(20)) }
         return pasteTarget
     }
     var returnLands = true
@@ -54,6 +58,33 @@ private func testImage(width: Int = 4, height: Int = 4) -> CGImage {
 
 @MainActor
 struct OutputPipelineTests {
+    @Test func overlappingDeliveriesTakeTheClipboardInTurn() async throws {
+        let effects = RecordingEffects()
+        effects.suspends = true
+        let pipeline = OutputPipeline(effects: effects, history: nil)
+        let config = ToolOutputConfig(actions: [.paste])
+        async let first = pipeline.deliver(ToolResult(toolID: "voice", text: "one"), config: config)
+        async let second = pipeline.deliver(ToolResult(toolID: "voice", text: "two"), config: config)
+        _ = await (first, second)
+        let turn = ["snapshot", "copyText", "paste", "restore(previous clipboard)"]
+        #expect(effects.calls == turn + turn)
+    }
+
+    /// A result too late to paste is copied instead and still logged; the configured paste never runs.
+    @Test func copyInsteadOfPasteSkipsThePasteAndKeepsHistory() async throws {
+        let effects = RecordingEffects()
+        let history = try HistoryStore.inMemory()
+        let pipeline = OutputPipeline(effects: effects, history: history)
+        let result = ToolResult(toolID: "voice", text: "late", copyInsteadOfPaste: "Took too long")
+        let delivery = await pipeline.deliver(result, config: ToolOutputConfig(actions: [.paste, .history]))
+        #expect(!effects.calls.contains("paste"))
+        #expect(effects.calls.contains("copyText"))
+        #expect(delivery.copied)
+        #expect(delivery.pastedInto == nil)
+        #expect(delivery.recorded)
+        #expect(try history.recent(limit: 5).map(\.text) == ["late"])
+    }
+
     @Test func runsInFixedOrderRegardlessOfSetOrder() async throws {
         let effects = RecordingEffects()
         let history = try HistoryStore.inMemory()

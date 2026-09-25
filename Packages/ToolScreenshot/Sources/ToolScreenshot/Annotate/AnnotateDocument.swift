@@ -211,12 +211,15 @@ public final class AnnotateDocument: EditorDocument {
         if let id = model.selection { model.edit(id) { $0.size = size } }
     }
 
+    /// Not during a drag: `pointerUp` takes the top of the undo stack to be the gesture's own checkpoint.
     func undo() {
+        guard gesture == nil else { return }
         commitDraft()
         model.undo()
     }
 
     func redo() {
+        guard gesture == nil else { return }
         commitDraft()
         model.redo()
     }

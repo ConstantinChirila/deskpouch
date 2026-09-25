@@ -28,7 +28,11 @@ public enum AppleTranscriberError: LocalizedError {
 public final class AppleTranscriber: Transcriber, @unchecked Sendable {
     public let displayName = "Apple Speech"
 
-    private let onDeviceLocales = Mutex<[Locale]?>(nil)
+    private let onDeviceLocales = Mutex<(locales: [Locale], built: Date)?>(nil)
+
+    /// An empty locale list is built again after this long. Building asks for a recogniser per locale, and the
+    /// panel reads the list on the main actor, so not on every read.
+    private static let emptyListLifetime: TimeInterval = 10
 
     public init() {}
 
@@ -59,7 +63,8 @@ public final class AppleTranscriber: Transcriber, @unchecked Sendable {
 
     public func transcribe(samples: [Float], language: String?) async throws -> Transcript {
         let code = language ?? "en"
-        guard let locale = locale(for: code), let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
+        // A list built while Dictation was off misses the language: build it again before giving up.
+        guard let locale = locale(for: code) ?? locale(for: code, rebuilding: true), let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
             throw AppleTranscriberError.unavailable(code.uppercased())
         }
         guard recognizer.supportsOnDeviceRecognition else {
@@ -166,9 +171,13 @@ public final class AppleTranscriber: Transcriber, @unchecked Sendable {
 
     // MARK: Locales
 
-    /// Locales whose recogniser runs on device, the user's own locale first, then alphabetical.
-    private func locales() -> [Locale] {
-        if let cached = onDeviceLocales.withLock({ $0 }) { return cached }
+    /// Locales whose recogniser runs on device, the user's own locale first, then alphabetical. An empty list is
+    /// only kept briefly: it means Dictation was off, and that can change while the app runs.
+    private func locales(rebuilding: Bool = false) -> [Locale] {
+        if !rebuilding, let cached = onDeviceLocales.withLock({ $0 }),
+           !cached.locales.isEmpty || Date().timeIntervalSince(cached.built) < Self.emptyListLifetime {
+            return cached.locales
+        }
         let current = Locale.current
         let all = SFSpeechRecognizer.supportedLocales()
             .filter { SFSpeechRecognizer(locale: $0)?.supportsOnDeviceRecognition == true }
@@ -177,11 +186,11 @@ public final class AppleTranscriber: Transcriber, @unchecked Sendable {
                 if b.identifier == current.identifier { return false }
                 return a.identifier < b.identifier
             }
-        onDeviceLocales.withLock { $0 = all }
+        onDeviceLocales.withLock { $0 = (all, Date()) }
         return all
     }
 
-    private func locale(for code: String) -> Locale? {
-        locales().first { $0.language.languageCode?.identifier.lowercased() == code.lowercased() }
+    private func locale(for code: String, rebuilding: Bool = false) -> Locale? {
+        locales(rebuilding: rebuilding).first { $0.language.languageCode?.identifier.lowercased() == code.lowercased() }
     }
 }

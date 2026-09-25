@@ -49,8 +49,16 @@ struct TrimToolbar: View {
     @ViewBuilder
     private var estimate: some View {
         let size = document.estimatedBytes.map { "≈ " + ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) }
-        if document.gifIsLong {
-            Text("GIF over 15 s" + (size.map { ": \($0)" } ?? ""))
+        if document.copyFailed {
+            Text("Copy failed")
+                .font(.dp(12, .medium))
+                .foregroundStyle(Theme.Colors.accentHigh)
+        } else if document.gifIsTooLong {
+            Text("GIF over \(Int(TrimDocument.gifMaxLength)) s: trim it, or use MP4")
+                .font(.dp(12, .medium))
+                .foregroundStyle(Theme.Colors.accentHigh)
+        } else if document.gifIsLong {
+            Text("GIF over \(Int(TrimDocument.gifWarningLength)) s" + (size.map { ": \($0)" } ?? ""))
                 .font(.dp(12, .medium))
                 .foregroundStyle(Theme.Colors.accentHigh)
         } else {

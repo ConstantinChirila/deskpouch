@@ -1,10 +1,17 @@
 import Carbon.HIToolbox
 import Foundation
 
+/// What `HotkeyCenter` needs from the system's combo hotkeys. Tests swap in a fake.
+@MainActor
+protocol PressHotkeys: AnyObject {
+    func register(_ combo: KeyCombo, handler: @escaping @MainActor () -> Void) -> UInt32?
+    func unregister(_ id: UInt32)
+}
+
 /// Key-combo hotkeys through Carbon's RegisterEventHotKey. Unlike the event monitors used for modifier holds,
 /// these need no Accessibility grant and the key press never reaches the frontmost app.
 @MainActor
-final class CarbonHotkeys {
+final class CarbonHotkeys: PressHotkeys {
     static let shared = CarbonHotkeys()
 
     private static let signature: OSType = 0x4450_4348 // 'DPCH'

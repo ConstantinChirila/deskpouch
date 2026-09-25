@@ -265,18 +265,24 @@ public final class AnnotationRenderer: Sendable {
         let step = max(1, block)
         let columns = Int((CGFloat(width) / step).rounded(.up))
         let rows = Int((CGFloat(height) / step).rounded(.up))
-        let space = CGColorSpaceCreateDeviceRGB()
         let info = CGImageAlphaInfo.premultipliedLast.rawValue
-        guard let small = CGContext(
-            data: nil, width: columns, height: rows, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: info
-        ) else { return nil }
+        func bitmap(_ width: Int, _ height: Int, _ space: CGColorSpace) -> CGContext? {
+            CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: info)
+        }
+        // The image's own space (Display P3 for a real capture), as `render` uses: a round trip through another
+        // one would shift the colours of a blurred region against its surroundings.
+        var space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        var made: CGContext?
+        if let own = image.colorSpace, own.supportsOutput, let context = bitmap(columns, rows, own) {
+            space = own
+            made = context
+        }
+        guard let small = made ?? bitmap(columns, rows, space) else { return nil }
         small.interpolationQuality = .high
         let scaledHeight = CGFloat(height) / step
         // Bitmap contexts are y-up: pin the image to the top row so blocks line up with the image's top-left.
         small.draw(image, in: CGRect(x: 0, y: CGFloat(rows) - scaledHeight, width: CGFloat(width) / step, height: scaledHeight))
-        guard let averaged = small.makeImage(), let full = CGContext(
-            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: info
-        ) else { return nil }
+        guard let averaged = small.makeImage(), let full = bitmap(width, height, space) else { return nil }
         full.interpolationQuality = .none
         let blocksHeight = CGFloat(rows) * step
         full.draw(averaged, in: CGRect(x: 0, y: CGFloat(height) - blocksHeight, width: CGFloat(columns) * step, height: blocksHeight))

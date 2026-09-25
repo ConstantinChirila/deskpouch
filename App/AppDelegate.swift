@@ -28,6 +28,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.shell = shell
     }
 
+    /// How long a quit waits for a recording to be finalised and delivered before going ahead anyway.
+    private static let quitWait: Duration = .seconds(90)
+    private var quitting = false
+    private var quitReplied = false
+
+    /// ⌘Q, the Dock, logout: unsaved editor work is asked about first, and a recording, an export or a result
+    /// still being saved is finished before the app goes.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let shell else { return .terminateNow }
+        guard shell.readyToQuit() else { return .terminateCancel }
+        guard shell.hasWorkInFlight else { return .terminateNow }
+        guard !quitting else { return .terminateLater }
+        quitting = true
+        Task {
+            await shell.finishWorkInFlight()
+            replyToQuit()
+        }
+        Task {
+            try? await Task.sleep(for: Self.quitWait)
+            replyToQuit()
+        }
+        return .terminateLater
+    }
+
+    private func replyToQuit() {
+        guard !quitReplied else { return }
+        quitReplied = true
+        NSApp.reply(toApplicationShouldTerminate: true)
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         shell?.stop()
     }

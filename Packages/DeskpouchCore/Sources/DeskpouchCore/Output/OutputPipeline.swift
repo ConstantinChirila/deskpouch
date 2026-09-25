@@ -25,6 +25,10 @@ public final class OutputPipeline {
     private let effects: any OutputEffects
     private let history: HistoryStore?
     private let thumbsDirectory: URL
+    /// Ends when the delivery now holding the clipboard is done with it. Deliveries start independently (two
+    /// dictations can finish close together) but share one pasteboard and one paste target, so copy, paste,
+    /// Return and the restore of one delivery finish before the next one's start.
+    private var clipboardTurn: Task<Void, Never>?
 
     public init(effects: any OutputEffects, history: HistoryStore?, thumbsDirectory: URL = HistoryThumbnails.defaultDirectory) {
         self.effects = effects
@@ -39,6 +43,11 @@ public final class OutputPipeline {
     }
 
     public func deliver(_ result: ToolResult, config: ToolOutputConfig) async -> Delivery {
+        var config = config
+        if result.copyInsteadOfPaste != nil, config.actions.contains(.paste) {
+            config.actions.remove(.paste)
+            config.actions.insert(.copy)
+        }
         var delivery = Delivery()
         let fullText = result.text.flatMap { $0.isEmpty ? nil : $0 }
         // A closing "send" only comes off when the text is going to be pasted and sent.
@@ -51,7 +60,25 @@ public final class OutputPipeline {
         let copyFileAfterSave = result.fileURL != nil && text == nil && result.image == nil
             && config.actions.contains(.copy) && config.actions.contains(.saveToFolder)
 
+        let previousTurn = clipboardTurn
+        let (turn, turnEnd) = AsyncStream<Never>.makeStream()
+        clipboardTurn = Task { for await _ in turn {} }
+        await previousTurn?.value
+        var holdsClipboard = true
+        // Copy and paste come first in `executionOrder`; the turn ends before the slow actions (a shell command
+        // may run for 30 s), so they never hold up the next delivery's paste.
+        func endClipboardTurn() async {
+            guard holdsClipboard else { return }
+            holdsClipboard = false
+            if let snapshot = pasteboardSnapshot {
+                pasteboardSnapshot = nil
+                await effects.restorePasteboard(snapshot)
+            }
+            turnEnd.finish()
+        }
+
         for action in OutputAction.executionOrder where config.actions.contains(action) {
+            if action != .copy, action != .paste { await endClipboardTurn() }
             switch action {
             case .copy:
                 if let text {
@@ -163,9 +190,7 @@ public final class OutputPipeline {
             }
         }
 
-        if let pasteboardSnapshot {
-            await effects.restorePasteboard(pasteboardSnapshot)
-        }
+        await endClipboardTurn()
         return delivery
     }
 

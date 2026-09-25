@@ -29,7 +29,7 @@ struct FillerFilterTests {
 
     @Test func capitalisesAfterSentenceStart() {
         #expect(filter.clean("Done. Um, then we left.") == "Done. Then we left.")
-        #expect(filter.clean("Done! Ah, then we left.") == "Done! Then we left.")
+        #expect(filter.clean("Done! Uh, then we left.") == "Done! Then we left.")
     }
 
     @Test func leavesRealWords() {
@@ -37,6 +37,24 @@ struct FillerFilterTests {
         #expect(filter.clean("Uh-oh, that's an error.") == "Uh-oh, that's an error.")
         #expect(filter.clean("He said 'um' out loud.") == "He said 'um' out loud.")
         #expect(filter.clean("You know, like, whatever.") == "You know, like, whatever.")
+    }
+
+    @Test func leavesEnglishWordsThatSoundLikeFillers() {
+        #expect(filter.clean("He is in the ER.") == "He is in the ER.")
+        #expect(filter.clean("I shot it with a 35 mm lens.") == "I shot it with a 35 mm lens.")
+        #expect(filter.clean("Ah, there you are.") == "Ah, there you are.")
+    }
+
+    @Test func germanKeepsItsWords() {
+        let german = FillerFilter.forLanguage("de")
+        #expect(german.clean("Er kommt um fünf.") == "Er kommt um fünf.")
+        #expect(german.clean("Äh, er kommt, ähm, um fünf.") == "Er kommt um fünf.")
+    }
+
+    @Test func otherLanguagesAreLeftAlone() {
+        #expect(FillerFilter.forLanguage("pt").clean("Um café, uh, por favor.") == "Um café, uh, por favor.")
+        #expect(FillerFilter.forLanguage(nil).clean("um hello") == "um hello")
+        #expect(FillerFilter.forLanguage("en-GB").clean("um hello") == "Hello")
     }
 
     @Test func caseInsensitive() {

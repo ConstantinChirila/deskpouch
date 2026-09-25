@@ -35,6 +35,7 @@ struct MenuPanelActions {
     var updateScreenshot: @MainActor ((inout ScreenshotSettings) -> Void) -> Void
     var chooseScreenshotFolder: @MainActor () -> Void
     var setColorPressKey: @MainActor (KeyCombo) -> Void
+    var setCalendarPressKey: @MainActor (KeyCombo) -> Void
     var updateColor: @MainActor ((inout ColorSettings) -> Void) -> Void
     var setLaunchAtLogin: @MainActor (Bool) -> Void
     var setPillPosition: @MainActor (PillPosition) -> Void

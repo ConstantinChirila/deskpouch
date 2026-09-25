@@ -30,7 +30,7 @@ struct TrimExportTests {
             CVPixelBufferPoolCreatePixelBuffer(nil, try #require(adaptor.pixelBufferPool), &buffer)
             let pixels = try #require(buffer)
             CVPixelBufferLockBaseAddress(pixels, [])
-            memset(CVPixelBufferGetBaseAddress(pixels), Int32(20 + frame * 200 / max(1, count)), CVPixelBufferGetDataSize(pixels))
+            memset(CVPixelBufferGetBaseAddress(pixels), Int32(grey(frame: frame, of: count)), CVPixelBufferGetDataSize(pixels))
             CVPixelBufferUnlockBaseAddress(pixels, [])
             #expect(adaptor.append(pixels, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: 30)))
         }
@@ -39,6 +39,32 @@ struct TrimExportTests {
         await writer.finishWriting()
         #expect(writer.status == .completed)
         return url
+    }
+
+    /// The grey level `makeVideo` gives a frame.
+    static func grey(frame: Int, of count: Int) -> Int {
+        20 + frame * 200 / max(1, count)
+    }
+
+    /// Red of the top-left pixel; the frames are flat grey.
+    static func grey(of image: CGImage) throws -> Int {
+        var pixel = [UInt8](repeating: 0, count: 4)
+        try pixel.withUnsafeMutableBytes { raw in
+            let context = try #require(CGContext(
+                data: raw.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.draw(image, in: CGRect(x: 0, y: -(image.height - 1), width: image.width, height: image.height))
+        }
+        return Int(pixel[0])
+    }
+
+    /// Grey of the frame on screen at `seconds`.
+    static func grey(of video: URL, at seconds: Double) async throws -> Int {
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: video))
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        return try grey(of: try await generator.image(at: CMTime(seconds: seconds, preferredTimescale: 600)).image)
     }
 
     @Test func gifHasTwelveFramesASecondAndIsCappedInWidth() async throws {
@@ -67,6 +93,28 @@ struct TrimExportTests {
         let output = try await GIFExporter.export(video, range: 0.5...1.0, to: gif)
         #expect(output.ticks == 6)
         #expect(output.pixelSize == CGSize(width: 320, height: 180))
+
+        let source = try #require(CGImageSourceCreateWithURL(gif as CFURL, nil))
+        #expect(CGImageSourceGetCount(source) == 6)
+        // Against the video's own frames, decoded the same way: the codec and the GIF palette shift a grey a
+        // little, the wrong part of the recording shifts it a lot (the video runs from grey 20 to about 217).
+        let first = try Self.grey(of: try #require(CGImageSourceCreateImageAtIndex(source, 0, nil)))
+        let last = try Self.grey(of: try #require(CGImageSourceCreateImageAtIndex(source, 5, nil)))
+        #expect(abs(first - (try await Self.grey(of: video, at: 0.5))) <= 6)
+        // The last tick is at 0.5 + 5/12 s.
+        #expect(abs(last - (try await Self.grey(of: video, at: 0.5 + 5.0 / 12))) <= 6)
+        #expect(last - first > 25)
+    }
+
+    @Test func aCancelledGIFLeavesNoFile() async throws {
+        let video = try await Self.makeVideo(seconds: 2, size: CGSize(width: 320, height: 180))
+        let gif = FileManager.default.temporaryDirectory.appending(path: "trim-\(UUID().uuidString).gif")
+        defer { [video, gif].forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let task = Task { try await GIFExporter.export(video, range: 0...2, to: gif) }
+        task.cancel()
+        await #expect(throws: (any Error).self) { try await task.value }
+        #expect(!FileManager.default.fileExists(atPath: gif.path))
     }
 
     @Test func mp4TrimKeepsTheRange() async throws {

@@ -354,6 +354,49 @@ public struct CloseIcon: Shape {
     }
 }
 
+/// Calendar page: rounded body, header rule, two rings.
+public struct CalendarIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: 2, y: 3, width: 12, height: 11), cornerSize: CGSize(width: 2.5, height: 2.5))
+        p.move(to: CGPoint(x: 2, y: 7)); p.addLine(to: CGPoint(x: 14, y: 7))
+        p.move(to: CGPoint(x: 5.5, y: 1.5)); p.addLine(to: CGPoint(x: 5.5, y: 4.5))
+        p.move(to: CGPoint(x: 10.5, y: 1.5)); p.addLine(to: CGPoint(x: 10.5, y: 4.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Bell: dome, flared rim, clapper line.
+public struct BellIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 4, y: 11))
+        p.addLine(to: CGPoint(x: 4, y: 7.5))
+        p.addArc(center: CGPoint(x: 8, y: 7.5), radius: 4, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false)
+        p.addLine(to: CGPoint(x: 12, y: 11))
+        p.addLine(to: CGPoint(x: 13, y: 12.5))
+        p.addLine(to: CGPoint(x: 3, y: 12.5))
+        p.closeSubpath()
+        p.move(to: CGPoint(x: 6.5, y: 14.5)); p.addLine(to: CGPoint(x: 9.5, y: 14.5))
+        return p.scaled(toFit: rect)
+    }
+}
+
+/// Video camera: body and lens wedge.
+public struct CameraIcon: Shape {
+    public init() {}
+    public func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: 1.5, y: 4, width: 9, height: 8), cornerSize: CGSize(width: 2, height: 2))
+        p.move(to: CGPoint(x: 10.5, y: 7)); p.addLine(to: CGPoint(x: 14.5, y: 4.8))
+        p.addLine(to: CGPoint(x: 14.5, y: 11.2)); p.addLine(to: CGPoint(x: 10.5, y: 9))
+        p.closeSubpath()
+        return p.scaled(toFit: rect)
+    }
+}
+
 extension Path {
     /// Scales a path authored in a 16 unit box into `rect`, preserving aspect.
     fileprivate func scaled(toFit rect: CGRect) -> Path {

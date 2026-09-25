@@ -1,6 +1,7 @@
 import DeskpouchCore
 import Foundation
 import Observation
+import ToolCalendar
 import ToolColor
 import ToolScreenRecorder
 import ToolScreenshot
@@ -42,7 +43,7 @@ final class ShellState {
     let thumbnails = ThumbnailCache()
     /// The panel is on screen; drives its spring-in.
     var panelPresented = false
-    var version = "0.1.0"
+    var version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
 
     // Navigation, written by the views.
     var panelView: PanelView = .main
@@ -99,6 +100,11 @@ final class ShellState {
     var colorKeyTaken = false
     var colorSettings = ColorSettings()
 
+    // Calendar: the tool's own observable model, read by the row and the view.
+    var calendar: CalendarModel?
+    var calendarKey: KeyCombo = CalendarTool.defaultKey
+    var calendarKeyTaken = false
+
     // General.
     let general: GeneralSettings
     /// Tools switched on in General. Off hides the row and frees the hotkey.
@@ -107,7 +113,7 @@ final class ShellState {
 
     init(
         output: OutputSettings = OutputSettings(), general: GeneralSettings = GeneralSettings(),
-        switches: ToolSwitches = ToolSwitches()
+        switches: ToolSwitches = ToolSwitches(offByDefault: [CalendarToolView.toolID])
     ) {
         self.output = output
         self.general = general

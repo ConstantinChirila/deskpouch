@@ -71,10 +71,16 @@ public final class GalleryWindowController: NSObject, NSWindowDelegate {
 
     static let minimumSize = CGSize(width: 900, height: 560)
     private static let frameName = "gallery"
+    /// How long the search waits for the next character before it reloads.
+    static let searchDelay: Duration = .milliseconds(150)
 
     public init(store: HistoryStore, actions: GalleryActions) {
-        model = GalleryModel(store: store)
+        model = GalleryModel(store: store, searchDelay: Self.searchDelay)
         self.actions = actions
+        super.init()
+        model.onDeleted = { [thumbnails] rows in
+            for url in rows.flatMap({ [$0.thumbURL, $0.fileURL] }).compactMap({ $0 }) { thumbnails.forget(url) }
+        }
     }
 
     public var isOpen: Bool { window?.isVisible == true }
@@ -126,6 +132,7 @@ public final class GalleryWindowController: NSObject, NSWindowDelegate {
         ui.openMenu = nil
         video.stop()
         gif.stop()
+        thumbnails.removeAll()
         model.cancelDelete()
         onOpenChange?(false)
     }
@@ -186,6 +193,8 @@ public final class GalleryWindowController: NSObject, NSWindowDelegate {
     func cancel() {
         if model.pendingDelete != nil {
             model.cancelDelete()
+        } else if model.deleteFailure != nil {
+            model.dismissDeleteFailure()
         } else if ui.openMenu != nil {
             ui.openMenu = nil
         } else if ui.filled {

@@ -52,6 +52,22 @@ struct HistoryStoreTests {
         #expect(try store.recent(limit: 10).isEmpty)
     }
 
+    @Test func recordingAgainKeepsTheStar() throws {
+        let store = try HistoryStore.inMemory()
+        let first = item("first", at: 100)
+        try store.record(first)
+        try store.setStarred(true, ids: [first.id])
+        try store.record(HistoryItem(
+            id: first.id, toolID: "voice", createdAt: first.createdAt, text: "second", fileURL: nil,
+            duration: nil, pastedInto: "Notes"
+        ))
+        let loaded = try store.recent(limit: 10)
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.text == "second")
+        #expect(loaded.first?.pastedInto == "Notes")
+        #expect(loaded.first?.starred == true)
+    }
+
     @Test func persistsToDisk() throws {
         let dir = FileManager.default.temporaryDirectory.appending(path: "deskpouch-tests-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }

@@ -1,6 +1,10 @@
 {
   "pages": [
     {
+      "id": "calendar",
+      "name": "Calendar (plan 11): variants"
+    },
+    {
       "id": "list",
       "name": "Panel v2: list and tool views"
     },
@@ -357,6 +361,42 @@
       "y": 0,
       "w": 480,
       "h": 1000
+    },
+    {
+      "file": "CalendarMenubar.dc.html",
+      "title": "Menubar item · A / B / C",
+      "page": "calendar",
+      "x": 0,
+      "y": 0,
+      "w": 1460,
+      "h": 430
+    },
+    {
+      "file": "CalendarRow.dc.html",
+      "title": "Tools row",
+      "page": "calendar",
+      "x": 1500,
+      "y": 0,
+      "w": 560,
+      "h": 360
+    },
+    {
+      "file": "CalendarView.dc.html",
+      "title": "Calendar view · A / B / C",
+      "page": "calendar",
+      "x": 0,
+      "y": 530,
+      "w": 1440,
+      "h": 840
+    },
+    {
+      "file": "CalendarPills.dc.html",
+      "title": "Pill · A / B / C",
+      "page": "calendar",
+      "x": 0,
+      "y": 1470,
+      "w": 1440,
+      "h": 960
     }
   ],
   "annotations": [
@@ -447,10 +487,18 @@
       "y": 0,
       "w": 300,
       "text": "History view, 2026-09-15\n\nThe main view keeps the last 5 under Recent. Its header gains 'All 48 ›', which pushes the History view (same navigation as General and the tool views).\n\nHistory: search over transcripts and file names, All / Voice / Recordings filter, rows grouped by day with clock times instead of relative ones. The list scrolls inside the panel; 'Show older' loads the next batch.\n\nHover on a row reveals delete next to the copy or reveal action. Delete removes the log row, never the file.\n\nStill one panel, no library window."
+    },
+    {
+      "id": "calendar-note",
+      "page": "calendar",
+      "x": 1500,
+      "y": 460,
+      "w": 420,
+      "text": "Plan 11 step 1. Pick one per row: menubar item (glyph and text, drain bar, time chip), Calendar view (agenda list, day rail, next first), pill (pill, card, slim bar). Mixes welcome. Sample day: Fri 25 Sep 14:18, Design sync at 14:30 with a Meet link and guests."
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "history"
+    "page": "calendar"
   }
 }

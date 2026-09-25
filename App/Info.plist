@@ -28,6 +28,8 @@
 	<string>15.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Deskpouch shows your next meeting in the menu bar and reminds you before it starts.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Constantin Chirila</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -116,6 +116,22 @@ public final class EditorWindowController {
         return session
     }
 
+    /// Quit: false when an editor has unsaved work. That editor comes forward with its discard prompt up, and the
+    /// quit is called off until the user has answered.
+    public func readyToQuit() -> Bool {
+        guard let unsaved = sessions.first(where: { $0.document?.unsavedChanges != nil && !$0.exporting }) else { return true }
+        unsaved.show()
+        unsaved.requestClose()
+        return false
+    }
+
+    public var isExporting: Bool { sessions.contains(where: \.exporting) }
+
+    /// Quit: returns once every export in flight has written its file and handed it to `deliver`.
+    public func finishExports() async {
+        for task in sessions.compactMap(\.exportTask) { await task.value }
+    }
+
     /// Closes, without asking, every window whose document matches (e.g. a tool being switched off).
     public func close(where matches: (any EditorDocument) -> Bool) {
         for session in sessions where session.document.map(matches) == true {
@@ -200,16 +216,7 @@ final class EditorSession: NSObject {
 
     /// Shows the window (creating it the first time), cascaded from `previous` when another editor is open.
     func show(after previous: NSWindow? = nil) {
-        if window == nil {
-            let window = makeWindow()
-            self.window = window
-            if let previous {
-                // Same size as the newest editor, shifted down-right so both title rows stay visible.
-                window.setFrame(previous.frame.offsetBy(dx: 28, dy: -28), display: false)
-            } else if !window.setFrameUsingName(Self.frameName(toolID)), let document {
-                window.setFrame(EditorWindowController.fittedFrame(for: document.idealContentSize, in: targetScreen().visibleFrame), display: false)
-            }
-        }
+        prepareWindow(after: previous)
         guard let window else { return }
         // Opened from the pill (a non-activating panel) Deskpouch is not the active app, and `NSApp.activate()`
         // is refused under cooperative activation: the window opened behind the frontmost app. The older call
@@ -217,6 +224,20 @@ final class EditorSession: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         window.orderFrontRegardless()
         window.makeKey()
+    }
+
+    /// Creates and places the window without showing it. Does nothing once there is one, or after close. Split
+    /// out of `show` for tests.
+    func prepareWindow(after previous: NSWindow? = nil) {
+        guard window == nil, !closed else { return }
+        let window = makeWindow()
+        self.window = window
+        if let previous {
+            // Same size as the newest editor, shifted down-right so both title rows stay visible.
+            window.setFrame(previous.frame.offsetBy(dx: 28, dy: -28), display: false)
+        } else if !window.setFrameUsingName(Self.frameName(toolID)), let document {
+            window.setFrame(EditorWindowController.fittedFrame(for: document.idealContentSize, in: targetScreen().visibleFrame), display: false)
+        }
     }
 
     /// Close button, ⌘W and Escape: asks first when the document has unsaved work. Ignored while exporting:
@@ -263,6 +284,13 @@ final class EditorSession: NSObject {
         toolbar = nil
         copiedReset?.cancel()
         owner?.sessionClosed(self)
+        // The window's hosting view holds this session through its root view, and the session holds the window:
+        // let go of both, or every closed editor stays in memory. The view goes on the next turn because this
+        // can run inside `windowWillClose`, while AppKit is still using the window.
+        if let window {
+            self.window = nil
+            Task { @MainActor in window.contentView = nil }
+        }
     }
 
     // MARK: Actions

@@ -20,6 +20,17 @@ scripts/test.sh
 
 If `xcodebuild` fails with "A required plugin failed to load", run `xcodebuild -runFirstLaunch`.
 
+## DMG
+
+```sh
+scripts/make-dmg.sh                          # Release build into build/Deskpouch-<version>.dmg, ad-hoc signed
+VERSION=0.2.0 BUILD=12 scripts/make-dmg.sh   # with a version other than project.yml's
+```
+
+`.github/workflows/dmg.yml` runs the same script. A push to `main` keeps the DMG as a workflow artifact (repo members, 30 days). A tag like `v0.2.0` also attaches it to a GitHub release, which anyone can download; the tag sets the version, the run number sets the build.
+
+Without signing secrets the build is ad-hoc signed: it opens only after System Settings › Privacy & Security › Open Anyway, and macOS forgets its Accessibility, Microphone and Screen Recording grants with every new build. For a Developer ID signed and notarized DMG, add these repository secrets: `DEVELOPER_ID_P12` (the certificate and key, `base64 -i cert.p12`), `DEVELOPER_ID_P12_PASSWORD`, `SIGN_IDENTITY` ("Developer ID Application: Name (TEAMID)"), `TEAM_ID`, `NOTARY_APPLE_ID` and `NOTARY_PASSWORD` (an app-specific password). The signed path has not been run yet.
+
 ## Permissions
 
 The colour picker needs Screen Recording too (it reads the pixels under the loupe). The hold-to-talk key uses AppKit global event monitors, which need Accessibility access; pasting posts ⌘V through the same grant. Dictation needs Microphone access. The screen recorder and the screenshot tool both need Screen Recording access (the ⌘⇧6 and ⌘⇧2 combos themselves are Carbon hotkeys and need nothing). All are prompted on first use; macOS usually wants the app relaunched after the Screen Recording grant.
@@ -200,6 +211,12 @@ DESKPOUCH_DEMO=color DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/P
 # a click picks. DESKPOUCH_DEMO_POINT=x,y aims it somewhere else (AppKit global, bottom-left origin). Opening the
 # loupe any other way leaves the app inactive, so keys never reach it: that is the demo path, not a bug.
 DESKPOUCH_DEMO=color DESKPOUCH_DEMO_CLICK=1 open build/DerivedData/Build/Products/Debug/Deskpouch.app
+
+# Calendar (plan 11) on fixture events around now, frozen so the real calendar does not replace them: the menubar
+# item, the panel on the Calendar view, and a stack of three pills (call with Join, running solo, heads-up), then
+# the "No call" message. Switches the Calendar tool on. With DESKPOUCH_DEMO_OUT writes calendar-menubar-*.png,
+# calendar-panel.png, calendar-pills.png and calendar-pills-message.png. Keep the display awake (caffeinate -u).
+DESKPOUCH_DEMO=calendar DESKPOUCH_DEMO_OUT=/tmp/snap open build/DerivedData/Build/Products/Debug/Deskpouch.app
 
 # Real Parakeet transcription of a file, no mic, no paste (writes demo-transcript.txt and .png)
 say -o /tmp/speech.wav --data-format=LEF32@16000 "Can we move standup to ten"

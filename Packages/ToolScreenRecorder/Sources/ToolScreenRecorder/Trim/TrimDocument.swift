@@ -42,6 +42,11 @@ public final class TrimDocument: EditorDocument {
 
     /// A GIF longer than this gets the amber size warning. Export is still allowed.
     static let gifWarningLength: TimeInterval = 15
+    /// A GIF longer than this is refused: ImageIO holds every frame until the file is finalized, about 6 MB a
+    /// frame at full width, so a minute would take gigabytes.
+    static let gifMaxLength: TimeInterval = 30
+    /// A copied file has to outlive its window for a later paste, so copies are swept by age instead.
+    nonisolated static let copyLifetime: TimeInterval = 24 * 60 * 60
 
     public let sourceURL: URL
     let toolID: String
@@ -59,10 +64,17 @@ public final class TrimDocument: EditorDocument {
     private(set) var gifBytesPerTick: Double?
     /// 0...1 while a GIF is being written.
     private(set) var exportProgress: Double?
+    /// The last Copy did not reach the pasteboard.
+    private(set) var copyFailed = false
 
     @ObservationIgnored private var timeObserver: Any?
     @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
     @ObservationIgnored private var estimateTask: Task<Void, Never>?
+    @ObservationIgnored private var copyTask: Task<Void, Never>?
+    @ObservationIgnored private var gifTask: Task<GIFExporter.Output, Error>?
+    @ObservationIgnored private var writing = false
+    /// The folder of this document's last copy. Only the newest is kept.
+    @ObservationIgnored private var copyFolder: URL?
     @ObservationIgnored private var seeking = false
     @ObservationIgnored private var pendingSeek: TimeInterval?
 
@@ -75,6 +87,8 @@ public final class TrimDocument: EditorDocument {
         player.actionAtItemEnd = .pause
         observePlayback()
         loadThumbnails()
+        let copies = Self.copiesFolder
+        Task.detached(priority: .utility) { Self.sweepCopies(in: copies) }
     }
 
     // MARK: EditorDocument
@@ -115,20 +129,28 @@ public final class TrimDocument: EditorDocument {
     }
 
     /// Writes the cut to Deskpouch's own folder and puts that file on the pasteboard. Nothing is saved to the
-    /// user's folder and nothing is logged.
+    /// user's folder and nothing is logged. One copy at a time; a press while one is being written does nothing.
     public func copy() {
+        guard copyTask == nil, !writing else { return }
         pause()
-        let destination = ScreenRecorderTool.stagingURL(for: Date())
-            .deletingLastPathComponent()
+        copyFailed = false
+        let folder = Self.copiesFolder.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let destination = folder
             .appending(path: Self.exportURL(for: sourceURL, format: format, trimmed: model.isTrimmed).lastPathComponent)
-        Task { [weak self] in
+        copyTask = Task { [weak self] in
             guard let self else { return }
+            defer { copyTask = nil }
             do {
-                try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 try await write(to: destination)
                 SystemOutputEffects().copyFile(destination)
+                if let copyFolder { try? FileManager.default.removeItem(at: copyFolder) }
+                copyFolder = folder
             } catch {
+                try? FileManager.default.removeItem(at: folder)
+                // `EditorDocument.copy()` cannot fail, so the editor still says "Copied"; the toolbar says otherwise.
                 log.error("copy failed: \(String(describing: error), privacy: .public)")
+                copyFailed = !(error is CancellationError)
             }
         }
     }
@@ -141,7 +163,12 @@ public final class TrimDocument: EditorDocument {
         return ToolResult(toolID: toolID, fileURL: destination, duration: length, kind: .recording)
     }
 
+    /// One write at a time: a copy and an export would share `exportProgress`.
     private func write(to destination: URL) async throws {
+        guard !writing else { throw TrimExportError.busy }
+        guard !gifIsTooLong else { throw TrimExportError.gifTooLong }
+        writing = true
+        defer { writing = false }
         let range = model.start...model.end
         let source = sourceURL
         switch format {
@@ -156,9 +183,21 @@ public final class TrimDocument: EditorDocument {
                     if self?.exportProgress != nil { self?.exportProgress = fraction }
                 }
             }
-            _ = try await Task.detached(priority: .userInitiated) {
+            let task = Task.detached(priority: .userInitiated) {
                 try await GIFExporter.export(source, range: range, to: destination, progress: report)
-            }.value
+            }
+            gifTask = task
+            defer { gifTask = nil }
+            _ = try await Self.value(of: task)
+        }
+    }
+
+    /// A detached task does not inherit cancellation, so it is passed on by hand.
+    private static func value<Success: Sendable>(of task: Task<Success, Error>) async throws -> Success {
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
         }
     }
 
@@ -194,6 +233,9 @@ public final class TrimDocument: EditorDocument {
         timeObserver = nil
         thumbnailTask?.cancel()
         estimateTask?.cancel()
+        // The exporter deletes its partial file. A finished copy stays: the pasteboard points at it.
+        copyTask?.cancel()
+        gifTask?.cancel()
         player.replaceCurrentItem(with: nil)
     }
 
@@ -345,6 +387,9 @@ public final class TrimDocument: EditorDocument {
 
     var gifIsLong: Bool { format == .gif && model.selectedDuration > Self.gifWarningLength }
 
+    /// Export and Copy refuse a GIF this long.
+    var gifIsTooLong: Bool { format == .gif && model.selectedDuration > Self.gifMaxLength }
+
     /// GIF size depends on what is on screen, so it is measured: up to a second from the in point is written to
     /// a temporary file and scaled up.
     private func refreshEstimate() {
@@ -357,16 +402,39 @@ public final class TrimDocument: EditorDocument {
             // Let a run of I / O presses or a format flip settle first.
             try? await Task.sleep(for: .milliseconds(300))
             if Task.isCancelled { return }
-            let perTick = await Task.detached(priority: .utility) { () -> Double? in
-                let probe = FileManager.default.temporaryDirectory.appending(path: "deskpouch-gif-probe-\(UUID().uuidString).gif")
-                defer { try? FileManager.default.removeItem(at: probe) }
-                guard let output = try? await GIFExporter.export(source, range: start...end, to: probe),
-                      let bytes = (try? FileManager.default.attributesOfItem(atPath: probe.path)[.size] as? NSNumber)?.doubleValue
+            let probe = Task.detached(priority: .utility) { () throws -> Double? in
+                let file = FileManager.default.temporaryDirectory.appending(path: "deskpouch-gif-probe-\(UUID().uuidString).gif")
+                defer { try? FileManager.default.removeItem(at: file) }
+                let output = try await GIFExporter.export(source, range: start...end, to: file)
+                guard let bytes = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? NSNumber)?.doubleValue
                 else { return nil }
                 return bytes / Double(output.ticks)
-            }.value
+            }
+            // Superseded or closed: the probe stops with this task.
+            let perTick = (try? await Self.value(of: probe)) ?? nil
             if Task.isCancelled { return }
             self?.gifBytesPerTick = perTick
+        }
+    }
+
+    // MARK: Copies
+
+    /// Apart from the recorder's staging folders beside it, so a sweep can only ever meet copies.
+    nonisolated static var copiesFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Deskpouch/Recordings/Copies", directoryHint: .isDirectory)
+    }
+
+    /// Deletes the copy folders in `folder` last changed more than `copyLifetime` ago.
+    nonisolated static func sweepCopies(in folder: URL, now: Date = Date()) {
+        let entries = (try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: [.contentModificationDateKey]
+        )) ?? []
+        for entry in entries {
+            guard let changed = try? entry.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                  now.timeIntervalSince(changed) > copyLifetime
+            else { continue }
+            try? FileManager.default.removeItem(at: entry)
         }
     }
 

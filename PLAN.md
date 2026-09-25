@@ -61,7 +61,7 @@ deskpouch/
 Rules: tools never import each other. Core never imports a tool or Capture; Capture never imports a tool. Tests live per package, mostly on Core (pipeline, history, hotkey conflicts). Capture code is not unit tested.
 
 ### Distribution
-- Unsigned local builds for now.
+- Unsigned local builds for now. `scripts/make-dmg.sh` and `.github/workflows/dmg.yml` (2026-09-20) build a DMG on every push to main (artifact) and on `v*` tags (GitHub release): ad-hoc signed until the Developer ID secrets exist, then signed and notarized by the same script.
 - Developer ID + notarization + Sparkle when a build is first shared with a teammate or sold.
 - Never App Store (sandbox blocks paste, system audio, hotkeys).
 
@@ -271,8 +271,9 @@ Nine additions, grilled and decided; one plan per tool under `docs/plans/`. Buil
 8. [Voice note](docs/plans/08-voice-note.md), Right Command hold: append to the daily note, no paste. **Parked 2026-09-19**: Voice already pastes into Obsidian, and an unstructured append-only list is a dumping ground; revive only with a way to structure it.
 9. [Image convert](docs/plans/09-image-convert.md): drop on row or Finder service, WebP/PNG/JPEG beside the source.
 10. [Gallery](docs/plans/10-gallery.md) (added and grilled 2026-09-19): one master-detail window over history (list left, large preview right), replaces the panel's History view; delete moves the file to the Trash, multi-select, starred, date presets, drag out; the app turns regular (Dock, ⌘Tab) while a real window is open. Package `DeskpouchGallery`. Step 0 (activation-policy spike, on the editors) is done 2026-09-19: works, no menu-bar quirk. Step 1 (Core: `HistoryQuery`, counts by kind, `starred`, batch delete handing back files) is done the same day, 211 tests pass. Step 2 (package `DeskpouchGallery`: window, column, selection, image and text preview, delete to the Trash) is done too, 226 tests pass; "All" in the panel opens it. Steps 3 and 4 are done too (players for recordings and GIFs, colour formats, missing files with Clean up; the panel's History view is removed, Recent rows open the gallery), 228 tests pass. Steps 5 to 7 followed the same day (filter row with Starred, date presets and pasted-into; multi-file drag out and multi-copy; the demo posts a real click and deletes a throwaway capture into the Trash): the gallery is feature-complete per its plan, 237 tests pass. What is left is a hands-on pass, listed at the end of the plan.
+11. [Calendar](docs/plans/11-calendar.md) (requested, researched and grilled 2026-09-25; built the same day, hands-on pass left): package `ToolCalendar` on EventKit (the Gmail account in Internet Accounts), off by default. A separate menubar item with the next event and a countdown (hidden outside a 1 h window, amber in the last 5 min, mint while running), today's agenda as a Tools row and view, a draggable stack of pills with a sound at each event alarm (sticky today, 8 s heads-up for later days), Join on ⌃⌘J with `authuser`. Verified through `DESKPOUCH_DEMO=calendar` PNGs; all package tests pass. The Google Calendar API path stays written up as the fallback.
 
-Package rule after 0 and 7: tools import Core, Capture and Speech only; those three never import a tool; Core imports neither of the other two.
+Package rule after 0 and 7: tools import Core, Capture and Speech only (ToolCalendar imports Core only); those three never import a tool; Core imports neither of the other two.
 
 ## Open items
 - Fifteen-plus tools: the list still grows 52 pt per tool; revisit (grouping, or a compact mode) when it happens.

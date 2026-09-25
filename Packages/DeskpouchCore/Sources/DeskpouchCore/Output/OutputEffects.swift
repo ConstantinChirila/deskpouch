@@ -49,15 +49,35 @@ public final class SystemOutputEffects: OutputEffects {
     static let shellTimeout: Duration = .seconds(30)
     /// Wait between ⌘V and Return. A guess that held in native fields; web views may want more.
     static let returnDelay: Duration = .milliseconds(150)
+    /// Most bytes a pasteboard snapshot may hold. Anything larger is not snapshotted, so not restored.
+    static let snapshotByteLimit = 20 * 1024 * 1024
+    /// Most types, summed over every item, a snapshot reads.
+    static let snapshotTypeLimit = 64
 
     public init() {}
 
     public func snapshotPasteboard() -> (any Sendable)? {
         guard let items = NSPasteboard.general.pasteboardItems, !items.isEmpty else { return nil }
-        let copies = items.map { item in
-            item.types.reduce(into: [String: Data]()) { acc, type in
-                if let data = item.data(forType: type) { acc[type.rawValue] = data }
+        // Reading a type makes its owner provide the data, here on the main actor: a big image or a long Finder
+        // selection is not worth the stall or the memory, so it is left unrestored instead.
+        guard items.reduce(0, { $0 + $1.types.count }) <= Self.snapshotTypeLimit else {
+            log.info("pasteboard has too many types to snapshot, not restoring")
+            return nil
+        }
+        var copies: [[String: Data]] = []
+        var total = 0
+        for item in items {
+            var copy: [String: Data] = [:]
+            for type in item.types {
+                guard let data = item.data(forType: type) else { continue }
+                total += data.count
+                guard total <= Self.snapshotByteLimit else {
+                    log.info("pasteboard is too large to snapshot, not restoring")
+                    return nil
+                }
+                copy[type.rawValue] = data
             }
+            copies.append(copy)
         }
         return PasteboardSnapshot(items: copies)
     }
@@ -91,6 +111,7 @@ public final class SystemOutputEffects: OutputEffects {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.writeObjects([url as NSURL])
+        ownChangeCount = pasteboard.changeCount
     }
 
     public func copyImage(_ image: CGImage, pngData: Data?) {
@@ -105,6 +126,7 @@ public final class SystemOutputEffects: OutputEffects {
         // copy for apps that never look at it.
         item.setDataProvider(LazyTIFFProvider(image: image), forTypes: [.tiff])
         pasteboard.writeObjects([item])
+        ownChangeCount = pasteboard.changeCount
     }
 
     public func pasteIntoFrontmostApp() async -> String? {

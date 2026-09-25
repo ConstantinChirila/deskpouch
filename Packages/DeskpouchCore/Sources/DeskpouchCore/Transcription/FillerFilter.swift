@@ -9,19 +9,41 @@ import Foundation
 /// - A sentence end on the filler moves to the previous word ("I think so, um." becomes "I think so.").
 /// - The next word is capitalised when the filler opened a sentence ("Um, so I went" becomes "So I went").
 public struct FillerFilter: Sendable {
-    /// Sounds that are never words on their own. "oh", "like" and "you know" are left alone: they carry meaning.
+    /// English sounds that are never words on their own. "oh", "like" and "you know" are left alone: they carry
+    /// meaning. So are "er", "ah" and "mm", which are real text too ("the ER", "35 mm").
     public static let defaultFillers: [String] = [
-        "um", "umm", "uhm", "uh", "uhh", "er", "erm", "ah", "aah", "ahh",
-        "hm", "hmm", "mm", "mmm", "mhm", "ehm", "äh", "ähm",
+        "um", "umm", "uhm", "uh", "uhh", "erm", "ehm", "hm", "hmm", "mhm",
     ]
 
+    /// German hesitation sounds. "um" and "er" are words there.
+    public static let germanFillers: [String] = ["äh", "ähm", "hm", "hmm"]
+
+    /// The English filter.
     public static let `default` = FillerFilter()
 
-    private let pattern: NSRegularExpression
+    private static let german = FillerFilter(fillers: germanFillers)
+    private static let none = FillerFilter(fillers: [])
+
+    /// The filter for an ISO 639-1 language code. Languages without a list of their own get one that strips
+    /// nothing: a sound that is a filler in one language is a word in another ("um" in German and Portuguese).
+    public static func forLanguage(_ code: String?) -> FillerFilter {
+        switch code?.lowercased().prefix(2) {
+        case "en": .default
+        case "de": german
+        default: none
+        }
+    }
+
+    /// Nil when there is nothing to strip.
+    private let pattern: NSRegularExpression?
 
     /// - Parameter fillers: words to strip, matched case-insensitively on whole words. Apostrophes and hyphens
     ///   count as word characters, so "uh-oh" survives.
     public init(fillers: [String] = FillerFilter.defaultFillers) {
+        guard !fillers.isEmpty else {
+            pattern = nil
+            return
+        }
         let alternatives = fillers.map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
         // swiftlint:disable:next force_try
         pattern = try! NSRegularExpression(
@@ -31,6 +53,7 @@ public struct FillerFilter: Sendable {
     }
 
     public func clean(_ text: String) -> String {
+        guard let pattern else { return text }
         var text = text
         while let match = pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let range = Range(match.range, in: text) {

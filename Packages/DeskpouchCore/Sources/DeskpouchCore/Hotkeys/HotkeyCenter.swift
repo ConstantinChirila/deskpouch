@@ -19,12 +19,31 @@ public final class HotkeyCenter {
         }
     }
 
+    /// A press combo as the caller registered it. `carbonID` is nil while `stop()` has it out of the system.
+    private struct Press {
+        let combo: KeyCombo
+        let handler: @MainActor () -> Void
+        var carbonID: UInt32?
+    }
+
+    /// How often a held key is checked against the real modifier state.
+    static let reconcileInterval: TimeInterval = 0.5
+
     private var holds: [Registration] = []
-    private var presses: [UInt32] = []
+    private var presses: [UInt32: Press] = [:]
+    private var nextPressID: UInt32 = 1
+    private let carbon: any PressHotkeys
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private var reconcileTimer: Timer?
 
-    public init() {}
+    public init() {
+        carbon = CarbonHotkeys.shared
+    }
+
+    init(carbon: any PressHotkeys) {
+        self.carbon = carbon
+    }
 
     public var isRunning: Bool { globalMonitor != nil }
 
@@ -38,6 +57,7 @@ public final class HotkeyCenter {
 
     public func unregister(_ registration: Registration) {
         holds.removeAll { $0 === registration }
+        updateReconcileTimer()
     }
 
     public struct PressRegistration {
@@ -47,19 +67,22 @@ public final class HotkeyCenter {
     /// Registers a press-to-act combo. Works without `start()`. Returns nil when another app owns the combo.
     @discardableResult
     public func registerPress(_ combo: KeyCombo, handler: @escaping @MainActor () -> Void) -> PressRegistration? {
-        guard let id = CarbonHotkeys.shared.register(combo, handler: handler) else { return nil }
-        presses.append(id)
+        guard let carbonID = carbon.register(combo, handler: handler) else { return nil }
+        let id = nextPressID
+        nextPressID += 1
+        presses[id] = Press(combo: combo, handler: handler, carbonID: carbonID)
         return PressRegistration(id: id)
     }
 
     public func unregister(_ registration: PressRegistration) {
-        CarbonHotkeys.shared.unregister(registration.id)
-        presses.removeAll { $0 == registration.id }
+        if let carbonID = presses.removeValue(forKey: registration.id)?.carbonID { carbon.unregister(carbonID) }
     }
 
-    /// Installs the monitors. Returns false when the process is not trusted for Accessibility.
+    /// Installs the monitors and puts back the press combos `stop()` took out; their registrations stay valid.
+    /// Returns false when the process is not trusted for Accessibility.
     @discardableResult
     public func start() -> Bool {
+        restorePresses()
         if isRunning { return true }
         let trusted = Permissions.accessibilityGranted
         hotkeyLog.info("start: accessibility=\(trusted) inputMonitoring=\(Permissions.inputMonitoringGranted)")
@@ -78,8 +101,10 @@ public final class HotkeyCenter {
     }
 
     public func stop() {
-        for id in presses { CarbonHotkeys.shared.unregister(id) }
-        presses.removeAll()
+        for (id, press) in presses {
+            if let carbonID = press.carbonID { carbon.unregister(carbonID) }
+            presses[id]?.carbonID = nil
+        }
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         globalMonitor = nil
@@ -87,9 +112,46 @@ public final class HotkeyCenter {
         for registration in holds {
             registration.detector = ModifierHoldDetector(key: registration.detector.key)
         }
+        updateReconcileTimer()
+    }
+
+    /// A combo another app took in the meantime stays out and is tried again on the next `start()`.
+    private func restorePresses() {
+        for (id, press) in presses where press.carbonID == nil {
+            presses[id]?.carbonID = carbon.register(press.combo, handler: press.handler)
+        }
+    }
+
+    /// Runs the timer only while a hold is down.
+    private func updateReconcileTimer() {
+        let anyDown = holds.contains { $0.detector.isDown }
+        if anyDown, reconcileTimer == nil {
+            let timer = Timer(timeInterval: Self.reconcileInterval, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.reconcile(flags: CGEventSource.flagsState(.combinedSessionState))
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            reconcileTimer = timer
+        } else if !anyDown {
+            reconcileTimer?.invalidate()
+            reconcileTimer = nil
+        }
+    }
+
+    /// A release that never arrived as an event (Secure Input) is delivered from the real modifier state.
+    func reconcile(flags: CGEventFlags) {
+        for registration in holds {
+            if let phase = registration.detector.reconcile(flagStillDown: flags.contains(registration.detector.key.flag)) {
+                hotkeyLog.info("\(registration.detector.key.displayName, privacy: .public) \(String(describing: phase), privacy: .public) by reconcile")
+                registration.handler(phase)
+            }
+        }
+        updateReconcileTimer()
     }
 
     private func handle(_ event: NSEvent) {
+        defer { updateReconcileTimer() }
         if event.type == .keyDown {
             for registration in holds {
                 if let phase = registration.detector.handleKeyDown() {

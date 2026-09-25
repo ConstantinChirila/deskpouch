@@ -28,6 +28,15 @@ struct SpokenPunctuationTests {
         #expect(spoken.apply("I think so period") == "I think so.")
     }
 
+    @Test func leavesCommandsThatAreTalkedAbout() {
+        #expect(spoken.apply("He has colon cancer.") == "He has colon cancer.")
+        #expect(spoken.apply("Use the Oxford comma here.") == "Use the Oxford comma here.")
+        #expect(spoken.apply("That is a big question mark for me.") == "That is a big question mark for me.")
+        #expect(spoken.apply("We start a new line of products.") == "We start a new line of products.")
+        #expect(spoken.apply("Add a comma and a full stop.") == "Add a comma and a full stop.")
+        #expect(spoken.apply("I saw the dog comma then I ran full stop") == "I saw the dog, then I ran.")
+    }
+
     @Test func ignoresPartsOfWords() {
         #expect(spoken.apply("The commander spoke.") == "The commander spoke.")
     }
@@ -117,6 +126,13 @@ struct SpokenNumbersTests {
         #expect(numbers.apply("at nine am or twelve oh five pm") == "at 9 AM or 12:05 PM")
     }
 
+    @Test func theVerbAmIsNotATime() {
+        #expect(numbers.apply("Which one am I supposed to use?") == "Which one am I supposed to use?")
+        #expect(numbers.apply("The one am I thinking of") == "The one am I thinking of")
+        #expect(numbers.apply("At nine am I left.") == "At 9 AM I left.")
+        #expect(numbers.apply("Wake me at one am.") == "Wake me at 1 AM.")
+    }
+
     @Test func percentAndDecimals() {
         #expect(numbers.apply("five percent of version two point five") == "5% of version 2.5")
         #expect(numbers.apply("up three point oh five percent") == "up 3.05%")
@@ -134,7 +150,9 @@ struct SpokenNumbersTests {
     }
 
     @Test func leavesLookalikesAlone() {
-        #expect(numbers.apply("a fifty fifty chance") == "a 50 50 chance")
+        #expect(numbers.apply("a fifty fifty chance") == "a fifty fifty chance")
+        #expect(numbers.apply("We are open twenty four seven.") == "We are open twenty four seven.")
+        #expect(numbers.apply("Open twenty-four seven, all fifty states.") == "Open twenty-four seven, all 50 states.")
         #expect(numbers.apply("ten twenty dollar bills") == "10 $20 bills")
         #expect(numbers.apply("At one point five of us left.") == "At one point five of us left.")
     }

@@ -26,4 +26,15 @@ struct ToolSwitchesTests {
         reloaded.set("screen", enabled: true)
         #expect(ToolSwitches(defaults: defaults).isEnabled("screen"))
     }
+
+    @Test func offByDefaultToolsStayOffUntilSwitchedOn() {
+        let defaults = freshDefaults()
+        let switches = ToolSwitches(defaults: defaults, offByDefault: ["calendar"])
+        #expect(!switches.isEnabled("calendar"))
+        #expect(switches.isEnabled("voice"))
+        switches.set("calendar", enabled: true)
+        #expect(ToolSwitches(defaults: defaults, offByDefault: ["calendar"]).isEnabled("calendar"))
+        switches.set("calendar", enabled: false)
+        #expect(!ToolSwitches(defaults: defaults, offByDefault: ["calendar"]).isEnabled("calendar"))
+    }
 }

@@ -10,9 +10,11 @@ import Foundation
 ///   "3 PM", "five percent" is "5%", "two point five" is "2.5".
 /// - "two hundred thirty two dollars and fifty cents" is "$232.50"; euros work the same. Pounds are left alone,
 ///   they are also a weight.
-/// - "three thirty pm" is "3:30 PM".
-/// - Two runs of two digits in a row are a year when the first is 17 to 20: "nineteen ninety nine" is "1999",
-///   "fifty fifty" stays. 2001 to 2099 takes no comma, it is nearly always the year.
+/// - "three thirty pm" is "3:30 PM". "which one am I" is not a time: an hour, "am", then "I" only converts after
+///   a word that leads into a time ("at nine am I left").
+/// - "fifty fifty" and "twenty four seven" are idioms and keep their words.
+/// - Two runs of two digits in a row are a year when the first is 17 to 20: "nineteen ninety nine" is "1999".
+///   2001 to 2099 takes no comma, it is nearly always the year.
 /// - "at one point five of us left" keeps its words: "one point" after "at", "some", "that" is the idiom.
 /// - Ordinals follow the same size rule ("twenty first" is "21st", "first" stays). "twenty second" only converts
 ///   next to "the" or "of", since "a twenty second delay" is a duration.
@@ -27,6 +29,10 @@ public struct SpokenNumbers: Sendable {
         let words = pieces.indices.filter { pieces[$0].isWord }
         var position = 0
         while position < words.count {
+            if let idiom = idiomLength(pieces, words, at: position) {
+                position += idiom
+                continue
+            }
             guard let number = parseNumber(pieces, words, at: position) else {
                 position += 1
                 continue
@@ -111,6 +117,16 @@ public struct SpokenNumbers: Sendable {
         guard words.indices.contains(position + 1) else { return false }
         let between = pieces[(words[position] + 1)..<words[position + 1]].map(\.text).joined()
         return between.allSatisfy { $0 == " " || $0 == "-" } && !between.isEmpty
+    }
+
+    /// The number of words in the idiom that starts at `position`, nil when none does.
+    private func idiomLength(_ pieces: [Piece], _ words: [Int], at position: Int) -> Int? {
+        Self.idioms.first { idiom in
+            idiom.indices.allSatisfy { offset in
+                word(pieces, words, position + offset) == idiom[offset]
+                    && (offset == 0 || joins(pieces, words, position + offset - 1))
+            }
+        }?.count
     }
 
     // MARK: Cardinals and ordinals
@@ -250,6 +266,11 @@ public struct SpokenNumbers: Sendable {
         }
         guard let meridiem = word(pieces, words, position), meridiem == "am" || meridiem == "pm",
               joins(pieces, words, position - 1) else { return nil }
+        // "which one am I supposed to use": the verb, unless the words before make it a time ("at nine am I left").
+        if minutes == nil, meridiem == "am", word(pieces, words, position + 1) == "i",
+           !Self.timeLeads.contains(word(pieces, words, hour.end - hour.wordCount) ?? "") {
+            return nil
+        }
         let clock = minutes.map { "\(hour.value):\(String(format: "%02d", $0))" } ?? "\(hour.value)"
         return ("\(clock) \(meridiem.uppercased())", position)
     }
@@ -315,5 +336,9 @@ public struct SpokenNumbers: Sendable {
         "eightieth": 80, "ninetieth": 90,
     ]
     static let scales: [String: Int] = ["thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000]
+    /// Number words that are said as they are.
+    static let idioms: [[String]] = [["twenty", "four", "seven"], ["fifty", "fifty"]]
+    /// Words that lead into a time of day.
+    static let timeLeads: Set<String> = ["at", "by", "until", "till", "before", "after", "around", "from", "to"]
     static let currencies: [String: String] = ["dollars": "$", "dollar": "$", "euros": "€", "euro": "€"]
 }

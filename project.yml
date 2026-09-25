@@ -38,6 +38,8 @@ packages:
     path: Packages/ToolColor
   DeskpouchGallery:
     path: Packages/DeskpouchGallery
+  ToolCalendar:
+    path: Packages/ToolCalendar
 
 configFiles:
   Debug: Signing.xcconfig
@@ -61,6 +63,7 @@ targets:
       - package: ToolScreenshot
       - package: ToolColor
       - package: DeskpouchGallery
+      - package: ToolCalendar
     info:
       path: App/Info.plist
       properties:
@@ -77,12 +80,15 @@ targets:
         CFBundleIconName: AppIcon
         NSMicrophoneUsageDescription: "Deskpouch records your voice while you hold the dictation key, and optionally during screen recordings."
         NSSpeechRecognitionUsageDescription: "Deskpouch can transcribe dictation with macOS's on-device speech recognition instead of a downloaded model."
+        NSCalendarsFullAccessUsageDescription: "Deskpouch shows your next meeting in the menu bar and reminds you before it starts."
     entitlements:
       path: App/Deskpouch.entitlements
       properties:
         com.apple.security.app-sandbox: false
         # Hardened runtime blocks the microphone without this.
         com.apple.security.device.audio-input: true
+        # Hardened runtime blocks EventKit without this (Resource Access: Calendars). Plan 11.
+        com.apple.security.personal-information.calendars: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.constantinchirila.deskpouch

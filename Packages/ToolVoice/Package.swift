@@ -9,8 +9,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../DeskpouchCore"),
-        // Pre-1.0: minor releases may break the API, so only patch updates are taken automatically.
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", .upToNextMinor(from: "0.15.7")),
+        // Exact: the Xcode build has no committed lockfile, and this code ships in a signed app that holds the
+        // Microphone, Screen Recording and Accessibility grants. Updates are taken by hand, after a look.
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.15.7"),
     ],
     targets: [
         .target(

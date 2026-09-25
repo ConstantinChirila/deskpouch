@@ -51,6 +51,11 @@ public struct ShortcutRecorder: View {
         }
         .buttonStyle(.plain)
         .onDisappear { stop() }
+        // The panel is only ordered out when it closes, so nothing disappears: without this the monitor would go
+        // on swallowing keys in every Deskpouch window, and turn the next chord typed there into the shortcut.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            if recording { stop() }
+        }
     }
 
     private var hint: String {

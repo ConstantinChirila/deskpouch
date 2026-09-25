@@ -54,6 +54,10 @@ final class GeneralSettings {
         } catch {
             log.error("launch at login \(enabled) failed: \(String(describing: error), privacy: .public)")
         }
+        // Registered, but switched off by the user in Login Items: only they can switch it back on, there.
+        if enabled, SMAppService.mainApp.status == .requiresApproval {
+            SMAppService.openSystemSettingsLoginItems()
+        }
         refreshLaunchAtLogin()
     }
 }
@@ -63,16 +67,19 @@ struct PermissionStatus: Equatable {
     var microphone = false
     var screenRecording = false
     var accessibility = false
+    /// Calendars full access; nil while the Calendar tool is off (no line for it then).
+    var calendars: Bool?
 
-    var allGranted: Bool { microphone && screenRecording && accessibility }
+    var allGranted: Bool { microphone && screenRecording && accessibility && calendars != false }
 
     /// "Mic · Screen · Accessibility" when all granted, otherwise the missing ones.
     var summary: String {
-        if allGranted { return "Mic · Screen · Accessibility" }
+        if allGranted { return calendars == true ? "Mic · Screen · Accessibility · Calendars" : "Mic · Screen · Accessibility" }
         var missing: [String] = []
         if !microphone { missing.append("Mic") }
         if !screenRecording { missing.append("Screen") }
         if !accessibility { missing.append("Accessibility") }
+        if calendars == false { missing.append("Calendars") }
         return missing.joined(separator: " · ") + " missing"
     }
 }

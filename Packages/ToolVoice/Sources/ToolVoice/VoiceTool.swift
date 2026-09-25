@@ -1,5 +1,7 @@
+import AppKit
 import DeskpouchCore
 import Foundation
+import Synchronization
 import os
 
 private let log = Logger(subsystem: "com.constantinchirila.deskpouch", category: "voice")
@@ -19,12 +21,24 @@ public enum VoiceEngine: String, CaseIterable, Sendable {
     }
 }
 
+enum VoiceToolError: LocalizedError {
+    case transcriptionTimedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .transcriptionTimedOut: "Transcription took too long"
+        }
+    }
+}
+
 /// What Voice needs from a microphone. `MicRecorder` is the real one; tests drive the hold logic with a fake.
 @MainActor
 public protocol VoiceRecording: AnyObject {
     var deviceUID: String? { get set }
     var isRecording: Bool { get }
     var currentLevel: Float { get }
+    /// Capture stopped by itself (the microphone went away). `stop()` still returns what was captured.
+    var onInterrupted: (@MainActor () -> Void)? { get set }
     func start() throws
     @discardableResult func stop() -> [Float]
 }
@@ -100,7 +114,7 @@ public final class VoiceTool: Tool {
     static let skipFillersDefaultsKey = "voice.skipFillers"
 
     /// Drop "um", "uh", "hmm" from transcripts. Persisted, on by default. Parakeet has no knob for this,
-    /// so `FillerFilter` cleans the text after decode.
+    /// so `FillerFilter` cleans the text after decode, with the list for the dictation's language.
     public var skipFillers: Bool {
         didSet { defaults.set(skipFillers, forKey: Self.skipFillersDefaultsKey) }
     }
@@ -143,12 +157,22 @@ public final class VoiceTool: Tool {
 
     private var replacements: WordReplacements
 
-    /// A locked recording ends by itself after this long: the samples are held in memory.
+    /// A recording, locked or held, ends by itself after this long: the samples are held in memory, and a key
+    /// release can go missing.
     public static let defaultLockLimit: Duration = .seconds(600)
     private let lockLimit: Duration
 
-    /// A locked recording ended without a key release (it reached its limit). The shell only hears about holds
-    /// through the hotkey, so this is how it learns to leave its listening state.
+    /// A transcript that is ready this long after the key was released is not pasted: the user has moved on,
+    /// and it would land in whatever app is in front by then. It goes to the clipboard instead.
+    static let staleAfter: TimeInterval = 20
+
+    /// One recognition may run this long, plus the length of the recording, before it is given up on, so a hung
+    /// engine cannot block the dictations queued behind it.
+    public static let defaultTranscribeLimit: Duration = .seconds(60)
+    private let transcribeLimit: Duration
+
+    /// A recording ended without a key release (it reached its limit, or a locked one was cancelled). The shell
+    /// only hears about holds through the hotkey, so this is how it learns to leave its listening state.
     public var onLatchEnded: (@MainActor () -> Void)?
 
     /// Recording hands-free after a tap.
@@ -217,7 +241,8 @@ public final class VoiceTool: Tool {
         recorder: (any VoiceRecording)? = nil,
         microphonePermission: @escaping @MainActor () -> Permissions.MicrophoneStatus = { Permissions.microphone },
         now: @escaping @MainActor () -> Date = { Date() },
-        lockLimit: Duration = VoiceTool.defaultLockLimit
+        lockLimit: Duration = VoiceTool.defaultLockLimit,
+        transcribeLimit: Duration = VoiceTool.defaultTranscribeLimit
     ) {
         self.parakeet = parakeet
         self.apple = apple
@@ -227,6 +252,7 @@ public final class VoiceTool: Tool {
         self.microphonePermission = microphonePermission
         self.now = now
         self.lockLimit = lockLimit
+        self.transcribeLimit = transcribeLimit
         engine = defaults.string(forKey: Self.engineDefaultsKey).flatMap(VoiceEngine.init(rawValue:)) ?? .parakeet
         if defaults.object(forKey: Self.holdKeyDefaultsKey) != nil,
            let key = ModifierKey(rawValue: UInt16(clamping: defaults.integer(forKey: Self.holdKeyDefaultsKey))) {
@@ -246,6 +272,7 @@ public final class VoiceTool: Tool {
             .flatMap { try? JSONDecoder().decode([WordReplacement].self, from: $0) } ?? []
         dictionary = stored
         replacements = WordReplacements(stored)
+        recorder.onInterrupted = { [weak self] in self?.recordingInterrupted() }
     }
 
     public func attach(_ context: ToolContext) {
@@ -328,28 +355,40 @@ public final class VoiceTool: Tool {
         }
         log.info("recording started")
         holdBeganAt = now()
+        lockTimeout?.cancel()
+        lockTimeout = Task { [weak self, lockLimit] in
+            try? await Task.sleep(for: lockLimit)
+            guard !Task.isCancelled, let self, self.recorder.isRecording else { return }
+            log.info("recording reached its limit")
+            finishRecording()
+            onLatchEnded?()
+        }
         let recorder = recorder
         context.overlay.showListening { recorder.currentLevel }
     }
 
     public func holdEnded() {
-        guard let context, recorder.isRecording else { return }
+        guard context != nil, recorder.isRecording else { return }
         if holdLatched {
             // The release of the tap that locked it changes nothing; the next tap's release finishes.
             guard finishingLock else { return }
         } else if tapToLock, let began = holdBeganAt, now().timeIntervalSince(began) < Self.minimumHold {
             log.info("tap: recording locked")
             holdLatched = true
-            lockTimeout = Task { [weak self, lockLimit] in
-                try? await Task.sleep(for: lockLimit)
-                guard !Task.isCancelled, let self, holdLatched else { return }
-                log.info("locked recording reached its limit")
-                finishingLock = true
-                holdEnded()
-                onLatchEnded?()
-            }
             return
         }
+        finishRecording()
+    }
+
+    /// The microphone went away mid-recording: what was captured is transcribed, as if the key had been released.
+    private func recordingInterrupted() {
+        log.info("recording interrupted")
+        finishRecording()
+        onLatchEnded?()
+    }
+
+    private func finishRecording() {
+        guard let context else { return }
         endLock()
         let samples = recorder.stop()
         let duration = Double(samples.count) / MicRecorder.sampleRate
@@ -360,10 +399,21 @@ public final class VoiceTool: Tool {
         }
         // A transcription still running from the previous hold finishes first; nothing is dropped.
         let previous = job
+        let released = now()
         job = Task { [weak self] in
             await previous?.value
-            await self?.transcribe(samples, duration: duration, emit: true)
+            await self?.transcribe(samples, duration: duration, emit: true, released: released)
         }
+    }
+
+    /// Drops a locked recording: nothing is transcribed or emitted. For Escape and the pill's close button.
+    public func cancelLock() {
+        guard holdLatched else { return }
+        _ = recorder.stop()
+        endLock()
+        log.info("locked recording cancelled")
+        context?.overlay.hide()
+        onLatchEnded?()
     }
 
     public func holdCancelled() {
@@ -373,6 +423,7 @@ public final class VoiceTool: Tool {
             finishingLock = false
             return
         }
+        endLock()
         _ = recorder.stop()
         log.info("recording dropped: the hold key was part of a chord")
         context.overlay.hide()
@@ -430,7 +481,9 @@ public final class VoiceTool: Tool {
     #endif
 
     @discardableResult
-    private func transcribe(_ samples: [Float], duration: TimeInterval, emit: Bool) async -> String? {
+    private func transcribe(
+        _ samples: [Float], duration: TimeInterval, emit: Bool, released: Date? = nil
+    ) async -> String? {
         guard let context else { return nil }
         let engine = transcriber.displayName
         show(.transcribing(detail: engine))
@@ -442,9 +495,12 @@ public final class VoiceTool: Tool {
             if case .preparing = context.overlay.state {
                 show(.transcribing(detail: engine))
             }
-            let transcript = try await transcriber.transcribe(samples: samples, language: language)
+            let language = language
+            let transcript = try await Self.transcribe(
+                samples, language: language, with: transcriber, limit: transcribeLimit + .seconds(duration)
+            )
             if Task.isCancelled { return nil }
-            let text = skipFillers ? FillerFilter.default.clean(transcript.text) : transcript.text
+            let text = skipFillers ? FillerFilter.forLanguage(language).clean(transcript.text) : transcript.text
             if text != transcript.text {
                 log.info("fillers stripped: \(transcript.text.count) -> \(text.count) chars")
             }
@@ -453,7 +509,15 @@ public final class VoiceTool: Tool {
                 flash(.failed("Nothing heard"))
                 return nil
             }
-            if emit {
+            if emit, let released, now().timeIntervalSince(released) > Self.staleAfter {
+                // Too late to paste (and to press Return): the front app is no longer the one that was dictated
+                // into. Still goes through the pipeline so history and Recent keep it; the pipeline copies it.
+                log.info("transcript ready \(self.now().timeIntervalSince(released), format: .fixed(precision: 1))s after release, copied instead")
+                context.emit(ToolResult(
+                    toolID: id, text: polished.text, duration: duration,
+                    copyInsteadOfPaste: "Took too long, transcript copied"
+                ))
+            } else if emit {
                 context.emit(ToolResult(
                     toolID: id, text: polished.text, duration: duration, submitText: polished.submitText
                 ))
@@ -467,6 +531,47 @@ public final class VoiceTool: Tool {
                 flash(.failed("Transcription failed"), for: .seconds(2))
             }
             return nil
+        }
+    }
+
+    /// Runs one recognition and throws `transcriptionTimedOut` when it is not done within `limit`. The engine is
+    /// cancelled then, but not waited for: a hung one would hold the queue just the same.
+    private static func transcribe(
+        _ samples: [Float], language: String, with transcriber: any Transcriber, limit: Duration
+    ) async throws -> Transcript {
+        try await withCheckedThrowingContinuation { continuation in
+            let race = Race(continuation)
+            let work = Task {
+                do {
+                    race.finish(.success(try await transcriber.transcribe(samples: samples, language: language)))
+                } catch {
+                    race.finish(.failure(error))
+                }
+            }
+            Task {
+                try? await Task.sleep(for: limit)
+                if race.finish(.failure(VoiceToolError.transcriptionTimedOut)) { work.cancel() }
+            }
+        }
+    }
+
+    /// Resumes the continuation for whichever of the recognition and its timeout comes first.
+    private final class Race: Sendable {
+        private let continuation: Mutex<CheckedContinuation<Transcript, any Error>?>
+
+        init(_ continuation: CheckedContinuation<Transcript, any Error>) {
+            self.continuation = Mutex(continuation)
+        }
+
+        /// True when this call was the first.
+        @discardableResult
+        func finish(_ result: Result<Transcript, any Error>) -> Bool {
+            let continuation = continuation.withLock { current in
+                defer { current = nil }
+                return current
+            }
+            continuation?.resume(with: result)
+            return continuation != nil
         }
     }
 }

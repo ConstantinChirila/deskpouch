@@ -219,7 +219,8 @@ struct ToolsSection: View {
 /// A tool's row on the main view: tile, name, one-line status, shortcut keycaps, chevron. Amber while listening,
 /// pink while recording.
 struct ToolRow<Tile: View, Status: View, Keys: View>: View {
-    enum Live { case none, listening, recording }
+    /// Amber while listening (or an event minutes away), pink while recording, mint while an event runs.
+    enum Live { case none, listening, recording, ok }
 
     let name: String
     let live: Live
@@ -271,7 +272,11 @@ struct ToolRow<Tile: View, Status: View, Keys: View>: View {
     }
 
     private var liveColor: Color {
-        live == .recording ? Theme.Colors.record : Theme.Colors.accent
+        switch live {
+        case .recording: Theme.Colors.record
+        case .ok: Theme.Colors.ok
+        default: Theme.Colors.accent
+        }
     }
 }
 

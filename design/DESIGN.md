@@ -67,6 +67,15 @@ Shadows: panel `0 30px 70px rgba(0,0,0,0.65), 0 8px 20px rgba(0,0,0,0.4)` plus `
 - **Menubar icon**: idle glyph drawn in code (`MenubarGlyph.pouchOutline`: the brand's drawstring pouch as a 1.8 pt outline with beads and three meter bars, template; `pouch` is the solid variant; the snapshot test dumps both into menubar strips); listening amber pill with a 7-bar meter; recording pink pill with bg-ink dot and timer (ink, not white, for contrast).
 - **Region picker**: dim `rgba(4,8,6,0.62)`, selection amber 2px border with 4px ring and glow, cream corner brackets, amber dimension chip, bottom pill toolbar with segmented Region/Window/Screen, round audio toggles, cream Record button with return hint.
 
+- **Calendar (plan 11, mocks `design/mocks/Calendar*.dc.html`, picked A / A / A)**: menubar item left of the pouch,
+  a 13 pt calendar glyph and "Design sync · in 12 min" (template text), an amber capsule with ink text in the last
+  5 minutes, a mint one while the event runs; hidden otherwise. Tools row with a mint calendar tile; its status
+  line turns amber or mint the same way. Calendar view: "Today" label and date, all-day events as a dashed line,
+  46 pt rows (start and end, a 3 pt calendar-colour bar, title, meta), an amber now line with its time, the next
+  event on an amber wash with a Join capsule, past rows at 0.42. Pills: the dictation pill's anatomy (52 tall,
+  32 pt tile, two lines, Join capsule, round ×), amber ring before the start, mint after, tint for a heads-up with
+  a draining hairline; stacked 10 pt apart from a draggable top-right anchor. The pill sound is a popup (None, then the macOS alert sounds), played once on pick.
+
 ## Motion
 
 - Panel: spring in from the menubar icon, 220ms, slight scale from 0.96 anchored at the top; 120ms fade out. Done.

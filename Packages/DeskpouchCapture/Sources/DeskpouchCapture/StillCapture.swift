@@ -100,38 +100,42 @@ public enum StillCapture {
 
     /// Crops `image` to the bounding box of its non-transparent pixels (window plus shadow on an oversized
     /// canvas). Returns `image` unchanged if it is fully transparent or the scan fails.
-    nonisolated private static func croppedToContent(_ image: CGImage) -> CGImage {
+    nonisolated static func croppedToContent(_ image: CGImage) -> CGImage {
         let width = image.width
         let height = image.height
         guard width > 1, height > 1 else { return image }
         let bytesPerRow = width * 4
         var data = [UInt8](repeating: 0, count: bytesPerRow * height)
-        // A bitmap context's buffer starts at the image's top row, the same origin `CGImage.cropping(to:)` uses.
-        guard let ctx = CGContext(
-            data: &data, width: width, height: height, bitsPerComponent: 8, bytesPerRow: bytesPerRow,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return image }
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        // The context only borrows the buffer, so it is made, drawn into and scanned inside one closure.
+        let bounds: CGRect? = data.withUnsafeMutableBytes { raw in
+            // A bitmap context's buffer starts at the image's top row, the same origin `CGImage.cropping(to:)` uses.
+            guard let ctx = CGContext(
+                data: raw.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return nil }
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-        var minX = width, minY = height, maxX = -1, maxY = -1
-        for y in 0..<height {
-            let rowBase = y * bytesPerRow
-            var first = -1
-            for x in 0..<width where data[rowBase + x * 4 + 3] != 0 {
-                first = x
-                break
+            var minX = width, minY = height, maxX = -1, maxY = -1
+            for y in 0..<height {
+                let rowBase = y * bytesPerRow
+                var first = -1
+                for x in 0..<width where raw[rowBase + x * 4 + 3] != 0 {
+                    first = x
+                    break
+                }
+                guard first >= 0 else { continue }
+                var last = width - 1
+                while raw[rowBase + last * 4 + 3] == 0 { last -= 1 }
+                minX = min(minX, first)
+                maxX = max(maxX, last)
+                if minY == height { minY = y }
+                maxY = y
             }
-            guard first >= 0 else { continue }
-            var last = width - 1
-            while data[rowBase + last * 4 + 3] == 0 { last -= 1 }
-            minX = min(minX, first)
-            maxX = max(maxX, last)
-            if minY == height { minY = y }
-            maxY = y
+            guard maxX >= 0 else { return nil }
+            return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
         }
-        guard maxX >= 0 else { return image }
-        let cropRect = CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
-        return image.cropping(to: cropRect) ?? image
+        guard let bounds else { return image }
+        return image.cropping(to: bounds) ?? image
     }
 
     /// A whole display at native pixels, Deskpouch's own windows left out, no picker involved. The colour loupe

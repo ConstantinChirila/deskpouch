@@ -290,6 +290,8 @@ final class GalleryGIFPlayer {
     @ObservationIgnored private var starts: [TimeInterval] = []
     @ObservationIgnored private var index = 0
     @ObservationIgnored private var loop: Task<Void, Never>?
+    @ObservationIgnored private var scrubbing = false
+    @ObservationIgnored private var pendingScrub: Int?
 
     /// Shows `url` and starts playing it, as a GIF does everywhere else. The same file again changes nothing.
     func load(_ url: URL) {
@@ -317,6 +319,7 @@ final class GalleryGIFPlayer {
     func stop() {
         loop?.cancel()
         loop = nil
+        pendingScrub = nil
         url = nil
         source = nil
         frame = nil
@@ -340,6 +343,7 @@ final class GalleryGIFPlayer {
     private func play() {
         guard let source, starts.count > 1, !isPlaying else { return }
         isPlaying = true
+        pendingScrub = nil
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -357,16 +361,28 @@ final class GalleryGIFPlayer {
         }
     }
 
-    /// Dragging the bar: pauses on the frame under the pointer.
+    /// Dragging the bar: pauses on the frame under the pointer. The frame is decoded off the main actor, and
+    /// only ever the newest one asked for.
     func scrub(to fraction: Double) {
-        guard let source, !starts.isEmpty else { return }
+        guard source != nil, !starts.isEmpty else { return }
         pause()
         let target = min(max(0, fraction), 1) * duration
         let wanted = max(0, (starts.firstIndex { $0 > target } ?? starts.count) - 1)
         time = starts[wanted]
         guard wanted != index else { return }
         index = wanted
-        if let image = source.frame(wanted) { frame = image }
+        pendingScrub = wanted
+        guard !scrubbing else { return }
+        scrubbing = true
+        Task { [weak self] in
+            while let self, let next = pendingScrub, let source {
+                pendingScrub = nil
+                let image = await Task.detached(priority: .userInitiated) { source.frame(next) }.value
+                // Another file or Play may have taken over while it decoded.
+                if let image, self.source === source, !isPlaying { frame = image }
+            }
+            self?.scrubbing = false
+        }
     }
 
     nonisolated private static func open(_ url: URL) -> (source: Source, starts: [TimeInterval], duration: TimeInterval, first: CGImage)? {

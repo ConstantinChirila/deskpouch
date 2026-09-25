@@ -105,13 +105,18 @@ public struct ToolResult: Sendable, Identifiable {
     /// closing word, possibly empty). The pipeline only uses it when it pastes; otherwise `text` goes out whole,
     /// so the word is never dropped without the Return it stood for.
     public let submitText: String?
+    /// Set when pasting would now be wrong (a dictation ready long after the key was released: the app in front
+    /// is no longer the one dictated into). The pipeline copies instead of pasting and still runs the rest
+    /// (history, save); the shell shows this reason in the pill.
+    public let copyInsteadOfPaste: String?
 
     public init(
         toolID: String, text: String? = nil, fileURL: URL? = nil, image: CGImage? = nil,
         duration: TimeInterval? = nil, kind: HistoryKind? = nil, followUp: ResultFollowUp? = nil,
-        meta: ResultMeta? = nil, submitText: String? = nil
+        meta: ResultMeta? = nil, submitText: String? = nil, copyInsteadOfPaste: String? = nil
     ) {
         self.submitText = submitText
+        self.copyInsteadOfPaste = copyInsteadOfPaste
         self.followUp = followUp
         self.meta = meta
         id = UUID()

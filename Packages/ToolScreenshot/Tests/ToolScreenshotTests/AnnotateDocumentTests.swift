@@ -67,6 +67,23 @@ struct AnnotateDocumentTests {
         #expect(doc.model.annotations.isEmpty)
     }
 
+    @Test func undoIsIgnoredWhileAMarkIsHeld() {
+        let doc = document()
+        doc.select(.blur)
+        doc.pointerDown(at: CGPoint(x: 0, y: 0), clickCount: 1)
+        doc.pointerDragged(to: CGPoint(x: 50, y: 50), constrained: false)
+        doc.pointerUp(at: CGPoint(x: 50, y: 50))
+        // Pressed, not moved: releasing drops the press's own checkpoint. An undo in between must not take it
+        // first, or the release would drop the step that made the mark.
+        doc.pointerDown(at: CGPoint(x: 25, y: 25), clickCount: 1)
+        doc.undo()
+        doc.pointerUp(at: CGPoint(x: 25, y: 25))
+        #expect(doc.model.annotations.count == 1)
+        #expect(doc.model.canUndo)
+        doc.undo()
+        #expect(doc.model.annotations.isEmpty)
+    }
+
     @Test func badgesStayWhenClickedAndCount() {
         let doc = document()
         doc.select(.badge)

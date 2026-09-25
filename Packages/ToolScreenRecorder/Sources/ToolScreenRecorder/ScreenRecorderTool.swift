@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import DeskpouchCapture
 import DeskpouchCore
@@ -50,6 +51,8 @@ public final class ScreenRecorderTool: Tool {
     private let recorder = ScreenRecorder()
     private var context: ToolContext?
     private var maxLengthTimer: Timer?
+    /// Stops the recorder and hands the file on. Kept so a quit can wait for it.
+    private var stopTask: Task<Void, Never>?
     /// Displays, windows and apps as of the last picker session; the recording resolves its target here.
     private var content: SCShareableContent?
     /// False while switched off in General.
@@ -68,6 +71,11 @@ public final class ScreenRecorderTool: Tool {
         }
         recorder.onStreamStopped = { [weak self] _ in
             // Window closed, display unplugged or the grant was pulled: finalise whatever was written.
+            self?.stopRecording()
+        }
+        recorder.onOutputFailed = { [weak self] _ in
+            // Disk full or an encoder error: nothing more is being written, so the recording ends here instead
+            // of counting on with nothing behind it.
             self?.stopRecording()
         }
     }
@@ -252,7 +260,8 @@ public final class ScreenRecorderTool: Tool {
         }
 
         phase = .recording
-        guard active else { return stopRecording() }
+        // Switched off meanwhile, or the output already failed while the capture was starting.
+        guard active, !recorder.hasFailed else { return stopRecording() }
         let since = recorder.startedAt ?? Date()
         context.overlay.showRecording(
             detail: Self.pillDetail(points: target.pointSize, frameRate: settings.frameRate), since: since
@@ -277,29 +286,71 @@ public final class ScreenRecorderTool: Tool {
         maxLengthTimer = nil
         context.overlay.show(.preparing("Saving recording"))
         context.report(.idle, from: id)
-        Task { [weak self] in
+        stopTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let recording = try await recorder.stop()
                 phase = .idle
                 let attributes = try? FileManager.default.attributesOfItem(atPath: recording.url.path)
                 let size = (attributes?[.size] as? NSNumber)?.intValue ?? 0
-                guard recording.duration >= Self.minimumDuration, size > 0 else {
-                    log.info("dropping recording: \(recording.duration)s, \(size) bytes")
-                    try? FileManager.default.removeItem(at: recording.url)
+                var duration = recording.duration
+                if let problem = recording.problem {
+                    // Never announced as a plain success: what is on disk is checked, and the pill says so.
+                    guard size > 0, let playable = await Self.playableDuration(of: recording.url) else {
+                        log.error("recording unusable after \(String(describing: problem), privacy: .public): \(recording.url.path, privacy: .public)")
+                        // A failed output wrote nothing worth keeping. An unfinalised file stays where it is: it
+                        // may still be completed or repaired.
+                        if case .outputFailed = problem { Self.removeStaging(recording.url) }
+                        context.overlay.flash(.failed("Recording failed, nothing could be saved"), for: .seconds(3))
+                        return
+                    }
+                    duration = playable
+                    context.overlay.flash(.failed("Recording stopped early, keeping what was written"), for: .seconds(3))
+                    try? await Task.sleep(for: .seconds(3))
+                }
+                guard duration >= Self.minimumDuration, size > 0 else {
+                    log.info("dropping recording: \(duration)s, \(size) bytes")
+                    Self.removeStaging(recording.url)
                     context.overlay.flash(.failed("Nothing recorded"))
                     return
                 }
                 let followUp = ResultFollowUp(label: "Trim") { [weak self] file in
                     self?.trim(fileURL: file)
                 }
-                context.emit(ToolResult(toolID: id, fileURL: recording.url, duration: recording.duration, followUp: followUp))
+                context.emit(ToolResult(toolID: id, fileURL: recording.url, duration: duration, followUp: followUp))
             } catch {
                 log.error("stop failed: \(String(describing: error), privacy: .public)")
                 phase = .idle
                 context.overlay.flash(.failed("Recording failed"), for: .seconds(2))
             }
         }
+    }
+
+    /// Quit: ends a recording that is running (or still starting) and returns once its file has been handed on.
+    public func finishRecording() async {
+        while case .starting = phase { try? await Task.sleep(for: .milliseconds(50)) }
+        stopRecording()
+        await stopTask?.value
+    }
+
+    /// True from the picker's Record until the file has been handed on.
+    public var hasRecordingInProgress: Bool {
+        switch phase {
+        case .starting, .recording, .stopping: true
+        case .idle, .fetchingContent, .picking: false
+        }
+    }
+
+    /// How much of `file` plays, nil when it cannot be opened as a movie at all.
+    private static func playableDuration(of file: URL) async -> TimeInterval? {
+        let asset = AVURLAsset(url: file)
+        guard let (playable, duration) = try? await asset.load(.isPlayable, .duration), playable, duration.isNumeric else { return nil }
+        return duration.seconds
+    }
+
+    /// The staging file and the UUID folder made for it.
+    private static func removeStaging(_ file: URL) {
+        try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
     }
 
     // MARK: Trim

@@ -81,6 +81,8 @@ public final class OverlayController {
     /// Recording state: timer counted from `since`, Stop button calling `onStop`. The pill takes clicks in this state.
     public func showRecording(detail: String, since: Date = Date(), onStop: @escaping @MainActor () -> Void) {
         stopHandler = onStop
+        // Both states are timed, so `show` keeps the ticker: a meter left by `showListening` would keep polling.
+        levelProvider = nil
         show(.recording(detail: detail))
         startTicker(since: since)
     }

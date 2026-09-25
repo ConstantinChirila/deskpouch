@@ -44,6 +44,8 @@ public enum Theme {
         public static let accent = NSColor(hex: 0xF59E_0B)
         public static let accentHigh = NSColor(hex: 0xFBBF_24)
         public static let record = NSColor(hex: 0xFB71_85)
+        public static let ok = NSColor(hex: 0x2DD4_A3)
+        public static let accentInk = NSColor(hex: 0x1C19_17)
     }
 
     public enum Radius {

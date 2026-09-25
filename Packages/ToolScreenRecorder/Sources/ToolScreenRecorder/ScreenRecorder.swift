@@ -26,6 +26,20 @@ struct RecorderError: LocalizedError {
     var errorDescription: String? { message }
 }
 
+/// What `ScreenRecorder.stop()` hands back. `problem` is nil for a recording that was written and finalised in full.
+struct FinishedRecording {
+    enum Problem {
+        /// `SCRecordingOutput` failed while recording (disk full, encoder error): the file ends there at best.
+        case outputFailed(Error)
+        /// The file was not reported finalised in time: it may be incomplete.
+        case notFinalised
+    }
+
+    let url: URL
+    let duration: TimeInterval
+    let problem: Problem?
+}
+
 /// One ScreenCaptureKit stream writing straight to an mp4 through `SCRecordingOutput`.
 /// Owned by the main actor; the delegate hops back to it for every callback.
 @MainActor
@@ -34,6 +48,8 @@ final class ScreenRecorder {
     private var output: SCRecordingOutput?
     private var delegate: RecorderDelegate?
     private var finished = false
+    private var outputFailure: Error?
+    private var finaliseTimedOut = false
     private var finishWaiters: [CheckedContinuation<Void, Never>] = []
 
     private(set) var startedAt: Date?
@@ -42,6 +58,10 @@ final class ScreenRecorder {
 
     /// The stream ended on its own (window closed, display unplugged, permission revoked). The file may still be usable.
     var onStreamStopped: (@MainActor (Error) -> Void)?
+    /// The file stopped being written while the stream runs on. Nothing recorded after this is kept.
+    var onOutputFailed: (@MainActor (Error) -> Void)?
+    /// The output failed, possibly before `start` returned (when nobody was listening to `onOutputFailed` yet).
+    var hasFailed: Bool { outputFailure != nil }
 
     /// What `SCRecordingOutput` has written so far, or nil before the first frame.
     var recordedDuration: TimeInterval? {
@@ -88,7 +108,10 @@ final class ScreenRecorder {
             onFinish: { [weak self] in self?.markFinished() },
             onFail: { [weak self] error in
                 log.error("recording output failed: \(String(describing: error), privacy: .public)")
-                self?.markFinished()
+                guard let self else { return }
+                outputFailure = error
+                markFinished()
+                onOutputFailed?(error)
             },
             onStreamStop: { [weak self] error in
                 log.error("stream stopped: \(String(describing: error), privacy: .public)")
@@ -104,6 +127,10 @@ final class ScreenRecorder {
         let output = SCRecordingOutput(configuration: recording, delegate: delegate)
         try stream.addRecordingOutput(output)
 
+        // Reset before the capture starts: a failure reported while `startCapture` is still returning must not
+        // be wiped afterwards.
+        finished = false
+        outputFailure = nil
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             stream.startCapture { error in
                 if let error { continuation.resume(throwing: error) } else { continuation.resume() }
@@ -114,13 +141,13 @@ final class ScreenRecorder {
         self.output = output
         self.delegate = delegate
         self.outputURL = outputURL
-        finished = false
         startedAt = Date()
         log.info("recording started: \(config.width)x\(config.height) @\(settings.frameRate) audio=\(settings.systemAudio) mic=\(microphone)")
     }
 
-    /// Stops the stream and waits for the file to be finalised. Returns the file and its duration.
-    func stop() async throws -> (url: URL, duration: TimeInterval) {
+    /// Stops the stream and waits for the file to be finalised. A failed or unfinalised file comes back with its
+    /// `problem` set; the caller decides what it is still worth.
+    func stop() async throws -> FinishedRecording {
         guard let stream, let output, let outputURL else { throw RecorderError(message: "Not recording") }
         let duration = recordedDuration ?? startedAt.map { Date().timeIntervalSince($0) } ?? 0
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -129,7 +156,7 @@ final class ScreenRecorder {
                 continuation.resume()
             }
         }
-        await waitForFinish(timeout: .seconds(5))
+        let finalised = await waitForFinish(of: outputURL)
         try? stream.removeRecordingOutput(output)
         self.stream = nil
         self.output = nil
@@ -137,7 +164,9 @@ final class ScreenRecorder {
         self.outputURL = nil
         startedAt = nil
         log.info("recording stopped: \(duration, format: .fixed(precision: 1))s")
-        return (outputURL, duration)
+        let problem: FinishedRecording.Problem? = outputFailure.map { .outputFailed($0) } ?? (finalised ? nil : .notFinalised)
+        outputFailure = nil
+        return FinishedRecording(url: outputURL, duration: duration, problem: problem)
     }
 
     private func markFinished() {
@@ -147,18 +176,37 @@ final class ScreenRecorder {
         for waiter in waiters { waiter.resume() }
     }
 
-    private func waitForFinish(timeout: Duration) async {
-        if finished { return }
+    /// Gives up once the file has stopped growing for this long.
+    static let finaliseIdleLimit = 5
+    /// Gives up whatever the file is doing.
+    static let finaliseHardLimit = 60
+
+    /// True when the output reported it finished. A long recording can take a while to finalise, so the wait
+    /// goes on for as long as the file keeps growing, up to `finaliseHardLimit` seconds.
+    private func waitForFinish(of file: URL) async -> Bool {
+        if finished { return true }
+        finaliseTimedOut = false
         let timer = Task { [weak self] in
-            try? await Task.sleep(for: timeout)
+            var lastSize = -1
+            var idle = 0
+            for _ in 0..<Self.finaliseHardLimit {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                let size = ((try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? NSNumber)?.intValue ?? 0
+                idle = size == lastSize ? idle + 1 : 0
+                lastSize = size
+                if idle >= Self.finaliseIdleLimit { break }
+            }
             guard !Task.isCancelled else { return }
             log.error("recording output did not finish in time")
+            self?.finaliseTimedOut = true
             self?.markFinished()
         }
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             finishWaiters.append(continuation)
         }
         timer.cancel()
+        return !finaliseTimedOut
     }
 }
 

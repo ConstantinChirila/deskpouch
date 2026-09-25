@@ -10,6 +10,8 @@ import VideoToolbox
 enum GIFExporter {
     static let framesPerSecond: Double = 12
     static let maxWidth: CGFloat = 960
+    /// Progress while frames are read. The rest is `CGImageDestinationFinalize`, which does the encoding.
+    static let framesShare = 0.9
 
     struct Output: Sendable, Equatable {
         /// Images written. A still stretch is one image with a longer delay, so this can be below `ticks`.
@@ -26,7 +28,10 @@ enum GIFExporter {
         return CGSize(width: maxWidth, height: max(1, (natural.height * scale).rounded()))
     }
 
-    /// `progress` is called off the main actor with 0...1.
+    /// `progress` is called off the main actor with 0...1. A cancelled or failed export leaves no file behind.
+    ///
+    /// ImageIO encodes nothing until `CGImageDestinationFinalize` and holds every frame until then (about 6 MB a
+    /// frame at full width, measured), so callers cap the length: see `TrimDocument.gifMaxLength`.
     @discardableResult
     static func export(
         _ source: URL, range: ClosedRange<TimeInterval>, to destination: URL,
@@ -45,13 +50,22 @@ enum GIFExporter {
             kCVPixelBufferWidthKey as String: Int(size.width),
             kCVPixelBufferHeightKey as String: Int(size.height),
         ])
-        output.alwaysCopiesSampleData = false
+        // Copies: a CGImage can keep its pixel buffer until the GIF is finalized, and those must not be the
+        // decoder's pooled ones.
+        output.alwaysCopiesSampleData = true
         guard reader.canAdd(output) else { throw TrimExportError.cannotRead(nil) }
         reader.add(output)
         guard reader.startReading() else { throw TrimExportError.cannotRead(reader.error) }
 
         guard let gif = CGImageDestinationCreateWithURL(destination as CFURL, UTType.gif.identifier as CFString, 0, nil) else {
             throw TrimExportError.cannotWrite
+        }
+        var finished = false
+        defer {
+            if !finished {
+                reader.cancelReading()
+                try? FileManager.default.removeItem(at: destination)
+            }
         }
         CGImageDestinationSetProperties(gif, [
             kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0],
@@ -78,26 +92,38 @@ enum GIFExporter {
             frames += 1
         }
 
-        while nextTick < ticks, let sample = output.copyNextSampleBuffer() {
+        var reading = true
+        while reading, nextTick < ticks {
             try Task.checkCancellation()
-            guard let buffer = CMSampleBufferGetImageBuffer(sample) else { continue }
-            // The first frame can start a little before the range; it still belongs to tick 0.
-            let time = max(0, CMSampleBufferGetPresentationTimeStamp(sample).seconds - range.lowerBound)
-            // Ticks strictly before this sample still show the frame held so far.
-            let upTo = min(ticks, Int((time * framesPerSecond - 1e-6).rounded(.up)))
-            if let held, upTo > nextTick {
-                try write(held, ticks: upTo - nextTick)
-                progress?(Double(upTo) / Double(ticks))
+            // Samples and the temporaries of a frame go as soon as the frame is handed over.
+            try autoreleasepool {
+                guard let sample = output.copyNextSampleBuffer() else {
+                    reading = false
+                    return
+                }
+                guard let buffer = CMSampleBufferGetImageBuffer(sample) else { return }
+                // The first frame can start a little before the range; it still belongs to tick 0.
+                let time = max(0, CMSampleBufferGetPresentationTimeStamp(sample).seconds - range.lowerBound)
+                // Ticks strictly before this sample still show the frame held so far.
+                let upTo = min(ticks, Int((time * framesPerSecond - 1e-6).rounded(.up)))
+                if let held, upTo > nextTick {
+                    try write(held, ticks: upTo - nextTick)
+                    progress?(Self.framesShare * Double(upTo) / Double(ticks))
+                }
+                nextTick = max(nextTick, upTo)
+                held = buffer
             }
-            nextTick = max(nextTick, upTo)
-            held = buffer
         }
         reader.cancelReading()
         if let held, nextTick < ticks {
             try write(held, ticks: ticks - nextTick)
         }
         guard frames > 0 else { throw TrimExportError.cannotRead(reader.error) }
+        // Finalize does the encoding and cannot be stopped, so this is the last chance.
+        try Task.checkCancellation()
+        progress?(framesShare)
         guard CGImageDestinationFinalize(gif) else { throw TrimExportError.cannotWrite }
+        finished = true
         progress?(1)
         return Output(frames: frames, ticks: ticks, pixelSize: size)
     }

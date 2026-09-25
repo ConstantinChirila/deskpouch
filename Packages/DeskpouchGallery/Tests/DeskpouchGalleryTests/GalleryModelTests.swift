@@ -63,6 +63,68 @@ struct GalleryModelTests {
         #expect(model.total == 3)
     }
 
+    @Test func typingReloadsOnceItPausesAndOtherFiltersAtOnce() async throws {
+        let folder = Self.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (store, ids) = try Self.seeded(3, folder: folder)
+        let model = GalleryModel(store: store, searchDelay: .milliseconds(30))
+        model.query.text = "Screenshot"
+        model.query.text = "Screenshot 1"
+        #expect(model.items.count == 3)
+        // Polls rather than sleeping a fixed time: on a busy main actor the debounced reload can land late.
+        for _ in 0..<200 where model.items.count != 1 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(model.items.map(\.id) == [ids[1]])
+        // A filter that is not the text does not wait, and takes the typed text with it.
+        model.query.text = "Screenshot 2"
+        model.query.starredOnly = true
+        #expect(model.items.isEmpty)
+        // Showing a row clears the filters and cannot wait either.
+        model.query.starredOnly = false
+        model.show(ids[0])
+        #expect(model.focused?.id == ids[0])
+    }
+
+    /// A capture landing while the confirm is up pushes the oldest selected row off the loaded page; its file
+    /// must still go to the Trash with its row, not be left on disk with no row.
+    @Test func confirmedDeleteTrashesRowsPushedOffThePage() throws {
+        let folder = Self.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (store, ids) = try Self.seeded(GalleryModel.pageSize, folder: folder)
+        let trash = Trash()
+        let model = GalleryModel(store: store) { trash.files.append($0) }
+        model.selectAll()
+        model.requestDelete()
+        #expect(model.pendingDelete?.count == GalleryModel.pageSize)
+        try store.record(HistoryItem(
+            id: UUID(), toolID: "voice", createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            text: "newer", fileURL: nil, duration: nil, pastedInto: nil, kind: .text
+        ))
+        model.refresh()
+        #expect(!model.items.contains { $0.id == ids[0] })
+        var reported: [UUID] = []
+        model.onDeleted = { reported += $0.map(\.id) }
+        model.confirmDelete()
+        #expect(trash.files.contains { $0.lastPathComponent == "Screenshot 0.png" })
+        #expect(trash.files.count == GalleryModel.pageSize)
+        #expect(reported.contains(ids[0]))
+        #expect(try store.item(id: ids[0]) == nil)
+    }
+
+    @Test func deletedRowsAreReported() throws {
+        let folder = Self.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (store, ids) = try Self.seeded(3, folder: folder)
+        let model = GalleryModel(store: store) { _ in }
+        var reported: [UUID] = []
+        model.onDeleted = { reported += $0.map(\.id) }
+        model.click(ids[1], command: false, shift: false)
+        model.requestDelete()
+        #expect(reported == [ids[1]])
+        #expect(model.focused?.id == ids[0])
+    }
+
     @Test func manyRowsAskFirst() throws {
         let folder = Self.folder()
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -80,6 +142,25 @@ struct GalleryModelTests {
         #expect(trash.files.count == 8)
         #expect(model.items.isEmpty)
         #expect(model.selectedIDs.isEmpty)
+    }
+
+    @Test func aFileTheTrashRefusesKeepsItsRow() throws {
+        struct Refused: Error {}
+        let folder = Self.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (store, ids) = try Self.seeded(3, folder: folder)
+        let trash = Trash()
+        let model = GalleryModel(store: store) { file in
+            if file.lastPathComponent == "Screenshot 1.png" { throw Refused() }
+            trash.files.append(file)
+        }
+        model.selectAll()
+        model.requestDelete()
+        #expect(trash.files.map(\.lastPathComponent).sorted() == ["Screenshot 0.png", "Screenshot 2.png"])
+        #expect(model.items.map(\.id) == [ids[1]])
+        #expect(model.deleteFailure != nil)
+        model.dismissDeleteFailure()
+        #expect(model.deleteFailure == nil)
     }
 
     @Test func aFileThatIsAlreadyGoneIsNotTrashed() throws {

@@ -14,9 +14,12 @@
 		4210671DD9F3677E1182BB89 /* PanelTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA42675F412F933FA4794F55 /* PanelTools.swift */; };
 		432CA387C71FAA9131026C3B /* ToolVoice in Frameworks */ = {isa = PBXBuildFile; productRef = 08AD5B64931757A74D91D445 /* ToolVoice */; };
 		4993D897E9D41A7EBB0E4B19 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED5BC844B83DC2A399C0B05 /* GeneralSettings.swift */; };
+		5066B08F1013AA8FDEED6D7D /* CalendarToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4040F6FAD22D529E0BAEEE19 /* CalendarToolView.swift */; };
 		518F54A7E17890E698B8128F /* ToolScreenRecorder in Frameworks */ = {isa = PBXBuildFile; productRef = A775083F6B6659C1AA9009A5 /* ToolScreenRecorder */; };
 		55DC03FCD496FE49BAC145CF /* MenuPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808C40D7AD0482A78A66418A /* MenuPanelView.swift */; };
+		658588C87A1CF1173F05AB7E /* ToolCalendar in Frameworks */ = {isa = PBXBuildFile; productRef = 6D9E6FFDDE6B37EA48AE3CEA /* ToolCalendar */; };
 		65FF08C6163FFCA40289015F /* ToolColor in Frameworks */ = {isa = PBXBuildFile; productRef = 9923BE220F3FA7552CF88F7B /* ToolColor */; };
+		69AF7E476153F9B06AB134B8 /* CalendarStatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68290DA0F3473D36A0AA7338 /* CalendarStatusItem.swift */; };
 		70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */; };
 		756826257A7E5C8E9BA4344C /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3031371CC2D3391D04FE0A /* StatusItemController.swift */; };
 		8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C492790EFEA746C0DA06CA /* MenuPanelController.swift */; };
@@ -35,11 +38,13 @@
 		19DE6D2757F545337C4910C3 /* Deskpouch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deskpouch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		21C511F9445B0D2F2566D16C /* ToolVoice */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolVoice; path = Packages/ToolVoice; sourceTree = SOURCE_ROOT; };
 		3CE7D868125BD06D6B6DD988 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
+		4040F6FAD22D529E0BAEEE19 /* CalendarToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarToolView.swift; sourceTree = "<group>"; };
 		4EE4C6D7A2F44EB9EB61D4E0 /* ToolScreenRecorder */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolScreenRecorder; path = Packages/ToolScreenRecorder; sourceTree = SOURCE_ROOT; };
 		5899EFA3DC3C3B3A32581DF8 /* ToolColor */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolColor; path = Packages/ToolColor; sourceTree = SOURCE_ROOT; };
 		60C492790EFEA746C0DA06CA /* MenuPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanelController.swift; sourceTree = "<group>"; };
 		6247615E8F2A3274C86E4E1F /* SimulatedLevelSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedLevelSource.swift; sourceTree = "<group>"; };
 		64BD44798F06639265562CBF /* DeskpouchGallery */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchGallery; path = Packages/DeskpouchGallery; sourceTree = SOURCE_ROOT; };
+		68290DA0F3473D36A0AA7338 /* CalendarStatusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStatusItem.swift; sourceTree = "<group>"; };
 		6D081FAD61856D394B8A0F03 /* WavLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WavLoader.swift; sourceTree = "<group>"; };
 		6D3031371CC2D3391D04FE0A /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		74171F664B916342221667E8 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
@@ -49,11 +54,12 @@
 		9F01CE04F0A6AABF0BD257A4 /* WindowSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSnapshot.swift; sourceTree = "<group>"; };
 		A9D64F0C3DDC0C8B3AA2C06F /* ToolScreenshot */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolScreenshot; path = Packages/ToolScreenshot; sourceTree = SOURCE_ROOT; };
 		AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B45608B8313033ADC951B78B /* ToolCalendar */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ToolCalendar; path = Packages/ToolCalendar; sourceTree = SOURCE_ROOT; };
 		BBBC6FBF46A7EFE227EB9396 /* ColorToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorToolView.swift; sourceTree = "<group>"; };
 		DA42675F412F933FA4794F55 /* PanelTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelTools.swift; sourceTree = "<group>"; };
 		EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCapture; path = Packages/DeskpouchCapture; sourceTree = SOURCE_ROOT; };
 		FCF4E3ABD2D959E85927757D /* WindowPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPresence.swift; sourceTree = "<group>"; };
-		"TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_A6EBEE78-FE19-4F61-BA6B-1E171127EB65" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,6 +74,7 @@
 				C9D6FDAE4E503A1EB517D4E3 /* ToolScreenshot in Frameworks */,
 				65FF08C6163FFCA40289015F /* ToolColor in Frameworks */,
 				D75D518F5D189273B3AA8F94 /* DeskpouchGallery in Frameworks */,
+				658588C87A1CF1173F05AB7E /* ToolCalendar in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				AE6BCE71ECC1D648DEA8519C /* AppDelegate.swift */,
+				68290DA0F3473D36A0AA7338 /* CalendarStatusItem.swift */,
 				7ED5BC844B83DC2A399C0B05 /* GeneralSettings.swift */,
 				3CE7D868125BD06D6B6DD988 /* Shell.swift */,
 				117EB870727BF3B8BEC6B23D /* ShellState.swift */,
@@ -103,6 +111,7 @@
 		2E898B456655F7D72E47469A /* MenuPanel */ = {
 			isa = PBXGroup;
 			children = (
+				4040F6FAD22D529E0BAEEE19 /* CalendarToolView.swift */,
 				BBBC6FBF46A7EFE227EB9396 /* ColorToolView.swift */,
 				60C492790EFEA746C0DA06CA /* MenuPanelController.swift */,
 				808C40D7AD0482A78A66418A /* MenuPanelView.swift */,
@@ -126,6 +135,7 @@
 				EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */,
 				9EA931C76D6F63EFD8BCB1C2 /* DeskpouchCore */,
 				64BD44798F06639265562CBF /* DeskpouchGallery */,
+				B45608B8313033ADC951B78B /* ToolCalendar */,
 				5899EFA3DC3C3B3A32581DF8 /* ToolColor */,
 				4EE4C6D7A2F44EB9EB61D4E0 /* ToolScreenRecorder */,
 				A9D64F0C3DDC0C8B3AA2C06F /* ToolScreenshot */,
@@ -142,10 +152,10 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_7936C5B4-F8AB-4018-BF90-A0D34864153B" /* deskpouch */ = {
+		"TEMP_1E1F8419-B500-4F72-B01A-DC029D965D8D" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */,
+				"TEMP_A6EBEE78-FE19-4F61-BA6B-1E171127EB65" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -174,6 +184,7 @@
 				CB98BCF9E64DA7DDB13EFC4A /* ToolScreenshot */,
 				9923BE220F3FA7552CF88F7B /* ToolColor */,
 				B17A9EE5E4FF017AC828A4C0 /* DeskpouchGallery */,
+				6D9E6FFDDE6B37EA48AE3CEA /* ToolCalendar */,
 			);
 			productName = Deskpouch;
 			productReference = 19DE6D2757F545337C4910C3 /* Deskpouch.app */;
@@ -207,6 +218,7 @@
 				F83E15E34BEA534A43778172 /* XCLocalSwiftPackageReference "Packages/DeskpouchCapture" */,
 				0360330C54A5569B7F57133A /* XCLocalSwiftPackageReference "Packages/DeskpouchCore" */,
 				541F60B4CA052BB643C5EA2F /* XCLocalSwiftPackageReference "Packages/DeskpouchGallery" */,
+				CA8AB75D57A976060A647F98 /* XCLocalSwiftPackageReference "Packages/ToolCalendar" */,
 				7DD191523B1151163CF790DB /* XCLocalSwiftPackageReference "Packages/ToolColor" */,
 				EDE94C1FB7BFFF29E9E1FCBA /* XCLocalSwiftPackageReference "Packages/ToolScreenRecorder" */,
 				7D1AE8E7189B4E9CB620A340 /* XCLocalSwiftPackageReference "Packages/ToolScreenshot" */,
@@ -239,6 +251,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				70A0E5DF31AF7B4A63C17B63 /* AppDelegate.swift in Sources */,
+				69AF7E476153F9B06AB134B8 /* CalendarStatusItem.swift in Sources */,
+				5066B08F1013AA8FDEED6D7D /* CalendarToolView.swift in Sources */,
 				9FDDEFB118D7D9ABCD36F58A /* ColorToolView.swift in Sources */,
 				4993D897E9D41A7EBB0E4B19 /* GeneralSettings.swift in Sources */,
 				8127E1631ED3F90E4876F565 /* MenuPanelController.swift in Sources */,
@@ -281,7 +295,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_A6EBEE78-FE19-4F61-BA6B-1E171127EB65" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -346,7 +360,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_A6EBEE78-FE19-4F61-BA6B-1E171127EB65" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -481,6 +495,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/ToolVoice;
 		};
+		CA8AB75D57A976060A647F98 /* XCLocalSwiftPackageReference "Packages/ToolCalendar" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/ToolCalendar;
+		};
 		EDE94C1FB7BFFF29E9E1FCBA /* XCLocalSwiftPackageReference "Packages/ToolScreenRecorder" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/ToolScreenRecorder;
@@ -499,6 +517,10 @@
 		5C940766A0F276D2FACFCF8B /* DeskpouchCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DeskpouchCore;
+		};
+		6D9E6FFDDE6B37EA48AE3CEA /* ToolCalendar */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ToolCalendar;
 		};
 		9923BE220F3FA7552CF88F7B /* ToolColor */ = {
 			isa = XCSwiftPackageProductDependency;

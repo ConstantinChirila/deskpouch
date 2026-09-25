@@ -100,6 +100,26 @@ struct AnnotationRendererTests {
         #expect(region(first, area) != region(second, area))
     }
 
+    @Test func pixelatingKeepsTheImagesColourSpace() throws {
+        let p3 = try #require(CGColorSpace(name: CGColorSpace.displayP3))
+        let context = try #require(CGContext(
+            data: nil, width: 64, height: 48, bitsPerComponent: 8, bytesPerRow: 0,
+            space: p3, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        // A red outside sRGB: a trip through another colour space would not give these bytes back.
+        context.setFillColor(try #require(CGColor(colorSpace: p3, components: [1, 0.1, 0.1, 1])))
+        context.fill(CGRect(x: 0, y: 0, width: 64, height: 48))
+        let base = try #require(context.makeImage())
+        let pixelated = try #require(AnnotationRenderer.pixelate(base, block: 16))
+        #expect(pixelated.colorSpace?.name == CGColorSpace.displayP3)
+
+        let bytes = try #require(pixelated.dataProvider?.data as Data?)
+        let source = try #require(base.dataProvider?.data as Data?)
+        for channel in 0..<3 {
+            #expect(abs(Int(bytes[channel]) - Int(source[channel])) <= 1)
+        }
+    }
+
     @Test func textDrawsItsPlate() throws {
         let renderer = AnnotationRenderer(base: baseImage(), pixelScale: 1)
         let mark = Annotation(shape: .text(origin: CGPoint(x: 20, y: 20), string: "Hi"), color: .white)

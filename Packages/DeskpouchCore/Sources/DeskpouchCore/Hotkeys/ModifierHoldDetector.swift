@@ -41,6 +41,15 @@ public struct ModifierHoldDetector: Sendable, Equatable {
         return .cancelled
     }
 
+    /// Feed the real state of the key's flag, polled while the key counts as down. A release the event stream
+    /// never delivered (Secure Input, focus moving into a password field) still ends the hold. Both sides of a
+    /// pair share the flag, so only a flag that is gone entirely counts.
+    public mutating func reconcile(flagStillDown: Bool) -> HotkeyPhase? {
+        guard isDown, !flagStillDown else { return nil }
+        isDown = false
+        return .released
+    }
+
     /// True when the generic flag is set and, if the keyboard reports side bits at all, this side's bit is set.
     static func isDown(_ key: ModifierKey, in flags: CGEventFlags) -> Bool {
         guard flags.contains(key.flag) else { return false }

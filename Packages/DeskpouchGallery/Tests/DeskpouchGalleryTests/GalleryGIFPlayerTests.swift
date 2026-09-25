@@ -31,6 +31,18 @@ struct GalleryGIFPlayerTests {
         }
     }
 
+    /// The grey of a frame's first pixel, 0 to 255.
+    static func grey(_ image: CGImage?) -> Int? {
+        guard let image else { return nil }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let context = CGContext(
+            data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+        context?.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return Int(pixel[0])
+    }
+
     @Test func loadsPlaysScrubsAndStops() async throws {
         let url = try Self.makeGIF(frames: 4, delay: 0.1)
         defer { try? FileManager.default.removeItem(at: url) }
@@ -51,6 +63,10 @@ struct GalleryGIFPlayerTests {
         #expect(abs(player.time - 0.2) < 0.001)
         player.scrub(to: 1)
         #expect(abs(player.time - 0.3) < 0.001)
+        // The frame itself is decoded off the main actor and lands a moment later: the last of four greys.
+        let last = 255 * 4 / 5
+        await Self.waitUntil { Self.grey(player.frame).map { abs($0 - last) < 8 } == true }
+        #expect(Self.grey(player.frame).map { abs($0 - last) < 8 } == true)
 
         player.toggle()
         #expect(player.isPlaying)

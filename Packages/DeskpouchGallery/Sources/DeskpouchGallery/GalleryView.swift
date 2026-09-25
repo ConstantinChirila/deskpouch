@@ -34,7 +34,15 @@ struct GalleryView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
         }
+        .overlay(alignment: .bottom) {
+            if let failure = model.deleteFailure {
+                DeleteFailureNotice(message: failure) { model.dismissDeleteFailure() }
+                    .padding(.bottom, 18)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
         .animation(.easeOut(duration: 0.15), value: model.pendingDelete != nil)
+        .animation(.easeOut(duration: 0.15), value: model.deleteFailure)
         .foregroundStyle(Theme.Colors.text)
         .ignoresSafeArea()
     }
@@ -83,6 +91,33 @@ struct GalleryView: View {
 }
 
 /// Asked before a large delete. The files go to the Trash, so this is the only warning.
+/// A delete that left rows behind says why, until dismissed (the button or Escape).
+private struct DeleteFailureNotice: View {
+    let message: String
+    let dismiss: @MainActor () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(Theme.Colors.record)
+                .frame(width: 10, height: 10)
+                .shadow(color: Theme.Colors.record(0.9), radius: 6)
+                .padding(.top, 4)
+            Text(message)
+                .font(.dp(13))
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            GalleryButton(title: "OK", hint: "Esc", style: .plain, action: dismiss)
+        }
+        .padding(14)
+        .frame(width: 460)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.panelGradient))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Colors.record(0.30), lineWidth: 1))
+        .shadow(color: .black.opacity(0.6), radius: 25, y: 16)
+    }
+}
+
 private struct DeletePrompt: View {
     let count: Int
     /// Rows whose files are already gone: nothing goes to the Trash.

@@ -3,6 +3,7 @@ import AppKit
 import DeskpouchCore
 import DeskpouchGallery
 import ImageIO
+import ToolCalendar
 import ToolColor
 import ToolScreenRecorder
 import ToolScreenshot
@@ -18,6 +19,8 @@ final class Shell {
     private let hotkeys = HotkeyCenter()
     private let overlay = OverlayController()
     private let editor = EditorWindowController()
+    /// Results on their way through the pipeline, so a quit can wait for them.
+    private var deliveries: [UUID: Task<Void, Never>] = [:]
     private let presence = WindowPresence()
     /// Nil when the history database could not be opened.
     private var gallery: GalleryWindowController?
@@ -31,9 +34,18 @@ final class Shell {
     private let screen = ScreenRecorderTool()
     private let screenshot = ScreenshotTool()
     private let color = ColorTool()
-    private var tools: [Tool] { [voice, screen, screenshot, color] }
+    private let calendar = CalendarTool()
+    private var tools: [Tool] { [voice, screen, screenshot, color, calendar] }
+    /// The calendar's own status item, left of the pouch; hidden while no event is near.
+    private lazy var calendarItem = CalendarStatusItem()
 
     private var permissionPoll: Timer?
+    private var escapeMonitors: [Any] = []
+    private var historySizing: Task<Void, Never>?
+    /// Watches for Accessibility being taken away while the hotkeys run.
+    private var trustWatch: Timer?
+    /// The Screen Recording prompt was shown by this launch's permission row; the next click goes to Settings.
+    private var screenRecordingAsked = false
     private var recordingTimer: Timer?
     private var holdRegistrations: [String: HotkeyCenter.Registration] = [:]
     private var pressRegistrations: [String: HotkeyCenter.PressRegistration] = [:]
@@ -108,6 +120,14 @@ final class Shell {
         state.shotFolder = state.output.config(for: screenshot.id).folder
         state.colorKey = color.pressKey ?? .commandShift9
         state.colorSettings = color.settings
+        state.calendar = calendar.model
+        state.calendarKey = calendar.pressKey ?? CalendarTool.defaultKey
+        calendarItem.onClick = { [weak self] button in self?.openCalendarPanel(from: button) }
+        calendar.onMenubar = { [weak self] menubar in self?.calendarItem.show(menubar) }
+        calendar.onOpenPanel = { [weak self] in
+            guard let self, let button = calendarItem.button ?? statusItem.button else { return }
+            openCalendarPanel(from: button)
+        }
         state.mainScreenScale = NSScreen.main?.backingScaleFactor ?? 2
         refreshVoiceEngine()
         state.voiceMicrophoneUID = voice.microphoneUID
@@ -125,6 +145,7 @@ final class Shell {
         voice.onLatchEnded = { [weak self] in
             // A locked dictation reached its limit: no key release will come to end the listening state.
             guard let self else { return }
+            stopWatchingEscape()
             state.isListening = false
             statusItem.showIdle()
             playCue(start: false)
@@ -139,7 +160,10 @@ final class Shell {
             if screen.isRecording {
                 screen.stopRecording()
             } else {
-                if !panel.isVisible { refreshPanelInfo() }
+                if !panel.isVisible {
+                    refreshPanelInfo()
+                    if state.panelView == .tool(CalendarToolView.toolID) { state.panelView = .main }
+                }
                 panel.toggle(relativeTo: button)
             }
         }
@@ -151,9 +175,27 @@ final class Shell {
         #endif
     }
 
+    /// Quit asked. False calls it off: an editor with unsaved work has come forward to ask about it.
+    func readyToQuit() -> Bool {
+        editor.readyToQuit()
+    }
+
+    /// Work a quit would cut short: a recording, an export, a result on its way through the pipeline.
+    var hasWorkInFlight: Bool {
+        screen.hasRecordingInProgress || editor.isExporting || !deliveries.isEmpty
+    }
+
+    /// Ends the recording, lets exports finish, and waits until every result has been saved and logged.
+    func finishWorkInFlight() async {
+        await editor.finishExports()
+        await screen.finishRecording()
+        while let delivery = deliveries.values.first { await delivery.value }
+    }
+
     func stop() {
         hotkeys.stop()
         permissionPoll?.invalidate()
+        trustWatch?.invalidate()
         recordingTimer?.invalidate()
     }
 
@@ -176,7 +218,10 @@ final class Shell {
                 tool.holdBegan()
             case .released:
                 tool.holdEnded()
-                guard !tool.holdLatched else { return }
+                guard !tool.holdLatched else { return watchEscapeForLock() }
+                stopWatchingEscape()
+                // The recording already ended on its own (its limit, a lost microphone): the cue has played.
+                guard state.isListening else { return }
                 state.isListening = false
                 statusItem.showIdle()
                 playCue(start: false)
@@ -188,6 +233,27 @@ final class Shell {
                 statusItem.showIdle()
             }
         }
+    }
+
+    /// A locked dictation has no key held to let go of: Escape throws it away, nothing is transcribed or pasted.
+    /// A global monitor cannot swallow the key, so the app in front sees the Escape too.
+    private func watchEscapeForLock() {
+        guard escapeMonitors.isEmpty else { return }
+        let global = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53 else { return }
+            MainActor.assumeIsolated { self?.voice.cancelLock() }
+        }
+        let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53 else { return event }
+            MainActor.assumeIsolated { self?.voice.cancelLock() }
+            return nil
+        }
+        escapeMonitors = [global, local].compactMap { $0 }
+    }
+
+    private func stopWatchingEscape() {
+        for monitor in escapeMonitors { NSEvent.removeMonitor(monitor) }
+        escapeMonitors = []
     }
 
     /// Registers the tool's key combo, replacing an earlier one. A switched-off tool only loses its registration.
@@ -210,6 +276,7 @@ final class Shell {
         if toolID == screen.id { state.screenKeyTaken = taken }
         if toolID == screenshot.id { state.shotKeyTaken = taken }
         if toolID == color.id { state.colorKeyTaken = taken }
+        if toolID == calendar.id { state.calendarKeyTaken = taken }
     }
 
     /// General's per-tool switch. Off frees the hotkeys first, so nothing new starts while the tool winds down.
@@ -223,6 +290,9 @@ final class Shell {
             tool.activate()
         } else {
             if tool.holdKey != nil, state.isListening {
+                // A locked dictation installed Escape monitors; no release will come to remove them now that
+                // the hold is unregistered, and the local one would swallow Escape in every window.
+                stopWatchingEscape()
                 state.isListening = false
                 statusItem.showIdle()
             }
@@ -252,6 +322,25 @@ final class Shell {
         color.pressKey = combo
         state.colorKey = combo
         registerPress(color)
+    }
+
+    private func setCalendarPressKey(_ combo: KeyCombo) {
+        calendar.pressKey = combo
+        state.calendarKey = combo
+        registerPress(calendar)
+    }
+
+    /// The calendar item (or a pill) opens the panel straight on the Calendar view, dropped from that item.
+    private func openCalendarPanel(from button: NSStatusBarButton) {
+        if panel.isVisible, state.panelView == .tool(CalendarToolView.toolID) {
+            panel.close()
+            return
+        }
+        refreshPanelInfo()
+        state.popups.close()
+        state.panelView = .tool(CalendarToolView.toolID)
+        if panel.isVisible { panel.close() }
+        panel.open(relativeTo: button)
     }
 
     // MARK: Activity
@@ -291,8 +380,11 @@ final class Shell {
         state.permissions = PermissionStatus(
             microphone: Permissions.microphone == .granted,
             screenRecording: Permissions.screenRecordingGranted,
-            accessibility: Permissions.accessibilityGranted
+            accessibility: Permissions.accessibilityGranted,
+            calendars: state.switches.isEnabled(calendar.id) ? calendar.model.access == .granted : nil
         )
+        if state.switches.isEnabled(calendar.id) { calendar.panelOpened() }
+        checkTrust()
         state.general.refreshLaunchAtLogin()
         refreshVoiceEngine()
         state.microphones = AudioInputDevices.all()
@@ -364,16 +456,32 @@ final class Shell {
         refreshRecent()
     }
 
+    /// The first missing grant. One that was never asked for gets the system prompt; Settings only opens for one
+    /// that was refused, where Deskpouch is listed to be switched on.
     private func openPermissionSettings() {
         let p = state.permissions
         if !p.accessibility {
             Permissions.requestAccessibility()
             Permissions.openAccessibilitySettings()
         } else if !p.screenRecording {
-            Permissions.requestScreenRecording()
-            Permissions.openScreenRecordingSettings()
+            // True means it is granted already; the first false comes with the system prompt, which has its own
+            // button to Settings.
+            if !Permissions.requestScreenRecording(), screenRecordingAsked {
+                Permissions.openScreenRecordingSettings()
+            }
+            screenRecordingAsked = true
         } else if !p.microphone {
-            Permissions.openMicrophoneSettings()
+            if Permissions.microphone == .undetermined {
+                // Never asked: the Microphone list in Settings has no Deskpouch row to switch on yet.
+                Task { [weak self] in
+                    _ = await Permissions.requestMicrophone()
+                    self?.refreshPanelInfo()
+                }
+            } else {
+                Permissions.openMicrophoneSettings()
+            }
+        } else if p.calendars == false {
+            calendar.model.retryAccess()
         } else {
             Permissions.openAccessibilitySettings()
         }
@@ -390,8 +498,9 @@ final class Shell {
     }
 
     private func deliver(_ result: ToolResult) {
-        Task { [weak self] in
+        deliveries[result.id] = Task { [weak self] in
             guard let self else { return }
+            defer { deliveries[result.id] = nil }
             var config = state.output.config(for: result.toolID)
             if !state.general.keepHistory { config.actions.remove(.history) }
             let delivery = await pipeline.deliver(result, config: config)
@@ -418,6 +527,8 @@ final class Shell {
                 ) {
                     followUp.perform(file)
                 }
+            } else if let reason = result.copyInsteadOfPaste, delivery.copied {
+                overlay.flash(.failed(reason), for: .seconds(3))
             } else if let target = delivery.pastedInto {
                 overlay.flash(.pasted(target: target))
             } else if let saved = delivery.savedTo {
@@ -436,9 +547,18 @@ final class Shell {
             state.recent = try history.recent(limit: Self.recentLimit)
             gallery?.historyChanged()
             state.historyCount = try history.count()
-            state.historyBytes = try history.filePaths().reduce(into: Int64(0)) { total, path in
-                let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
-                total += size
+            // Every file is looked at, and a save folder can be on a slow or absent disk: not on the main actor.
+            let paths = try history.filePaths()
+            historySizing?.cancel()
+            historySizing = Task { [weak self] in
+                let bytes = await Task.detached(priority: .utility) {
+                    paths.reduce(into: Int64(0)) { total, path in
+                        let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
+                        total += size
+                    }
+                }.value
+                guard !Task.isCancelled else { return }
+                self?.state.historyBytes = bytes
             }
         } catch {
             log.error("history read failed: \(String(describing: error), privacy: .public)")
@@ -474,6 +594,7 @@ final class Shell {
             state.hotkeyReady = true
             permissionPoll?.invalidate()
             permissionPoll = nil
+            watchTrust()
             return
         }
         state.hotkeyReady = false
@@ -483,6 +604,25 @@ final class Shell {
         permissionPoll = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.startHotkeysOrWait() }
         }
+    }
+
+    /// Accessibility can be switched off (or reset by an update) while Deskpouch runs: the monitors then go quiet
+    /// with nothing to say so. Back to the waiting state, permission card included, until it is granted again.
+    private func watchTrust() {
+        trustWatch?.invalidate()
+        trustWatch = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkTrust() }
+        }
+    }
+
+    private func checkTrust() {
+        guard state.hotkeyReady, !Permissions.accessibilityGranted else { return }
+        log.info("accessibility was revoked, waiting for it again")
+        trustWatch?.invalidate()
+        trustWatch = nil
+        hotkeys.stop()
+        state.permissions.accessibility = false
+        startHotkeysOrWait()
     }
 
     private var panelActions: MenuPanelActions {
@@ -597,6 +737,7 @@ final class Shell {
             },
             chooseScreenshotFolder: { [weak self] in self?.chooseScreenshotFolder() },
             setColorPressKey: { [weak self] combo in self?.setColorPressKey(combo) },
+            setCalendarPressKey: { [weak self] combo in self?.setCalendarPressKey(combo) },
             updateColor: { [weak self] change in
                 guard let self else { return }
                 var settings = color.settings
@@ -627,6 +768,10 @@ final class Shell {
     private func runDemoIfRequested() {
         let env = ProcessInfo.processInfo.environment
         let out = env["DESKPOUCH_DEMO_OUT"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        if env["DESKPOUCH_DEMO"] == "calendar" {
+            runCalendarDemo(out: out)
+            return
+        }
         if env["DESKPOUCH_DEMO"] == "states" {
             runStatesDemo(out: out)
             return
@@ -1295,6 +1440,63 @@ final class Shell {
         up?.flags = flags
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
+    }
+
+    /// `DESKPOUCH_DEMO=calendar`: fixture events around now (a call in 3 minutes with a Meet link and a guest, a
+    /// solo reminder running, a dinner with a place tonight, an all-day line, one tomorrow), the menubar item in
+    /// its three tints, the panel on the Calendar view, and a stack of sticky, solo and heads-up pills. Touches no
+    /// calendar data. With DESKPOUCH_DEMO_OUT writes calendar-*.png.
+    private func runCalendarDemo(out: URL?) {
+        let now = Date()
+        let cal = Calendar.current
+        func at(_ minutes: Double) -> Date { now.addingTimeInterval(minutes * 60) }
+        let notes = "Join with Google Meet: https://meet.google.com/abc-defg-hij"
+        let today = cal.startOfDay(for: now)
+        let events = [
+            CalendarEvent(id: "bin", calendarColor: "#83d754", title: "Bin day!", start: at(-240), end: at(-235), alarmOffsets: [1800], notes: notes),
+            CalendarEvent(id: "coffee", calendarColor: "#83d754", title: "Clean coffee machine", start: at(-2), end: at(13), alarmOffsets: [1800]),
+            CalendarEvent(id: "sync", calendarColor: "#83d754", accountEmail: "me@gmail.com", title: "Design sync", start: at(3), end: at(33), hasOtherPerson: true, alarmOffsets: [900, 300], notes: notes),
+            CalendarEvent(id: "dinner", calendarColor: "#cd74e6", title: "Dinner with Iris", start: at(200), end: at(290), hasOtherPerson: true, location: "Grand Central Kitchen, 7 Stephenson St, Birmingham"),
+            CalendarEvent(id: "kiki", calendarColor: "#cd74e6", title: "Kiki medication", start: today, end: today.addingTimeInterval(86400), isAllDay: true),
+            CalendarEvent(id: "dermato", calendarColor: "#83d754", title: "Dermato appointment", start: cal.date(byAdding: .day, value: 1, to: today)!.addingTimeInterval(13.5 * 3600), end: cal.date(byAdding: .day, value: 1, to: today)!.addingTimeInterval(14.5 * 3600), alarmOffsets: [86400]),
+        ]
+        let fires = [
+            Reminders.Fire(event: events[5], kind: .headsUp, at: now),
+            Reminders.Fire(event: events[1], kind: .sticky, at: now),
+            Reminders.Fire(event: events[2], kind: .sticky, at: now),
+        ]
+        if !state.switches.isEnabled(calendar.id) { state.switches.set(calendar.id, enabled: true) }
+        calendar.debugLoad(events: events, pills: fires)
+        state.calendar = calendar.model
+        guard let out else { return }
+        try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        for (name, menubar) in [
+            ("plain", Agenda.Menubar(text: "Dinner with Iris · in 45 min", tint: .plain, eventID: "")),
+            ("soon", Agenda.Menubar(text: "Design sync · in 3 min", tint: .soon, eventID: "")),
+            ("live", Agenda.Menubar(text: "Design sync · 23 min left", tint: .live, eventID: "")),
+        ] {
+            Self.writePNG(CalendarMenubarImage.make(menubar), to: out.appending(path: "calendar-menubar-\(name).png"))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self, let button = calendarItem.button ?? statusItem.button else { return }
+            openCalendarPanel(from: button)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                try? await Task.sleep(for: .seconds(1.5))
+                Self.writePNG(await panel.debugSnapshot(), to: out.appending(path: "calendar-panel.png"))
+                log.info("demo(calendar): pill window \(String(describing: self.calendar.debugPillFrame), privacy: .public) number \(String(describing: self.calendar.debugPillWindowNumber), privacy: .public)")
+                if let number = calendar.debugPillWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "calendar-pills.png"))
+                }
+                panel.close()
+                calendar.debugMessage("No call in the next 15 min")
+                try? await Task.sleep(for: .seconds(0.8))
+                if let number = calendar.debugPillWindowNumber {
+                    Self.writePNG(await WindowSnapshot.capture(windowNumber: number), to: out.appending(path: "calendar-pills-message.png"))
+                }
+                log.info("demo(calendar): done")
+            }
+        }
     }
 
     private static func writePNG(_ image: NSImage?, to url: URL) {

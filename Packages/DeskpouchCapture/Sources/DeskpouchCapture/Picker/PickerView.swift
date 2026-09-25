@@ -50,6 +50,8 @@ struct PickerScreenView: View {
         .animation(.easeOut(duration: 0.12), value: model.mode)
         .foregroundStyle(Theme.Colors.text)
         .environment(\.colorScheme, .dark)
+        // Drag locations are screen points: a notch's safe-area inset must not shift the frame they are read in.
+        .ignoresSafeArea()
     }
 
     private var highlightRect: CGRect? {

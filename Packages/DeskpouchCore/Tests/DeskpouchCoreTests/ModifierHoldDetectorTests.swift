@@ -69,4 +69,23 @@ struct ModifierHoldDetectorTests {
         #expect(d.handle(keyCode: ModifierKey.leftShift.rawValue, flags: flags([.maskAlternate, .maskShift], device: 0x42)) == nil)
         #expect(d.isDown)
     }
+
+    @Test func reconcileReleasesAHoldWhoseFlagIsGone() {
+        var d = ModifierHoldDetector(key: .rightOption)
+        #expect(d.handle(keyCode: rightOption, flags: flags(.maskAlternate, device: 0x40)) == .pressed)
+        #expect(d.reconcile(flagStillDown: true) == nil)
+        #expect(d.isDown)
+        #expect(d.reconcile(flagStillDown: false) == .released)
+        #expect(!d.isDown)
+        // The next press counts again.
+        #expect(d.handle(keyCode: rightOption, flags: flags(.maskAlternate, device: 0x40)) == .pressed)
+    }
+
+    @Test func reconcileDoesNothingWhileUp() {
+        var d = ModifierHoldDetector(key: .rightOption)
+        #expect(d.reconcile(flagStillDown: false) == nil)
+        #expect(d.handle(keyCode: rightOption, flags: flags(.maskAlternate, device: 0x40)) == .pressed)
+        #expect(d.handleKeyDown() == .cancelled)
+        #expect(d.reconcile(flagStillDown: false) == nil)
+    }
 }

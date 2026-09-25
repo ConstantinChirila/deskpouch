@@ -38,6 +38,42 @@ struct TrimDocumentTests {
         #expect(TrimDocument.thumbnailCount(aspect: 5) == 6)
     }
 
+    @Test func sweepDeletesOnlyOldCopies() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "trimcopies-\(UUID().uuidString)")
+        let old = folder.appending(path: "old"), fresh = folder.appending(path: "fresh")
+        for copy in [old, fresh] {
+            try FileManager.default.createDirectory(at: copy, withIntermediateDirectories: true)
+            try Data([1]).write(to: copy.appending(path: "Recording trimmed.gif"))
+        }
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let now = Date()
+        try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-TrimDocument.copyLifetime - 60)], ofItemAtPath: old.path)
+
+        TrimDocument.sweepCopies(in: folder, now: now)
+        #expect(!FileManager.default.fileExists(atPath: old.path))
+        #expect(FileManager.default.fileExists(atPath: fresh.path))
+        // A folder that is not there is nothing to sweep.
+        TrimDocument.sweepCopies(in: folder.appending(path: "missing"), now: now)
+    }
+
+    @Test func aGIFOverTheCapIsRefusedAndAnMP4IsNot() async throws {
+        let source = try await TrimExportTests.makeVideo(seconds: TrimDocument.gifMaxLength + 1, size: CGSize(width: 64, height: 36))
+        let folder = source.deletingLastPathComponent()
+        defer { try? FileManager.default.removeItem(at: source) }
+        let document = TrimDocument(sourceURL: source, media: try await TrimDocument.Media.load(source), toolID: "screen")
+        defer { document.close() }
+
+        #expect(!document.gifIsTooLong)
+        document.format = .gif
+        #expect(document.gifIsTooLong)
+        await #expect(throws: TrimExportError.self) { try await document.export() }
+        let name = TrimDocument.exportURL(for: source, format: .gif, trimmed: false).lastPathComponent
+        #expect(!FileManager.default.fileExists(atPath: folder.appending(path: name).path))
+
+        document.dragEnd(to: 1)
+        #expect(!document.gifIsTooLong)
+    }
+
     @Test func exportWritesTheKeptPartBesideTheSourceAndKeepsIt() async throws {
         let folder = FileManager.default.temporaryDirectory.appending(path: "trimdoc-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

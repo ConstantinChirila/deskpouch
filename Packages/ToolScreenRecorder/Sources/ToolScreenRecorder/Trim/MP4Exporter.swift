@@ -6,6 +6,10 @@ enum TrimExportError: Error {
     case cannotExport
     case cannotRead(Error?)
     case cannotWrite
+    /// Longer than `TrimDocument.gifMaxLength`.
+    case gifTooLong
+    /// Another export or copy of the same document is still being written.
+    case busy
 }
 
 /// Cuts a recording to a time range without re-encoding: the samples are copied as they are, so it takes
