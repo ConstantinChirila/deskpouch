@@ -45,6 +45,8 @@ derived=build/DerivedData-release
 # The build (and every package plugin and script in it) does not get to see the notary credentials.
 env -u NOTARY_APPLE_ID -u NOTARY_PASSWORD -u NOTARY_PROFILE xcodebuild -scheme Deskpouch -configuration Release -derivedDataPath "$derived" \
   -skipPackagePluginValidation "${settings[@]}" build | { grep -E "error:|warning: |BUILD" || true; }
+# zsh's errexit misses a failed pipeline whose last stage is a group, so check xcodebuild's own status.
+(( pipestatus[1] == 0 )) || { echo "xcodebuild failed" >&2; exit 1; }
 
 app="$derived/Build/Products/Release/Deskpouch.app"
 codesign --verify --deep --strict "$app"

@@ -15,9 +15,13 @@ concurrency:
   group: dmg-${{ github.ref }}
   cancel-in-progress: true
 
+# The Xcode used at a desk. An older SDK misses Sendable annotations the Swift 6 packages rely on.
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
 jobs:
   dmg:
-    runs-on: macos-15
+    runs-on: macos-26
     outputs:
       signed: ${{ steps.signing.outputs.enabled }}
     steps:

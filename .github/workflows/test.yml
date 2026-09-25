@@ -8,9 +8,13 @@ on:
 permissions:
   contents: read
 
+# The Xcode used at a desk. An older SDK misses Sendable annotations the Swift 6 packages rely on.
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
 jobs:
   packages:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       # actions/checkout v6.1.0, pinned by commit
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
