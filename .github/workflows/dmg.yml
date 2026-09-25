@@ -1,0 +1,114 @@
+name: dmg
+
+# A push to main builds the DMG and keeps it as a workflow artifact (repo members only, 30 days).
+# A tag like v0.2.0 builds the same DMG and attaches it to a GitHub release, which anyone can download.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dmg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    outputs:
+      signed: ${{ steps.signing.outputs.enabled }}
+    steps:
+      # actions/checkout v6.1.0, pinned by commit
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          fi
+          echo "BUILD=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+
+      # The secrets are all optional. Without them the build is ad-hoc signed (see scripts/make-dmg.sh for what
+      # that costs); with them it is Developer ID signed and notarized. Each one is only handed to the step that
+      # uses it, never to the whole job.
+      - name: Is there a certificate
+        id: signing
+        env:
+          DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+        run: |
+          if [[ -n "$DEVELOPER_ID_P12" ]]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Import the Developer ID certificate
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$DEVELOPER_ID_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$DEVELOPER_ID_P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          rm "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" login.keychain-db
+
+      - name: Build the DMG
+        env:
+          # make-dmg.sh keeps the notary credentials away from xcodebuild, and fails a signed build that has none.
+          SIGN_IDENTITY: ${{ steps.signing.outputs.enabled == 'true' && secrets.SIGN_IDENTITY || '' }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: |
+          # The project file is tracked and the runner has no xcodegen. A checkout writes files in no useful
+          # order, so make sure project.yml does not look newer than the project it generated.
+          touch Deskpouch.xcodeproj/project.pbxproj
+          dmg=$(scripts/make-dmg.sh | tee /dev/stderr | tail -1)
+          echo "DMG=$dmg" >> "$GITHUB_ENV"
+          shasum -a 256 "$dmg"
+
+      # actions/upload-artifact v7.0.1, pinned by commit
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Deskpouch-dmg
+          path: ${{ env.DMG }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Remove the signing keychain
+        if: always() && steps.signing.outputs.enabled == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db"
+
+  # Its own job: the token that can write to the repo never exists while third-party code is being built.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: dmg
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # actions/download-artifact v8.0.1, pinned by commit
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: Deskpouch-dmg
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SIGNED: ${{ needs.dmg.outputs.signed }}
+        run: |
+          # An ad-hoc build is still published, but never as the latest release, and it says what it is.
+          if [[ "$SIGNED" == true ]]; then
+            gh release create "$GITHUB_REF_NAME" Deskpouch-*.dmg --title "Deskpouch ${GITHUB_REF_NAME#v}" --generate-notes
+          else
+            gh release create "$GITHUB_REF_NAME" Deskpouch-*.dmg --title "Deskpouch ${GITHUB_REF_NAME#v} (unsigned)" \
+              --prerelease --generate-notes \
+              --notes "Not signed with a Developer ID and not notarized: macOS asks for Open Anyway, and forgets the app's permissions with every update."
+          fi

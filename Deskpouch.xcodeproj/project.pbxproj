@@ -53,7 +53,7 @@
 		DA42675F412F933FA4794F55 /* PanelTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelTools.swift; sourceTree = "<group>"; };
 		EB10E91B9DF18744A2D28A32 /* DeskpouchCapture */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DeskpouchCapture; path = Packages/DeskpouchCapture; sourceTree = SOURCE_ROOT; };
 		FCF4E3ABD2D959E85927757D /* WindowPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPresence.swift; sourceTree = "<group>"; };
-		"TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,10 +142,10 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		"TEMP_8F834F98-5E3F-4A3C-B4ED-CB68D48A76D4" /* deskpouch */ = {
+		"TEMP_7936C5B4-F8AB-4018-BF90-A0D34864153B" /* deskpouch */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */,
+				"TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */,
 			);
 			path = deskpouch;
 			sourceTree = "<group>";
@@ -263,6 +263,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/Deskpouch.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
@@ -270,6 +271,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.constantinchirila.deskpouch;
 				PRODUCT_NAME = Deskpouch;
 				SDKROOT = macosx;
@@ -279,7 +281,7 @@
 		};
 		623ED5A96C359A787A04594D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -344,7 +346,7 @@
 		};
 		BA1CDCBBE69DD2D2FB890F5C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_FE982AB6-0B5D-46FC-9AB7-5D079C8E252F" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_53A821CF-F0CC-4BC0-869F-24880014791C" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = arm64;
@@ -419,6 +421,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/Deskpouch.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
@@ -426,6 +429,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.constantinchirila.deskpouch;
 				PRODUCT_NAME = Deskpouch;
 				SDKROOT = macosx;
