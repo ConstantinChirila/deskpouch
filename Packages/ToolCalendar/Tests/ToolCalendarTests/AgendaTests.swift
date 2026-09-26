@@ -28,12 +28,21 @@ struct AgendaTests {
         #expect(a.allDayToday.map(\.title) == ["Holiday"])
     }
 
-    @Test func hiddenOutsideThePreviewWindow() {
+    @Test func farOutShowsTheStartTimeAloneAndTheTitleInsideTheWindow() {
         let later = Fixture.event("Standup", Fixture.at(15, 30))
-        #expect(agenda([later]).menubar == nil)
+        #expect(agenda([later]).menubar == Agenda.Menubar(text: "15:30", tint: .plain, eventID: "Standup"))
+        #expect(agenda([later], now: Fixture.at(8, 57)).menubar?.text == "15:30")
+        #expect(agenda([later], now: Fixture.at(14, 29)).menubar?.text == "15:30")
+        #expect(agenda([later], now: Fixture.at(14, 30)).menubar?.text == "Standup · in 1 h")
         var settings = CalendarSettings()
-        settings.previewMinutes = 180
+        settings.titleMinutes = 180
         #expect(agenda([later], settings: settings).menubar?.text == "Standup · in 1 h 12 min")
+    }
+
+    @Test func todayOnlyUnlessTheNextDayIsInsideTheTitleWindow() {
+        let tomorrow = Fixture.event("Early call", Fixture.at(0, 15, day: 26))
+        #expect(agenda([tomorrow], now: Fixture.at(22, 0)).menubar == nil)
+        #expect(agenda([tomorrow], now: Fixture.at(23, 30)).menubar?.text == "Early call · in 45 min")
     }
 
     @Test func tintTurnsAmberInTheLastFiveMinutesAndMintWhileRunning() {
@@ -63,9 +72,11 @@ struct AgendaTests {
 
     @Test func titleOffAndTrimming() {
         var settings = CalendarSettings()
-        settings.showTitle = false
+        settings.titleMinutes = 0
         let e = Fixture.event("Quarterly planning with the whole design team", Fixture.at(14, 30))
-        #expect(agenda([e], settings: settings).menubar?.text == "in 12 min")
+        #expect(agenda([e], settings: settings).menubar?.text == "14:30")
+        #expect(agenda([e], now: Fixture.at(14, 26), settings: settings).menubar?.text == "in 4 min")
+        #expect(agenda([e], now: Fixture.at(14, 40), settings: settings).menubar?.text == "20 min left")
         #expect(agenda([e]).menubar?.text == "Quarterly planning… · in 12 min")
         #expect(CalendarText.trimmed("Quarterly planning with") == "Quarterly planning…")
     }

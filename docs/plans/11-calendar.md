@@ -52,18 +52,20 @@ not an option. MeetingBar (Apache-2.0) implements both paths and is the code ref
     link is ignored.
   - Declined events are hidden everywhere; cancelled ones never show. All-day events never reach the menubar or
     a pill; they are one line on top of the agenda.
-- **Menubar item**: its own `NSStatusItem` left of the pouch; the pouch's states are untouched. Hidden unless a
-  timed event starts within the preview window (default 1 h; options 15 min, 30 min, 1 h, 3 h) or is running. When the
-  running meeting ends and the next is inside the window, it hands straight over.
-  - Text: "Design sync · in 12 min", "· in 4 min", "· 23 min left" during the meeting. Title cut at about 20
-    characters with "…". "Show title" switch (on by default); off leaves the countdown only.
+- **Menubar item** (revised 2026-09-26: a 1 h preview window hid the morning's view of the day): its own
+  `NSStatusItem` left of the pouch; the pouch's states are untouched. Shown while a timed event runs or another
+  starts later today; hidden after the day's last one ends. When the running meeting ends, it hands straight over.
+  - Text: far out the start time alone, "13:30". Inside the title window (popup "Show title": 15 min, 30 min,
+    1 h default, 3 h, Never) the title and a countdown, "Design sync · in 42 min", "· in 4 min", "· 23 min left"
+    during the meeting. Title cut at about 20 characters with "…". Never keeps the start time until the last
+    5 minutes, then the countdown alone. An event after midnight shows only once inside the title window.
   - Look: plain template text over 5 min out, amber capsule in the last 5 minutes, mint capsule while running.
     Drawn by `MenubarIcon.calendar(...)` like the recording pill. Text re-renders every 30 s from cached events.
   - Click opens the Deskpouch panel dropped from this item, straight on the Calendar view.
 - **Panel**: a "Calendar" row in the Tools list, status line "Next: Design sync · 14:30" or "Nothing else today",
   switchable in General like every tool. The Calendar view: today only, the whole day with past events
   dimmed, all-day events as one line on top, rows with time, title, calendar colour dot, a Meet glyph and a Join
-  button when Join applies, the next event highlighted, "Nothing else today" when empty. Settings under the agenda: calendars (per-calendar toggles, all on), preview window, show title, sound,
+  button when Join applies, the next event highlighted, "Nothing else today" when empty. Settings under the agenda: calendars (per-calendar toggles, all on), show title, sound,
   join shortcut. No other days, no day navigation.
 - **Pill alert**: only events with alarms; an event without alarms never gets a pill. Alarms at the same offset
   are merged (step 0 found four "10 min before" on one event). Two kinds:
@@ -100,8 +102,8 @@ not an option. MeetingBar (Apache-2.0) implements both paths and is the code ref
 - **Tool shape**: a `Tool` with `pressKey`, a switch, a row and a view; `activate` starts the source and the clock,
   `deactivate` stops them and clears the item and pills. Emits no `ToolResult`, writes nothing to history.
 - **Refresh**: refetch on `EKEventStoreChanged` and every 2 minutes (with the sync nudge above). Window: start of
-  today to end of today plus the 3 h preview reach past midnight.
-- **Settings** `calendar.*`: `calendarsOff` (ids), `previewMinutes`, `showTitle`, `sound`, `hotkey`,
+  today to end of today plus the 3 h title window reach past midnight.
+- **Settings** `calendar.*`: `calendarsOff` (ids), `titleMinutes` (read once from the old `previewMinutes` and `showTitle`), `sound`, `hotkey`,
   `pillOrigin` (per display).
 
 ## Structure

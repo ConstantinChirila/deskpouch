@@ -87,23 +87,28 @@ public struct Agenda: Sendable {
         return nil
     }
 
-    /// The menubar item, or nil to hide it: shown while an event runs or starts within the preview window.
+    /// The menubar item, or nil to hide it: shown while an event runs or another starts later today. Far out it
+    /// is the start time alone ("13:30"); inside the title window, or the last 5 minutes when the title is off,
+    /// the title and a countdown ("Design sync · in 42 min"). An event after midnight shows only inside that window.
     public var menubar: Menubar? {
         switch focus {
         case .running(let event):
             return Menubar(text: label(event, text.remaining(until: event.end, from: now)), tint: .live, eventID: event.id)
         case .upcoming(let event):
             let lead = event.start.timeIntervalSince(now)
-            guard lead <= TimeInterval(settings.previewMinutes * 60) else { return nil }
             let tint: Tint = lead <= Self.soonWindow ? .soon : .plain
-            return Menubar(text: label(event, text.countdown(to: event.start, from: now)), tint: tint, eventID: event.id)
+            if lead <= max(TimeInterval(settings.titleMinutes * 60), Self.soonWindow) {
+                return Menubar(text: label(event, text.countdown(to: event.start, from: now)), tint: tint, eventID: event.id)
+            }
+            guard text.calendar.isDate(event.start, inSameDayAs: now) else { return nil }
+            return Menubar(text: text.clock(event.start), tint: tint, eventID: event.id)
         case nil:
             return nil
         }
     }
 
     private func label(_ event: CalendarEvent, _ when: String) -> String {
-        settings.showTitle ? "\(CalendarText.trimmed(event.title)) · \(when)" : when
+        settings.titleMinutes > 0 ? "\(CalendarText.trimmed(event.title)) · \(when)" : when
     }
 
     /// The Tools row's status line and its tint: "Next: Design sync · 14:30", "Design sync · in 4 min",

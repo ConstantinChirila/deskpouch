@@ -92,16 +92,13 @@ struct CalendarToolView: View {
             if !model.calendars.isEmpty {
                 CalendarsDisclosure(model: model)
             }
-            OptionRow("Show in menubar") {
+            OptionRow("Show title", detail: "Before that, the start time") {
                 PopupPicker(
-                    id: "calendar.preview",
-                    selection: Binding(get: { model.settings.previewMinutes }, set: { value in model.update { $0.previewMinutes = value } }),
-                    options: CalendarSettings.previewChoices,
-                    title: { CalendarSettings.previewLabel($0) }
+                    id: "calendar.title",
+                    selection: Binding(get: { model.settings.titleMinutes }, set: { value in model.update { $0.titleMinutes = value } }),
+                    options: CalendarSettings.titleChoices,
+                    title: { CalendarSettings.titleLabel($0) }
                 )
-            }
-            OptionRow("Show title") {
-                ToggleSwitch("Show title", isOn: Binding(get: { model.settings.showTitle }, set: { value in model.update { $0.showTitle = value } }))
             }
             OptionRow("Sound", detail: "When a reminder appears") {
                 PopupPicker(

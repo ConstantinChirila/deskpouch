@@ -1471,6 +1471,7 @@ final class Shell {
         guard let out else { return }
         try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
         for (name, menubar) in [
+            ("far", Agenda.Menubar(text: "13:30", tint: .plain, eventID: "")),
             ("plain", Agenda.Menubar(text: "Dinner with Iris · in 45 min", tint: .plain, eventID: "")),
             ("soon", Agenda.Menubar(text: "Design sync · in 3 min", tint: .soon, eventID: "")),
             ("live", Agenda.Menubar(text: "Design sync · 23 min left", tint: .live, eventID: "")),

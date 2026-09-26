@@ -179,20 +179,37 @@ struct CalendarSettingsTests {
         let defaults = try #require(UserDefaults(suiteName: "calendar-settings-test"))
         defaults.removePersistentDomain(forName: "calendar-settings-test")
         var s = CalendarSettings()
-        s.previewMinutes = 30
-        s.showTitle = false
+        s.titleMinutes = 30
         s.soundName = "Ping"
         s.hiddenCalendars = ["b", "a"]
         s.save(to: defaults)
         #expect(CalendarSettings.load(from: defaults) == s)
-        defaults.set(7, forKey: CalendarSettings.Key.previewMinutes)
-        #expect(CalendarSettings.load(from: defaults).previewMinutes == 60)
+        s.titleMinutes = 0
+        s.save(to: defaults)
+        #expect(CalendarSettings.load(from: defaults).titleMinutes == 0)
+        defaults.set(7, forKey: CalendarSettings.Key.titleMinutes)
+        #expect(CalendarSettings.load(from: defaults).titleMinutes == 60)
         s.soundName = nil
         s.save(to: defaults)
         #expect(CalendarSettings.load(from: defaults).soundName == nil)
-        #expect(CalendarSettings.previewLabel(60) == "1 hour before")
-        #expect(CalendarSettings.previewLabel(180) == "3 hours before")
-        #expect(CalendarSettings.previewLabel(15) == "15 min before")
+        #expect(CalendarSettings.titleLabel(60) == "1 hour before")
+        #expect(CalendarSettings.titleLabel(180) == "3 hours before")
+        #expect(CalendarSettings.titleLabel(15) == "15 min before")
+        #expect(CalendarSettings.titleLabel(0) == "Never")
+    }
+
+    @Test func legacyPreviewWindowAndTitleSwitchCarryOver() throws {
+        let defaults = try #require(UserDefaults(suiteName: "calendar-settings-legacy-title"))
+        defaults.removePersistentDomain(forName: "calendar-settings-legacy-title")
+        defaults.set(180, forKey: CalendarSettings.Key.legacyPreviewMinutes)
+        defaults.set(true, forKey: CalendarSettings.Key.legacyShowTitle)
+        #expect(CalendarSettings.load(from: defaults).titleMinutes == 180)
+        defaults.set(false, forKey: CalendarSettings.Key.legacyShowTitle)
+        #expect(CalendarSettings.load(from: defaults).titleMinutes == 0)
+        var s = CalendarSettings.load(from: defaults)
+        s.titleMinutes = 30
+        s.save(to: defaults)
+        #expect(CalendarSettings.load(from: defaults).titleMinutes == 30)
     }
 
     @Test func legacySoundSwitchCarriesOver() throws {
